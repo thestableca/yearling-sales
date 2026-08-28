@@ -2,7 +2,7 @@ const SALES = [
   { id: "ohio", label: "Ohio Selected Sale" },
   { id: "lexington", label: "Lexington Selected Sale" },
   { id: "harrisburg", label: "Harrisburg Sale" },
-  { id: "london", label: "London Selected Yearling Sale" },
+  { id: "london", label: "London Classic Yearling Sale" },
   { id: "unsure", label: "Not sure which sale yet" },
 ];
 
