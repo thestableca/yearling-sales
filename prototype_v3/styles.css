@@ -1419,6 +1419,22 @@ th {
     left: auto;
     right: 0;
   }
+
+  .admin-grid,
+  .summary-strip,
+  .dashboard-grid,
+  .diagram-grid,
+  .after-sale-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) and (min-width: 601px) {
+  .admin-grid,
+  .summary-strip,
+  .after-sale-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -1431,12 +1447,11 @@ th {
   }
 
   .layout,
-  .admin-grid,
-  .summary-strip,
-  .filters,
-  .dashboard-grid,
-  .dashboard-grid.two,
-  .diagram-grid {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid.two {
     grid-template-columns: 1fr;
   }
 
@@ -1461,10 +1476,6 @@ th {
     grid-template-columns: 118px minmax(0, 1fr);
   }
 
-  .after-sale-grid {
-    grid-template-columns: 1fr;
-  }
-
   .choice-grid {
     grid-template-columns: 1fr;
   }
@@ -1479,46 +1490,5 @@ th {
 
   .review-item {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .admin-screen .app-shell {
-    padding: 12px;
-  }
-
-  .admin-dashboard {
-    padding: 12px;
-  }
-
-  .admin-titlebar {
-    margin: -12px -12px 12px;
-    padding: 14px;
-  }
-
-  .admin-titlebar h1 {
-    font-size: 22px;
-  }
-
-  .admin-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    width: 100%;
-    margin: 12px 0 0;
-  }
-
-  .admin-grid,
-  .summary-strip,
-  .dashboard-grid,
-  .diagram-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .donut-wrap {
-    grid-template-columns: 104px minmax(0, 1fr);
-  }
-
-  .diagram-panel {
-    min-height: auto;
   }
 }
