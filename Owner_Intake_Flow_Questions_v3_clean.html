@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TheStable.ca - Clean Owner Intake Questions</title>
+  <style>
+    :root {
+      --stable-blue: #003b86;
+      --stable-blue-dark: #002f6f;
+      --stable-red: #d71920;
+      --stable-light-blue: #c7dbea;
+      --stable-pale-blue: #edf5fb;
+      --ink: #172033;
+      --muted: #637083;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --line: #d8dee8;
+      --shadow: 0 14px 34px rgba(16, 24, 40, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.4;
+    }
+
+    header {
+      background: #fff;
+      border-bottom: 5px solid var(--stable-blue);
+    }
+
+    .top-strip {
+      height: 44px;
+      background: var(--stable-blue);
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 20px 34px 16px;
+      border-bottom: 1px solid #d2dae4;
+    }
+
+    .brand-row img {
+      width: 300px;
+      max-width: 52vw;
+      height: auto;
+      display: block;
+    }
+
+    .brand-row nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      color: var(--stable-blue-dark);
+      font-size: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .hero {
+      padding: 34px 34px 38px;
+      color: #fff;
+      background:
+        linear-gradient(90deg, rgba(0, 59, 134, 0.97), rgba(0, 59, 134, 0.78)),
+        linear-gradient(135deg, #183f73, #dfe8ef);
+    }
+
+    .hero h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(30px, 4vw, 50px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    main {
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .section-heading {
+      margin: 30px 0 14px;
+      padding: 10px 14px;
+      color: #fff;
+      background: var(--stable-blue-dark);
+      border-radius: 6px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .screens {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(280px, 1fr));
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .screen {
+      min-height: 100%;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen-head {
+      padding: 13px 16px 10px;
+      background: var(--stable-pale-blue);
+      border-bottom: 1px solid #c4d3e1;
+    }
+
+    .screen-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--stable-blue-dark);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .progress {
+      height: 5px;
+      margin-top: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #d6dee8;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      background: var(--stable-red);
+    }
+
+    .screen-body {
+      flex: 1;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tag {
+      align-self: flex-start;
+      margin-bottom: 10px;
+      padding: 5px 8px;
+      color: #fff;
+      background: var(--stable-blue);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .tag.red {
+      background: var(--stable-red);
+    }
+
+    h3 {
+      margin: 0;
+      color: var(--stable-blue-dark);
+      font-size: 20px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .prompt {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .options {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .option {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 10px;
+      align-items: start;
+      min-height: 42px;
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .option strong {
+      color: var(--stable-blue-dark);
+    }
+
+    .option small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .selected {
+      border-color: var(--stable-blue);
+      background: var(--stable-pale-blue);
+      box-shadow: inset 0 0 0 2px rgba(0, 59, 134, 0.08);
+    }
+
+    .check,
+    .radio {
+      width: 16px;
+      height: 16px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #8492a6;
+      background: #fff;
+      margin-top: 1px;
+    }
+
+    .check {
+      border-radius: 3px;
+    }
+
+    .radio {
+      border-radius: 50%;
+    }
+
+    .selected .check,
+    .selected .radio {
+      background: var(--stable-blue);
+      border-color: var(--stable-blue);
+    }
+
+    .selected .check::after {
+      content: "";
+      width: 8px;
+      height: 4px;
+      border-left: 2px solid #fff;
+      border-bottom: 2px solid #fff;
+      transform: rotate(-45deg) translate(1px, -1px);
+    }
+
+    .selected .radio::after {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .button-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .choice-btn {
+      min-height: 70px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+      padding: 10px;
+      text-align: left;
+      color: var(--stable-blue-dark);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .choice-btn span {
+      display: block;
+      margin-top: 4px;
+      color: var(--stable-red);
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .choice-btn small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    .choice-btn.active {
+      border-color: var(--stable-blue);
+      background: var(--stable-pale-blue);
+      box-shadow: inset 0 0 0 2px rgba(0, 59, 134, 0.12);
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      margin-top: 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .input-row span {
+      display: grid;
+      place-items: center;
+      min-height: 42px;
+      background: var(--stable-pale-blue);
+      border-right: 1px solid #cbd5e1;
+      color: var(--stable-blue-dark);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .input-row b {
+      display: flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 12px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .footer-actions {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 10px;
+      margin-top: auto;
+      padding-top: 18px;
+    }
+
+    .footer-actions.single {
+      grid-template-columns: 1fr;
+    }
+
+    .btn {
+      min-height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 5px;
+      border: 1px solid #aab6c5;
+      background: #fff;
+      color: var(--stable-blue-dark);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .btn.primary {
+      color: #fff;
+      background: var(--stable-blue);
+      border-color: var(--stable-blue);
+    }
+
+    .btn.red {
+      color: #fff;
+      background: var(--stable-red);
+      border-color: var(--stable-red);
+    }
+
+    .wide {
+      grid-column: span 3;
+    }
+
+    .review-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .review-item {
+      display: grid;
+      grid-template-columns: 120px 1fr 70px;
+      gap: 12px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    .review-item strong {
+      color: var(--stable-blue-dark);
+    }
+
+    .edit {
+      color: var(--stable-red);
+      font-weight: 800;
+      text-align: right;
+    }
+
+    @media (max-width: 1080px) {
+      .screens {
+        grid-template-columns: repeat(2, minmax(260px, 1fr));
+      }
+
+      .wide {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .top-strip {
+        height: 36px;
+      }
+
+      .brand-row {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 18px;
+      }
+
+      .brand-row img {
+        max-width: 90vw;
+      }
+
+      .brand-row nav {
+        gap: 14px;
+        font-size: 13px;
+      }
+
+      .hero {
+        padding: 26px 20px 30px;
+      }
+
+      main {
+        padding: 18px;
+      }
+
+      .screens,
+      .wide,
+      .button-options {
+        grid-template-columns: 1fr;
+        grid-column: auto;
+      }
+
+      .review-item {
+        grid-template-columns: 1fr;
+      }
+
+      .edit {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="top-strip"></div>
+    <div class="brand-row">
+      <img src="assets/thestable-logo-official.png" alt="TheStable.ca logo">
+      <nav aria-label="Navigation">
+        <span>Own a Little</span>
+        <span>Love It a Lot</span>
+        <span>The Horses</span>
+        <span>Connect</span>
+      </nav>
+    </div>
+    <section class="hero">
+      <h1>2026 Yearling Sale Planning</h1>
+    </section>
+  </header>
+
+  <main>
+    <h2 class="section-heading">Start</h2>
+    <section class="screens">
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 1</span><span>Welcome</span></div>
+          <div class="progress"><span style="width: 5%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Welcome</span>
+          <h3>2026 Yearling Sale Planning</h3>
+          <p class="prompt">Help Anthony plan this year's yearling purchases and ownership opportunities.</p>
+          <div class="footer-actions single">
+            <span class="btn primary">Let's Get Started</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 2</span><span>Q1</span></div>
+          <div class="progress"><span style="width: 12%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Question</span>
+          <h3>Are you interested in purchasing yearling shares in 2026?</h3>
+          <div class="options">
+            <div class="option selected"><span class="radio"></span><span><strong>Yes, I am interested</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Maybe / I am not sure yet</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>No, not this year</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 3</span><span>Q2</span></div>
+          <div class="progress"><span style="width: 20%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Question</span>
+          <h3>Which yearling sales are you interested in this year?</h3>
+          <p class="prompt">Select all that apply.</p>
+          <div class="options">
+            <div class="option selected"><span class="check"></span><span><strong>Ohio Selected Sale</strong></span></div>
+            <div class="option selected"><span class="check"></span><span><strong>Lexington Selected Sale</strong></span></div>
+            <div class="option"><span class="check"></span><span><strong>Harrisburg Sale</strong></span></div>
+            <div class="option selected"><span class="check"></span><span><strong>London Selected Yearling Sale</strong></span></div>
+            <div class="option"><span class="check"></span><span><strong>I am open to any sale</strong></span></div>
+            <div class="option"><span class="check"></span><span><strong>I am not planning to purchase yearlings this year</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <h2 class="section-heading">Per Selected Sale</h2>
+    <section class="screens">
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 4</span><span>Q3</span></div>
+          <div class="progress"><span style="width: 30%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Ohio selected sale</span>
+          <h3>How likely are you to participate at the Ohio sale?</h3>
+          <div class="options">
+            <div class="option selected"><span class="radio"></span><span><strong>Very likely / serious interest</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Maybe</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Only if the right opportunity comes up</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 5</span><span>Q4</span></div>
+          <div class="progress"><span style="width: 38%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag red">Amount</span>
+          <h3>What approximate amount would you consider investing at the Ohio sale?</h3>
+          <div class="button-options">
+            <button class="choice-btn">1% share level<span>CAD $500</span><small>Based on CAD $50,000</small></button>
+            <button class="choice-btn">2% share level<span>CAD $1,000</span><small>Based on CAD $50,000</small></button>
+            <button class="choice-btn">5% share level<span>CAD $2,500</span><small>Based on CAD $50,000</small></button>
+            <button class="choice-btn active">10% share level<span>CAD $5,000</span><small>Based on CAD $50,000</small></button>
+            <button class="choice-btn">20% share level<span>CAD $10,000</span><small>Based on CAD $50,000</small></button>
+            <button class="choice-btn">Other amount<span>Enter CAD</span></button>
+          </div>
+          <div class="input-row"><span>CAD $</span><b>Custom amount</b></div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 6</span><span>Q5</span></div>
+          <div class="progress"><span style="width: 46%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Participation</span>
+          <h3>How would you like to participate at the Ohio sale?</h3>
+          <div class="options">
+            <div class="option selected"><span class="radio"></span><span><strong>Participate in a bucket</strong><small>Anthony can buy within a pre-planned bucket strategy.</small></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Buy specific horse(s) only</strong><small>I prefer to choose specific horses.</small></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Both</strong><small>I am open to a bucket and specific horses.</small></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Let Anthony recommend the best fit</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Not sure yet</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <h2 class="section-heading">Bucket Questions</h2>
+    <section class="screens">
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 7</span><span>Q6</span></div>
+          <div class="progress"><span style="width: 55%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Bucket</span>
+          <h3>If investing in a bucket, what type of bucket would you prefer?</h3>
+          <div class="options">
+            <div class="option"><span class="radio"></span><span><strong>One premium yearling</strong><small>Focus on one higher-quality purchase.</small></span></div>
+            <div class="option selected"><span class="radio"></span><span><strong>Multiple value yearlings</strong><small>Spread across multiple purchases.</small></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Balanced</strong><small>A mix of quality and value.</small></span></div>
+            <div class="option"><span class="radio"></span><span><strong>No preference</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 8</span><span>Q7</span></div>
+          <div class="progress"><span style="width: 62%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Bucket</span>
+          <h3>What is the maximum number of horses you would like your investment to be spread across?</h3>
+          <div class="button-options">
+            <button class="choice-btn">Max 1 horse<span>1</span></button>
+            <button class="choice-btn">Max 2 horses<span>2</span></button>
+            <button class="choice-btn active">Max 3 horses<span>3</span></button>
+            <button class="choice-btn">4 or more is OK<span>4+</span></button>
+            <button class="choice-btn">No preference<span>Open</span></button>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 9</span><span>Q8</span></div>
+          <div class="progress"><span style="width: 69%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Bucket</span>
+          <h3>Which type of horse would you prefer for this bucket?</h3>
+          <div class="options">
+            <div class="option selected"><span class="radio"></span><span><strong>Trotter</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Pacer</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Both</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>No preference</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 10</span><span>Q9</span></div>
+          <div class="progress"><span style="width: 76%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag red">Bucket amount</span>
+          <h3>What ownership level would you consider in a CAD $50,000 bucket?</h3>
+          <div class="button-options">
+            <button class="choice-btn">1%<span>CAD $500</span></button>
+            <button class="choice-btn">2%<span>CAD $1,000</span></button>
+            <button class="choice-btn active">5%<span>CAD $2,500</span></button>
+            <button class="choice-btn">10%<span>CAD $5,000</span></button>
+            <button class="choice-btn">20%<span>CAD $10,000</span></button>
+            <button class="choice-btn">Different level<span>Custom</span></button>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <h2 class="section-heading">Specific Horse Questions</h2>
+    <section class="screens">
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 7</span><span>Q10</span></div>
+          <div class="progress"><span style="width: 55%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Specific horse</span>
+          <h3>How would you prefer to approach specific horse opportunities?</h3>
+          <div class="options">
+            <div class="option selected"><span class="radio"></span><span><strong>I want to review specific horses before deciding</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Anthony can shortlist options for me</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>I am open if the right horse becomes available</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 8</span><span>Q11</span></div>
+          <div class="progress"><span style="width: 63%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag red">Specific amount</span>
+          <h3>What amount would you consider for specific horse opportunities at this sale?</h3>
+          <div class="button-options">
+            <button class="choice-btn">Small share<span>Up to CAD $1,000</span></button>
+            <button class="choice-btn active">Medium share<span>CAD $1,000-$5,000</span></button>
+            <button class="choice-btn">Larger share<span>CAD $5,000-$10,000</span></button>
+            <button class="choice-btn">Major share<span>CAD $10,000+</span></button>
+            <button class="choice-btn">Use same as sale budget<span>Same</span></button>
+            <button class="choice-btn">Other amount<span>Enter CAD</span></button>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 9</span><span>Q12</span></div>
+          <div class="progress"><span style="width: 70%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Specific horse</span>
+          <h3>Which type of specific horse would interest you most?</h3>
+          <div class="options">
+            <div class="option selected"><span class="radio"></span><span><strong>Trotter</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Pacer</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Both</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>No preference</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 10</span><span>Q13</span></div>
+          <div class="progress"><span style="width: 78%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Specific horse</span>
+          <h3>Do you have any specific horse preferences?</h3>
+          <p class="prompt">Select all that matter to you.</p>
+          <div class="options">
+            <div class="option"><span class="check"></span><span><strong>Colt</strong></span></div>
+            <div class="option selected"><span class="check"></span><span><strong>Filly</strong></span></div>
+            <div class="option"><span class="check"></span><span><strong>Either</strong></span></div>
+            <div class="option"><span class="check"></span><span><strong>Specific jurisdiction / stakes eligibility</strong></span></div>
+            <div class="option"><span class="check"></span><span><strong>Specific sire or pedigree</strong></span></div>
+            <div class="option"><span class="check"></span><span><strong>No specific preference</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <h2 class="section-heading">Flexible, Notes, Review</h2>
+    <section class="screens">
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 7</span><span>Q14</span></div>
+          <div class="progress"><span style="width: 58%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Anthony recommends</span>
+          <h3>If Anthony recommends the best fit, how much flexibility should he have?</h3>
+          <div class="options">
+            <div class="option selected"><span class="radio"></span><span><strong>Fully flexible within my amount</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Prefer bucket, but open to specific horses</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Prefer specific horses, but open to a bucket</strong></span></div>
+            <div class="option"><span class="radio"></span><span><strong>Flexible, but keep my max-horse and gait preferences</strong></span></div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Step 11</span><span>Q15</span></div>
+          <div class="progress"><span style="width: 88%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Optional</span>
+          <h3>Anything else you would like Anthony to know about this sale?</h3>
+          <div class="input-row" style="grid-template-columns: 1fr;"><b>Optional note</b></div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn primary">Continue</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen wide">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Final Step</span><span>Q16</span></div>
+          <div class="progress"><span style="width: 100%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag red">Review</span>
+          <h3>Review Your 2026 Yearling Sale Plan</h3>
+          <div class="review-list">
+            <div class="review-item">
+              <strong>Ohio</strong>
+              <span>CAD $5,000 | Bucket | Multiple value yearlings | Max 3 horses | Trotter</span>
+              <span class="edit">Edit</span>
+            </div>
+            <div class="review-item">
+              <strong>Lexington</strong>
+              <span>CAD $10,000 | Both | One premium yearling | Specific horses to review</span>
+              <span class="edit">Edit</span>
+            </div>
+            <div class="review-item">
+              <strong>London</strong>
+              <span>CAD $2,500 | Specific horse only | Pacer | Filly</span>
+              <span class="edit">Edit</span>
+            </div>
+          </div>
+          <div class="footer-actions">
+            <span class="btn">Back</span>
+            <span class="btn red">Confirm & Submit</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="screen">
+        <div class="screen-head">
+          <div class="screen-meta"><span>Complete</span><span>Done</span></div>
+          <div class="progress"><span style="width: 100%"></span></div>
+        </div>
+        <div class="screen-body">
+          <span class="tag">Complete</span>
+          <h3>Thank you!</h3>
+          <p class="prompt">Your preferences have been submitted successfully.</p>
+          <div class="footer-actions single">
+            <span class="btn primary">Close</span>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

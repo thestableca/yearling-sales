@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TheStable.ca - Visuele Beslisboom Owner Intake</title>
+  <style>
+    :root {
+      --navy: #13233a;
+      --navy-2: #1d3557;
+      --gold: #c69a43;
+      --green: #2d6a4f;
+      --blue: #386fa4;
+      --red: #9b3d3d;
+      --ink: #1f2933;
+      --muted: #667085;
+      --line: #c8d0da;
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    header {
+      background: var(--navy);
+      color: #fff;
+      padding: 28px 32px;
+      border-bottom: 5px solid var(--gold);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(24px, 4vw, 42px);
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 900px;
+      margin: 8px 0 0;
+      color: #dce4ee;
+      font-size: 16px;
+    }
+
+    main {
+      padding: 28px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 22px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      background: #fff;
+      border: 1px solid #e2e6ec;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot.question { background: var(--navy-2); }
+    .dot.branch { background: var(--blue); }
+    .dot.bucket { background: var(--green); }
+    .dot.specific { background: var(--gold); }
+    .dot.stop { background: var(--red); }
+
+    .canvas {
+      overflow-x: auto;
+      padding-bottom: 18px;
+    }
+
+    .flow {
+      min-width: 1120px;
+      display: grid;
+      grid-template-columns: 220px 40px 260px 40px 280px 40px 320px;
+      gap: 0;
+      align-items: start;
+    }
+
+    .stage {
+      display: grid;
+      gap: 18px;
+    }
+
+    .connector {
+      position: relative;
+      min-height: 100%;
+    }
+
+    .connector::before {
+      content: "";
+      position: absolute;
+      top: 44px;
+      left: 50%;
+      width: 100%;
+      border-top: 2px solid var(--line);
+      transform: translateX(-50%);
+    }
+
+    .node {
+      position: relative;
+      background: var(--panel);
+      border: 1px solid #d8dee8;
+      border-top: 5px solid var(--navy-2);
+      border-radius: 8px;
+      padding: 14px 14px 13px;
+      box-shadow: 0 10px 24px rgba(18, 35, 58, 0.08);
+    }
+
+    .node h2,
+    .node h3 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0;
+      color: var(--navy);
+    }
+
+    .node p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .node ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: #344054;
+      font-size: 13px;
+    }
+
+    .node li + li {
+      margin-top: 4px;
+    }
+
+    .branch-node {
+      border-top-color: var(--blue);
+    }
+
+    .bucket-node {
+      border-top-color: var(--green);
+    }
+
+    .specific-node {
+      border-top-color: var(--gold);
+    }
+
+    .stop-node {
+      border-top-color: var(--red);
+    }
+
+    .review-node {
+      border-top-color: var(--navy);
+      background: #fbfcff;
+    }
+
+    .path-label {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 3px 8px;
+      color: #fff;
+      background: var(--navy-2);
+      border-radius: 999px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .path-label.blue { background: var(--blue); }
+    .path-label.green { background: var(--green); }
+    .path-label.gold { background: var(--gold); color: #2f2613; }
+    .path-label.red { background: var(--red); }
+
+    .sale-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .sale {
+      border-left: 4px solid var(--gold);
+      padding: 10px 12px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 7px 18px rgba(18, 35, 58, 0.06);
+    }
+
+    .sale strong {
+      display: block;
+      color: var(--navy);
+      font-size: 14px;
+    }
+
+    .sale span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .routes {
+      display: grid;
+      gap: 12px;
+    }
+
+    .route-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .route-title {
+      color: var(--navy);
+      font-size: 16px;
+      margin: 10px 0 2px;
+    }
+
+    .mini {
+      border: 1px solid #e0e5ee;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .mini h4 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 13px;
+    }
+
+    .mini p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .notes {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .note {
+      background: #fff;
+      border: 1px solid #e2e6ec;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .note h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--navy);
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        padding: 18px;
+      }
+
+      .notes {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      main {
+        padding: 16px;
+      }
+
+      .canvas {
+        overflow: visible;
+      }
+
+      .flow {
+        transform: scale(0.74);
+        transform-origin: top left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TheStable.ca 2026 Owner Intake</h1>
+    <p>Visuele beslisboom voor de eerste inhoudelijke bespreking. Deze versie laat zien welke vragen de owner ziet en welke vertakkingen daaruit volgen.</p>
+  </header>
+
+  <main>
+    <div class="legend" aria-label="Legenda">
+      <span><i class="dot question"></i>Hoofdvraag</span>
+      <span><i class="dot branch"></i>Sale-specifieke vraag</span>
+      <span><i class="dot bucket"></i>Bucket-route</span>
+      <span><i class="dot specific"></i>Specific-horse-route</span>
+      <span><i class="dot stop"></i>Einde / geen intake</span>
+    </div>
+
+    <section class="canvas" aria-label="Visuele beslisboom">
+      <div class="flow">
+        <div class="stage">
+          <article class="node">
+            <h2>Q1. Interesse in 2026?</h2>
+            <p>Vraagt of de owner mogelijk yearling shares wil kopen.</p>
+            <ul>
+              <li>Ja</li>
+              <li>Misschien</li>
+              <li>Nee</li>
+            </ul>
+            <span class="path-label">Start</span>
+          </article>
+
+          <article class="node stop-node">
+            <h3>Bij "Nee"</h3>
+            <p>Korte afsluiting. Eventueel reden/notitie, geen sale-flow.</p>
+            <span class="path-label red">Einde</span>
+          </article>
+        </div>
+
+        <div class="connector"></div>
+
+        <div class="stage">
+          <article class="node">
+            <h2>Q2. Welke sales?</h2>
+            <p>Multi-select. Alleen gekozen sales krijgen vervolgvragen.</p>
+            <ul>
+              <li>Ohio</li>
+              <li>Lexington</li>
+              <li>Harrisburg</li>
+              <li>London</li>
+              <li>Open voor iedere sale</li>
+              <li>Nog niet zeker</li>
+            </ul>
+          </article>
+
+          <div class="sale-stack">
+            <div class="sale">
+              <strong>Ohio</strong>
+              <span>eigen voorkeuren per sale</span>
+            </div>
+            <div class="sale">
+              <strong>Lexington</strong>
+              <span>eigen voorkeuren per sale</span>
+            </div>
+            <div class="sale">
+              <strong>Harrisburg</strong>
+              <span>eigen voorkeuren per sale</span>
+            </div>
+            <div class="sale">
+              <strong>London</strong>
+              <span>eigen voorkeuren per sale</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="connector"></div>
+
+        <div class="stage">
+          <article class="node branch-node">
+            <h2>Per gekozen sale</h2>
+            <p>Deze vragen herhalen per sale, bijvoorbeeld: "Let's talk about Lexington."</p>
+            <ul>
+              <li>Q3. Hoe zeker is je interesse?</li>
+              <li>Q4. Indicatief bedrag in CAD</li>
+              <li>Q5. Hoe wil je deelnemen?</li>
+            </ul>
+            <span class="path-label blue">Sale-flow</span>
+          </article>
+
+          <article class="node branch-node">
+            <h3>Q5. Deelnamevorm</h3>
+            <ul>
+              <li>Bucket</li>
+              <li>Specifieke paarden</li>
+              <li>Beide</li>
+              <li>Anthony beslist</li>
+              <li>Nog niet zeker</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="connector"></div>
+
+        <div class="stage routes">
+          <article class="node bucket-node">
+            <h2>Route A. Bucket</h2>
+            <p>Vooraf interesse in samengestelde bucket.</p>
+            <ul>
+              <li>Q6. Premium / value / balanced / Anthony beslist</li>
+              <li>Q7. Maximaal aantal paarden</li>
+              <li>Q8. Trotter / pacer / beide</li>
+              <li>Q9. Ownershippercentage of range</li>
+            </ul>
+            <span class="path-label green">Bucket-data</span>
+          </article>
+
+          <article class="node specific-node">
+            <h2>Route B. Specific horse</h2>
+            <p>Owner wil specifieke paarden beoordelen of selecteren.</p>
+            <ul>
+              <li>Q10. Zelf beoordelen of Anthony filtert eerst?</li>
+              <li>Q11. Trotter / pacer / beide</li>
+              <li>Q12. Ownershippercentage of deelnamegrootte</li>
+              <li>Q13. Extra paardvoorkeuren, alleen indien nodig</li>
+            </ul>
+            <span class="path-label gold">Horse-data</span>
+          </article>
+
+          <article class="node">
+            <h2>Route C. Beide</h2>
+            <p>Niet als simpel antwoord opslaan. Vul Route A en Route B apart.</p>
+            <ul>
+              <li>Bucket-voorkeuren apart</li>
+              <li>Specific-horse-voorkeuren apart</li>
+              <li>Budgetsplit nog te bepalen</li>
+            </ul>
+          </article>
+
+          <article class="node branch-node">
+            <h2>Route D. Anthony beslist</h2>
+            <p>Flexibele owner, maar grenzen moeten helder blijven.</p>
+            <ul>
+              <li>Q14. Hoeveel vrijheid?</li>
+              <li>Eventueel max horses</li>
+              <li>Eventueel gait</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="connector"></div>
+
+        <div class="stage">
+          <article class="node review-node">
+            <h2>Q15. Notitie per sale</h2>
+            <p>Optioneel. Alleen nuance, niet de basis voor analyse.</p>
+          </article>
+
+          <article class="node review-node">
+            <h2>Q16. Review</h2>
+            <p>Owner ziet per sale wat is ingevuld en kan aanpassen.</p>
+            <ul>
+              <li>Ohio summary</li>
+              <li>Lexington summary</li>
+              <li>Harrisburg summary</li>
+              <li>London summary</li>
+            </ul>
+          </article>
+
+          <article class="node review-node">
+            <h2>Submit</h2>
+            <p>Response wordt gemarkeerd als submitted en blijft wijzigbaar zolang campagne open is.</p>
+            <span class="path-label">Dashboard-ready</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="notes" aria-label="Belangrijke ontwerpnotities">
+      <article class="note">
+        <h3>Belangrijkste splitsing</h3>
+        <p>Bucket en specific horse zijn twee aparte routes. Bij "beide" moeten beide routes apart worden ingevuld en opgeslagen.</p>
+      </article>
+      <article class="note">
+        <h3>Grootste open punt</h3>
+        <p>Budgettaal moet scherp worden gekozen: indicatief bedrag, maximum, likely amount of commitment betekenen niet hetzelfde.</p>
+      </article>
+      <article class="note">
+        <h3>MVP-denkregel</h3>
+        <p>Vraag alleen wat Anthony gebruikt voor bucketplanning, filtering en ownerlijsten. Extra voorkeuren kunnen later.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

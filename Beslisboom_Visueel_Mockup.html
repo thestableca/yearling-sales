@@ -1,0 +1,1071 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TheStable.ca - Beslisboom in Mockupstijl</title>
+  <style>
+    :root {
+      --navy: #061b3a;
+      --navy-2: #0b2b58;
+      --navy-3: #102f5e;
+      --gold: #d99b18;
+      --gold-2: #eba91b;
+      --ink: #101828;
+      --muted: #667085;
+      --soft: #f5f7fb;
+      --line: #d9e0ea;
+      --panel: #ffffff;
+      --blue: #2f6fed;
+      --green: #2e7d5b;
+      --amber: #b87503;
+      --shadow: 0 16px 40px rgba(16, 24, 40, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% 0%, rgba(217, 155, 24, 0.08), transparent 28%),
+        linear-gradient(180deg, #fbfcfe 0%, #f3f6fa 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.4;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 24px 30px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
+      border-bottom: 5px solid var(--gold);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .brand img {
+      width: 180px;
+      height: auto;
+      display: block;
+      border-radius: 4px;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      font-size: clamp(23px, 3vw, 38px);
+      letter-spacing: 0;
+    }
+
+    .brand-copy p {
+      max-width: 780px;
+      margin: 6px 0 0;
+      color: #dbe7f5;
+      font-size: 14px;
+    }
+
+    .source-note {
+      align-self: center;
+      max-width: 280px;
+      color: #dbe7f5;
+      font-size: 12px;
+      text-align: right;
+    }
+
+    main {
+      padding: 26px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 6px 0 16px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .section-title p {
+      max-width: 760px;
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      border: 1px solid #e4e9f2;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 11px;
+      white-space: nowrap;
+    }
+
+    .pill.gold {
+      color: #fff;
+      background: var(--gold);
+      border-color: var(--gold);
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: minmax(680px, 1.05fr) minmax(480px, 0.95fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .phones {
+      overflow-x: auto;
+      padding: 4px 4px 18px;
+    }
+
+    .phone-row {
+      display: grid;
+      grid-template-columns: repeat(4, 256px);
+      gap: 18px;
+      min-width: 1078px;
+    }
+
+    .phone-card {
+      min-height: 470px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .phone-header {
+      padding: 12px 18px 10px;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      color: #344054;
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 4px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--gold), var(--gold-2));
+    }
+
+    .welcome-top {
+      background: var(--navy);
+    }
+
+    .welcome-logo {
+      width: 174px;
+      margin: 10px auto 8px;
+      display: block;
+    }
+
+    .horse-banner {
+      width: 100%;
+      height: 108px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .phone-body {
+      padding: 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .phone-body h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 20px;
+      line-height: 1.13;
+      letter-spacing: 0;
+    }
+
+    .phone-body p {
+      margin: 8px 0 0;
+      color: #1d2939;
+      font-size: 12px;
+    }
+
+    .microcopy {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .check-list,
+    .radio-list {
+      display: grid;
+      gap: 11px;
+      margin-top: 18px;
+    }
+
+    .option {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      align-items: start;
+      font-size: 12px;
+      color: #101828;
+    }
+
+    .box,
+    .radio {
+      width: 15px;
+      height: 15px;
+      border: 1px solid #98a2b3;
+      margin-top: 1px;
+      display: inline-grid;
+      place-items: center;
+      color: #fff;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .box {
+      border-radius: 3px;
+    }
+
+    .radio {
+      border-radius: 50%;
+    }
+
+    .checked {
+      background: var(--navy);
+      border-color: var(--navy);
+    }
+
+    .checked::after {
+      content: "";
+      width: 5px;
+      height: 5px;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    .box.checked::after {
+      content: "";
+      width: 7px;
+      height: 4px;
+      border-left: 2px solid #fff;
+      border-bottom: 2px solid #fff;
+      background: transparent;
+      border-radius: 0;
+      transform: rotate(-45deg) translate(1px, -1px);
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      margin-top: 18px;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .prefix {
+      align-self: stretch;
+      display: grid;
+      place-items: center;
+      width: 56px;
+      background: #f8fafc;
+      border-right: 1px solid #e4e7ec;
+      font-size: 12px;
+    }
+
+    .value {
+      padding: 0 14px;
+      color: #101828;
+      font-size: 14px;
+    }
+
+    .info {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 9px;
+      margin-top: 18px;
+      padding: 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      background: #fbfcff;
+      color: #344054;
+      font-size: 11px;
+    }
+
+    .info b {
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      color: var(--blue);
+      border: 1px solid var(--blue);
+      border-radius: 50%;
+      font-size: 12px;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .summary-item {
+      border: 1px solid #e4e7ec;
+      border-radius: 7px;
+      padding: 10px;
+      font-size: 11px;
+      background: #fcfcfd;
+    }
+
+    .summary-item strong {
+      display: block;
+      color: var(--navy);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 12px;
+      margin-top: auto;
+      padding-top: 20px;
+    }
+
+    .button-row.single {
+      grid-template-columns: 1fr;
+    }
+
+    .btn {
+      display: grid;
+      place-items: center;
+      min-height: 36px;
+      border-radius: 5px;
+      border: 1px solid #d0d5dd;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .btn.primary {
+      color: #fff;
+      border-color: var(--gold);
+      background: linear-gradient(180deg, var(--gold-2), var(--gold));
+    }
+
+    .btn.navy {
+      color: #fff;
+      border-color: var(--navy);
+      background: var(--navy);
+    }
+
+    .btn.secondary {
+      color: var(--navy);
+      background: #fff;
+    }
+
+    .decision-band {
+      margin-top: 24px;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 28px rgba(16, 24, 40, 0.07);
+    }
+
+    .tree {
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+
+    .tree-grid {
+      min-width: 1050px;
+      display: grid;
+      grid-template-columns: 180px 30px 190px 30px 210px 30px 270px 30px 210px;
+      align-items: start;
+      gap: 0;
+    }
+
+    .tree-col {
+      display: grid;
+      gap: 12px;
+    }
+
+    .tree-line {
+      position: relative;
+      min-height: 86px;
+    }
+
+    .tree-line::before {
+      content: "";
+      position: absolute;
+      top: 38px;
+      left: 0;
+      width: 100%;
+      border-top: 2px solid #c7d0dd;
+    }
+
+    .tree-node {
+      min-height: 74px;
+      padding: 12px;
+      background: #fbfcff;
+      border: 1px solid #d9e0ea;
+      border-left: 5px solid var(--navy);
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .tree-node strong {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .tree-node span {
+      color: var(--muted);
+    }
+
+    .tree-node.gold {
+      border-left-color: var(--gold);
+    }
+
+    .tree-node.green {
+      border-left-color: var(--green);
+    }
+
+    .tree-node.blue {
+      border-left-color: var(--blue);
+    }
+
+    .tree-node.stop {
+      border-left-color: #b42318;
+    }
+
+    .dashboard {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 136px 1fr;
+      min-height: 570px;
+    }
+
+    .sidebar {
+      color: #fff;
+      background: linear-gradient(180deg, var(--navy), #05152d);
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .sidebar img {
+      width: 118px;
+      border-radius: 4px;
+    }
+
+    .nav-item {
+      padding: 8px 10px;
+      border-radius: 5px;
+      color: #d6e2f0;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .nav-item.active {
+      color: var(--gold);
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .dash-main {
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .dash-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+
+    .dash-head h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 15px;
+    }
+
+    .dash-head span {
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .kpi,
+    .dash-card {
+      border: 1px solid #e4e7ec;
+      border-radius: 7px;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .kpi small {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    .kpi strong {
+      display: block;
+      margin-top: 4px;
+      color: var(--navy);
+      font-size: 16px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    .table th,
+    .table td {
+      padding: 6px 7px;
+      border-bottom: 1px solid #edf0f5;
+      text-align: left;
+    }
+
+    .table th {
+      color: var(--navy);
+      background: #f8fafc;
+      font-weight: 800;
+    }
+
+    .dash-lower {
+      display: grid;
+      grid-template-columns: 1fr 1fr 0.85fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .donut {
+      width: 82px;
+      height: 82px;
+      margin: 8px auto 4px;
+      border-radius: 50%;
+      background: conic-gradient(var(--gold) 0 32%, var(--blue) 32% 57%, #7cc3b0 57% 76%, var(--navy) 76% 100%);
+      position: relative;
+    }
+
+    .donut::after {
+      content: "";
+      position: absolute;
+      inset: 22px;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    .bars {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .bar {
+      display: grid;
+      grid-template-columns: 80px 1fr 32px;
+      gap: 6px;
+      align-items: center;
+      font-size: 10px;
+      color: #344054;
+    }
+
+    .track {
+      height: 6px;
+      background: #edf0f5;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .track span {
+      display: block;
+      height: 100%;
+      background: var(--gold);
+    }
+
+    .decision-notes {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .note {
+      background: #fff;
+      border: 1px solid #e4e7ec;
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .note h3 {
+      margin: 0 0 6px;
+      color: var(--navy);
+      font-size: 14px;
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1180px) {
+      .board {
+        grid-template-columns: 1fr;
+      }
+
+      .source-note {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 780px) {
+      header {
+        display: grid;
+        padding: 20px;
+      }
+
+      .brand {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      main {
+        padding: 18px;
+      }
+
+      .section-title {
+        display: grid;
+      }
+
+      .decision-notes {
+        grid-template-columns: 1fr;
+      }
+
+      .dash-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        min-height: 120px;
+      }
+
+      .kpis,
+      .dash-lower {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="assets/thestable-logo-from-mockup.png" alt="TheStable.ca logo">
+      <div class="brand-copy">
+        <h1>2026 Yearling Sale Planning</h1>
+        <p>Beslisboom vertaald naar de mockupstijl: owner-wizard, TheStable navy/goud, per-sale voorkeuren en Anthony-dashboard als einddoel.</p>
+      </div>
+    </div>
+    <div class="source-note">
+      Visuele richting gebaseerd op jullie mockup en publieke TheStable.ca branding. Definitieve logo- en assetbestanden later vervangen door originele bronbestanden.
+    </div>
+  </header>
+
+  <main>
+    <div class="section-title">
+      <div>
+        <h2>Owner Wizard Flow</h2>
+        <p>Zo komt de beslisboom ongeveer aan te voelen voor een owner: weinig vragen per scherm, duidelijke voortgang en alleen vervolgvragen voor gekozen sales.</p>
+      </div>
+      <div class="pills">
+        <span class="pill gold">CAD</span>
+        <span class="pill">Per sale</span>
+        <span class="pill">Bucket</span>
+        <span class="pill">Specific horse</span>
+      </div>
+    </div>
+
+    <section class="board">
+      <div class="phones" aria-label="Owner wizard screens">
+        <div class="phone-row">
+          <article class="phone-card">
+            <div class="welcome-top">
+              <img class="welcome-logo" src="assets/thestable-logo-from-mockup.png" alt="TheStable.ca logo">
+              <img class="horse-banner" src="assets/welcome-horse-from-mockup.png" alt="Horse banner">
+            </div>
+            <div class="phone-body">
+              <h3>2026 Yearling Sale Planning</h3>
+              <p>Anthony is preparing this year's purchases for Ohio, Lexington, Harrisburg and London.</p>
+              <p class="microcopy">Takes about 3-5 minutes. You can update your responses until the campaign closes.</p>
+              <div class="button-row single">
+                <span class="btn primary">Let's Get Started</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="phone-card">
+            <div class="phone-header">
+              <div class="progress-meta"><span>Step 1 of 7</span><span>10%</span></div>
+              <div class="progress"><span style="width: 10%"></span></div>
+            </div>
+            <div class="phone-body">
+              <h3>Which yearling sales are you interested in this year?</h3>
+              <p>Select all that apply.</p>
+              <div class="check-list">
+                <div class="option"><span class="box checked"></span><span>Ohio Selected Sale</span></div>
+                <div class="option"><span class="box checked"></span><span>Lexington Selected Sale</span></div>
+                <div class="option"><span class="box"></span><span>Harrisburg Sale</span></div>
+                <div class="option"><span class="box checked"></span><span>London Selected Yearling Sale</span></div>
+                <div class="option"><span class="box"></span><span>I'm open to any sale</span></div>
+                <div class="option"><span class="box"></span><span>I'm not planning to purchase yearlings this year</span></div>
+              </div>
+              <div class="button-row single">
+                <span class="btn primary">Continue -></span>
+              </div>
+              <p class="microcopy" style="text-align: center;">You selected 3 sales</p>
+            </div>
+          </article>
+
+          <article class="phone-card">
+            <div class="phone-header">
+              <div class="progress-meta"><span>Step 2 of 7</span><span>25%</span></div>
+              <div class="progress"><span style="width: 25%"></span></div>
+            </div>
+            <div class="phone-body">
+              <p class="eyebrow">Ohio selected sale</p>
+              <h3>Approximately how much are you considering investing at the Ohio sale?</h3>
+              <p>Enter the total amount in CAD.</p>
+              <div class="field">
+                <span class="prefix">CAD $</span>
+                <span class="value">5,000</span>
+              </div>
+              <div class="info">
+                <b>i</b>
+                <span>This is an estimated total you are comfortable investing at this sale.</span>
+              </div>
+              <div class="button-row">
+                <span class="btn secondary"><- Back</span>
+                <span class="btn primary">Continue -></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="phone-card">
+            <div class="phone-header">
+              <div class="progress-meta"><span>Step 3 of 7</span><span>40%</span></div>
+              <div class="progress"><span style="width: 40%"></span></div>
+            </div>
+            <div class="phone-body">
+              <p class="eyebrow">Ohio selected sale</p>
+              <h3>How would you like to participate at the Ohio sale?</h3>
+              <p>Choose the option that best fits you.</p>
+              <div class="radio-list">
+                <div class="option"><span class="radio checked"></span><span><b>Participate in a bucket</b><br><small>Anthony will purchase within a bucket strategy.</small></span></div>
+                <div class="option"><span class="radio"></span><span><b>Buy specific horse(s) only</b><br><small>I prefer to own shares in specific horses.</small></span></div>
+                <div class="option"><span class="radio"></span><span><b>Both</b><br><small>I want bucket options and specific horses.</small></span></div>
+                <div class="option"><span class="radio"></span><span><b>Not sure yet</b><br><small>Anthony can recommend the best option.</small></span></div>
+              </div>
+              <div class="button-row">
+                <span class="btn secondary"><- Back</span>
+                <span class="btn primary">Continue -></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="phone-card">
+            <div class="phone-header">
+              <div class="progress-meta"><span>Step 4 of 7</span><span>55%</span></div>
+              <div class="progress"><span style="width: 55%"></span></div>
+            </div>
+            <div class="phone-body">
+              <p class="eyebrow">Ohio selected sale</p>
+              <h3>If investing in a bucket, what is your preference?</h3>
+              <p>Choose the option that best fits you.</p>
+              <div class="radio-list">
+                <div class="option"><span class="radio"></span><span><b>Prefer one premium yearling</b><br><small>Focus on one top-quality yearling.</small></span></div>
+                <div class="option"><span class="radio checked"></span><span><b>Prefer multiple yearlings (value)</b><br><small>Spread across 2-4 yearlings.</small></span></div>
+                <div class="option"><span class="radio"></span><span><b>Balanced</b><br><small>A mix of quality and quantity.</small></span></div>
+                <div class="option"><span class="radio"></span><span><b>No preference</b><br><small>Anthony can decide.</small></span></div>
+              </div>
+              <p><b>Maximum number of horses?</b></p>
+              <div class="field"><span class="value">Maximum 3 horses</span></div>
+              <div class="button-row">
+                <span class="btn secondary"><- Back</span>
+                <span class="btn primary">Continue -></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="phone-card">
+            <div class="phone-header">
+              <div class="progress-meta"><span>Step 5 of 7</span><span>70%</span></div>
+              <div class="progress"><span style="width: 70%"></span></div>
+            </div>
+            <div class="phone-body">
+              <p class="eyebrow">Ohio selected sale</p>
+              <h3>What type of horse interests you most?</h3>
+              <p>Select all that apply.</p>
+              <div class="check-list">
+                <div class="option"><span class="box checked"></span><span>Trotter</span></div>
+                <div class="option"><span class="box"></span><span>Pacer</span></div>
+                <div class="option"><span class="box"></span><span>Both</span></div>
+              </div>
+              <p style="margin-top: 20px;"><b>Sex</b></p>
+              <div class="check-list" style="margin-top: 8px;">
+                <div class="option"><span class="box"></span><span>Colt</span></div>
+                <div class="option"><span class="box checked"></span><span>Filly</span></div>
+                <div class="option"><span class="box"></span><span>Either</span></div>
+              </div>
+              <div class="button-row">
+                <span class="btn secondary"><- Back</span>
+                <span class="btn primary">Continue -></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="phone-card">
+            <div class="phone-header">
+              <div class="progress-meta"><span>Step 7 of 7</span><span>100%</span></div>
+              <div class="progress"><span style="width: 100%"></span></div>
+            </div>
+            <div class="phone-body">
+              <h3>Review Your 2026 Plan</h3>
+              <p>Here is a summary of what you told us.</p>
+              <div class="summary-list">
+                <div class="summary-item"><strong>Ohio Selected Sale</strong>CAD $5,000 | Bucket (Value)<br>Trotter | Filly | Max 3 horses</div>
+                <div class="summary-item"><strong>Lexington Selected Sale</strong>CAD $8,000 | Bucket (Premium)<br>Trotter | Either | Max 1 horse</div>
+                <div class="summary-item"><strong>London Selected Yearling Sale</strong>CAD $4,000 | Specific horse(s) only<br>Pacer | Either</div>
+              </div>
+              <div class="button-row single">
+                <span class="btn navy">Confirm & Submit</span>
+              </div>
+              <p class="microcopy" style="text-align: center;"><- Back to make changes</p>
+            </div>
+          </article>
+
+          <article class="phone-card">
+            <div class="phone-body" style="align-items: center; text-align: center; justify-content: center;">
+              <div style="width: 66px; height: 66px; border: 2px solid #98a2b3; border-radius: 50%; display: grid; place-items: center; color: #667085; font-size: 34px;">&#10003;</div>
+              <h3 style="margin-top: 24px;">Thank You!</h3>
+              <p>Your preferences have been submitted successfully.</p>
+              <img src="assets/welcome-horse-from-mockup.png" alt="Horse" style="width: calc(100% + 36px); margin: 34px -18px 0; opacity: 0.5;">
+              <div class="button-row single" style="width: 100%;">
+                <span class="btn primary">Close</span>
+              </div>
+              <p class="microcopy">Use your original link to update your responses.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <aside class="dashboard" aria-label="Anthony dashboard preview">
+        <div class="dash-grid">
+          <nav class="sidebar">
+            <img src="assets/thestable-logo-from-mockup.png" alt="TheStable.ca logo">
+            <div class="nav-item active">Overview</div>
+            <div class="nav-item">By Sale</div>
+            <div class="nav-item">Bucket Interest</div>
+            <div class="nav-item">By Gait</div>
+            <div class="nav-item">By Budget</div>
+            <div class="nav-item">Participants</div>
+            <div class="nav-item">Raw Responses</div>
+            <div class="nav-item" style="margin-top: auto;">Export Data</div>
+          </nav>
+          <div class="dash-main">
+            <div class="dash-head">
+              <div>
+                <h3>2026 Yearling Sale Planning</h3>
+                <p class="microcopy" style="margin: 2px 0 0;">Responses as of campaign close</p>
+              </div>
+              <span>617 / 897 responded</span>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><small>Total Indicative Capital</small><strong>CAD $1.45M</strong></div>
+              <div class="kpi"><small>Total Participants</small><strong>617</strong></div>
+              <div class="kpi"><small>Avg. Investment</small><strong>CAD $2,355</strong></div>
+              <div class="kpi"><small>Bucket Interest</small><strong>72%</strong></div>
+            </div>
+            <div class="dash-card">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Sale</th>
+                    <th>Owners</th>
+                    <th>Capital</th>
+                    <th>Bucket</th>
+                    <th>Specific</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Ohio Selected Sale</td><td>184</td><td>$245,500</td><td>$176,000</td><td>$69,500</td></tr>
+                  <tr><td>Lexington Selected Sale</td><td>392</td><td>$618,000</td><td>$456,000</td><td>$162,000</td></tr>
+                  <tr><td>Harrisburg Sale</td><td>276</td><td>$403,500</td><td>$298,000</td><td>$114,500</td></tr>
+                  <tr><td>London Selected Sale</td><td>147</td><td>$188,000</td><td>$132,000</td><td>$54,000</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="dash-lower">
+              <div class="dash-card">
+                <strong style="font-size: 11px; color: var(--navy);">Capital by preference</strong>
+                <div class="donut"></div>
+              </div>
+              <div class="dash-card">
+                <strong style="font-size: 11px; color: var(--navy);">By gait</strong>
+                <div class="donut" style="background: conic-gradient(var(--blue) 0 56%, #7cc3b0 56% 86%, var(--navy) 86% 100%);"></div>
+              </div>
+              <div class="dash-card">
+                <strong style="font-size: 11px; color: var(--navy);">Budget ranges</strong>
+                <div class="bars">
+                  <div class="bar"><span>Under $2k</span><div class="track"><span style="width: 18%"></span></div><b>18%</b></div>
+                  <div class="bar"><span>$2k-$5k</span><div class="track"><span style="width: 34%"></span></div><b>34%</b></div>
+                  <div class="bar"><span>$5k-$10k</span><div class="track"><span style="width: 27%"></span></div><b>27%</b></div>
+                  <div class="bar"><span>$10k+</span><div class="track"><span style="width: 21%"></span></div><b>21%</b></div>
+                </div>
+              </div>
+            </div>
+            <div class="dash-card" style="margin-top: 10px;">
+              <strong style="display: block; margin-bottom: 6px; color: var(--navy); font-size: 11px;">LEXINGTON - PREMIUM TROTTER - ONE HORSE - INVESTMENT $5,000+</strong>
+              <table class="table">
+                <tbody>
+                  <tr><td>Brian L.</td><td>brian@email.com</td><td>$10,000</td><td>One Premium Horse</td><td>Max 1</td></tr>
+                  <tr><td>Mark D.</td><td>markd@email.com</td><td>$7,500</td><td>One Premium Horse</td><td>Max 1</td></tr>
+                  <tr><td>Jennifer S.</td><td>jennifer@email.com</td><td>$5,500</td><td>One Premium Horse</td><td>Max 1</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="decision-band">
+      <div class="section-title">
+        <div>
+          <h2>Beslisboom Achter De Schermen</h2>
+          <p>Deze logica bepaalt welke schermen de owner ziet. Bij elke gekozen sale wordt dezelfde sale-flow herhaald.</p>
+        </div>
+      </div>
+      <div class="tree">
+        <div class="tree-grid">
+          <div class="tree-col">
+            <div class="tree-node"><strong>Q1</strong><span>Interesse in yearlings 2026?</span></div>
+            <div class="tree-node stop"><strong>Nee</strong><span>Korte afsluiting</span></div>
+          </div>
+          <div class="tree-line"></div>
+          <div class="tree-col">
+            <div class="tree-node"><strong>Q2</strong><span>Selecteer sales: Ohio, Lexington, Harrisburg, London</span></div>
+          </div>
+          <div class="tree-line"></div>
+          <div class="tree-col">
+            <div class="tree-node blue"><strong>Per sale</strong><span>Budget, zekerheid en deelnamevorm</span></div>
+          </div>
+          <div class="tree-line"></div>
+          <div class="tree-col">
+            <div class="tree-node green"><strong>Bucket</strong><span>Strategie, max horses, gait, eventueel percentage</span></div>
+            <div class="tree-node gold"><strong>Specific horse</strong><span>Zelf beoordelen, gait, deelnamegrootte, eventueel paardvoorkeuren</span></div>
+            <div class="tree-node"><strong>Both</strong><span>Vult bucket-route en specific-horse-route apart</span></div>
+            <div class="tree-node blue"><strong>Anthony decides</strong><span>Flexibel, maar met grenzen</span></div>
+          </div>
+          <div class="tree-line"></div>
+          <div class="tree-col">
+            <div class="tree-node"><strong>Review</strong><span>Owner controleert samenvatting per sale</span></div>
+            <div class="tree-node"><strong>Submit</strong><span>Data klaar voor dashboard en filters</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="decision-notes">
+      <article class="note">
+        <h3>Branding</h3>
+        <p>Navy basis, goud voor CTA/progress/accenten, witte cards en zakelijke dashboardtabellen.</p>
+      </article>
+      <article class="note">
+        <h3>Belangrijk</h3>
+        <p>"Both" blijft geen plat antwoord. Bucket en specific horse worden apart opgeslagen.</p>
+      </article>
+      <article class="note">
+        <h3>Nog valideren</h3>
+        <p>Budgettaal, ownershippercentage, sex/filly/colt en Anthony decides zijn businesskeuzes.</p>
+      </article>
+      <article class="note">
+        <h3>MVP</h3>
+        <p>Owner-flow kort houden, Anthony-dashboard informatie-dicht en filterbaar maken.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
