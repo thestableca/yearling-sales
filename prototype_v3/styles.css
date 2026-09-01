@@ -751,7 +751,8 @@ textarea.input {
 
 .review-item {
   display: grid;
-  grid-template-columns: 130px 1fr;
+  grid-template-columns: 130px 1fr auto;
+  align-items: start;
   gap: 12px;
   padding: 13px;
   border: 1px solid #cbd5e1;
@@ -762,6 +763,11 @@ textarea.input {
 
 .review-item strong {
   color: var(--stable-blue-dark);
+}
+
+.review-item .text-link {
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .admin-grid {
@@ -1218,8 +1224,10 @@ textarea.input {
 }
 
 .after-sale-grid .mini-section {
-  padding: 0;
-  border-top: 0;
+  padding: 12px;
+  border: 1px solid var(--dashboard-line);
+  border-radius: 8px;
+  background: #fbfdff;
 }
 
 .chip-list {
@@ -1279,6 +1287,13 @@ textarea.input {
 
 .owner-panel {
   min-width: 0;
+}
+
+.owner-table-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .compact-table table {
@@ -1447,7 +1462,8 @@ th {
   }
 
   .layout,
-  .filters {
+  .filters,
+  .owner-table-filters {
     grid-template-columns: 1fr;
   }
 

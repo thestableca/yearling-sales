@@ -83,6 +83,8 @@ const emptyDraft = {
   view: "welcome",
   owner: null,
   unmatched: false,
+  resumedExisting: false,
+  identifyError: "",
   name: "",
   email: "",
   interest: "",
@@ -122,7 +124,12 @@ function clone(value) {
 
 function loadDraft() {
   const saved = localStorage.getItem(DRAFT_KEY);
-  return saved ? normalizeDraft(JSON.parse(saved)) : clone(emptyDraft);
+  if (!saved) return clone(emptyDraft);
+  try {
+    return normalizeDraft(JSON.parse(saved));
+  } catch {
+    return clone(emptyDraft);
+  }
 }
 
 function saveDraft() {
@@ -135,7 +142,12 @@ function resetDraft() {
 }
 
 function getResponses() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 function saveResponses(responses) {
@@ -179,7 +191,10 @@ function percent(value) {
 }
 
 function cleanPercent(value) {
-  return String(value || "").replace(",", ".").replace(/[^\d.]/g, "");
+  const cleaned = String(value || "").replace(",", ".").replace(/[^\d.]/g, "");
+  const num = Number(cleaned);
+  if (cleaned !== "" && Number.isFinite(num) && num > 100) return "100";
+  return cleaned;
 }
 
 function saleById(id) {
@@ -337,7 +352,8 @@ function identifyCard() {
   return card(
     "Step 1",
     "Who is completing this intake?",
-    `<div class="field-stack">
+    `${draft.identifyError ? `<p class="notice">${escapeHtml(draft.identifyError)}</p>` : ""}
+     <div class="field-stack">
        <input class="input" id="nameInput" value="${escapeHtml(draft.name)}" placeholder="Your name">
        <input class="input" id="emailInput" type="email" value="${escapeHtml(draft.email)}" placeholder="you@example.com">
      </div>
@@ -349,7 +365,8 @@ function interestCard() {
   return card(
     "Step 2",
     "Are you interested in purchasing yearling shares in 2026?",
-    `${radioOptions("interest", draft.interest, [
+    `${draft.resumedExisting ? `<p class="notice">We found a previous submission for this email address and loaded it here. Continuing will update and replace that submission.</p>` : ""}
+    ${radioOptions("interest", draft.interest, [
       ["yes", "Yes", ""],
       ["no", "No", ""],
     ])}
@@ -515,12 +532,13 @@ function saleDetailCard() {
 }
 
 function reviewCard() {
-  const items = draft.selectedSales.map((saleId) => {
+  const items = draft.selectedSales.map((saleId, index) => {
     const response = draft.saleResponses[saleId] || {};
     return `
       <div class="review-item">
         <strong>${saleById(saleId)?.label || saleId}</strong>
         <span>${summarizeSale(response)}</span>
+        <button class="text-link" type="button" data-review-edit="${index}">Edit</button>
       </div>
     `;
   }).join("");
@@ -625,6 +643,7 @@ function bindOwner() {
   document.querySelector("[data-sale-next]")?.addEventListener("click", saleNext);
   document.querySelector("[data-sale-back]")?.addEventListener("click", saleBack);
   document.querySelector("[data-review-back]")?.addEventListener("click", reviewBack);
+  document.querySelectorAll("[data-review-edit]").forEach((button) => button.addEventListener("click", () => reviewEdit(Number(button.dataset.reviewEdit))));
   document.querySelector("[data-submit]")?.addEventListener("click", submitResponse);
 
   document.querySelectorAll("[data-radio]").forEach((button) => button.addEventListener("click", () => setValue(button.dataset.radio, button.dataset.value, button.dataset.target)));
@@ -640,17 +659,29 @@ function bindOwner() {
   });
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function identifyOwner() {
   const name = document.querySelector("#nameInput").value.trim();
   const email = document.querySelector("#emailInput").value.trim().toLowerCase();
-  if (!name || !email) return;
+  if (!name || !email) {
+    draft.identifyError = "Please enter both your name and email address.";
+    render();
+    return;
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    draft.identifyError = "That email address doesn't look right. Please double-check it.";
+    render();
+    return;
+  }
   const owner = OWNERS.find((item) => item.email.toLowerCase() === email);
   const existing = getResponses().find((response) => response.email.toLowerCase() === email);
   draft.name = name;
   draft.email = email;
   draft.owner = owner || null;
   draft.unmatched = !owner;
-  if (existing) draft = { ...clone(emptyDraft), ...existing, view: "interest", name, email, owner: owner || null, unmatched: !owner };
+  draft.identifyError = "";
+  if (existing) draft = { ...clone(emptyDraft), ...existing, view: "interest", name, email, owner: owner || null, unmatched: !owner, resumedExisting: true };
   else draft.view = "interest";
   saveDraft();
   render();
@@ -821,8 +852,13 @@ function nextSaleOrReview() {
 }
 
 function reviewBack() {
+  reviewEdit(draft.selectedSales.length - 1);
+}
+
+function reviewEdit(index) {
   draft.view = draft.applyMode === "custom" ? "customChoice" : draft.applyMode === "amounts" ? "saleAmounts" : "defaults";
-  draft.saleIndex = Math.max(0, draft.selectedSales.length - 1);
+  draft.saleIndex = Math.max(0, Math.min(index, draft.selectedSales.length - 1));
+  draft.questionIndex = 0;
   saveDraft();
   render();
 }
@@ -1046,6 +1082,7 @@ function renderAdmin() {
         ${ownerTable(rows)}
     </section>`;
   document.querySelector("#exportCsv").addEventListener("click", () => exportCsv(rows));
+  bindOwnerTableFilters(rows);
   bindInfoTips();
 }
 
@@ -1155,13 +1192,49 @@ function suggestionPanel(rows) {
   </article>`;
 }
 
+const ownerTableFilters = { search: "", sale: "" };
+
 function ownerTable(rows) {
   return `<article class="panel owner-panel">
     <div class="section-title"><div><span class="tag">Owners</span><h2>Owner Detail</h2></div><p>Use this to see who sits behind a specific signal.</p></div>
-    <div class="table-wrap compact-table"><table><thead><tr><th>Owner</th><th>Sale</th><th>Bucket %</th><th>Type</th><th>Gait</th><th>Colt / Filly</th></tr></thead><tbody>
-      ${rows.length ? rows.map((row) => `<tr><td>${escapeHtml(row.name)}<br><small>${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.saleLabel)}</td><td>${row.amount ? percent(row.amount) : ""}</td><td>${row.bucketTypes.map((item) => labelFor("bucketTypes", item)).join(", ")}</td><td>${labelFor("gait", row.gait)}</td><td>${sexSummary(row)}</td></tr>`).join("") : `<tr><td colspan="6">No owner data yet.</td></tr>`}
-    </tbody></table></div>
+    <div class="owner-table-filters">
+      <input class="input" id="ownerSearch" type="search" placeholder="Search by name or email" value="${escapeHtml(ownerTableFilters.search)}">
+      <select class="input" id="ownerSaleFilter">
+        <option value="">All sales</option>
+        ${REAL_SALES.map((sale) => `<option value="${sale.id}" ${ownerTableFilters.sale === sale.id ? "selected" : ""}>${escapeHtml(sale.label)}</option>`).join("")}
+      </select>
+    </div>
+    <div id="ownerTableBody">${ownerTableRows(rows)}</div>
   </article>`;
+}
+
+function ownerTableRows(rows) {
+  const search = ownerTableFilters.search.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (ownerTableFilters.sale && row.sale !== ownerTableFilters.sale) return false;
+    if (search && !row.name.toLowerCase().includes(search) && !row.email.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  return `<div class="table-wrap compact-table"><table><thead><tr><th>Owner</th><th>Sale</th><th>Bucket %</th><th>Type</th><th>Gait</th><th>Colt / Filly</th></tr></thead><tbody>
+      ${filtered.length ? filtered.map((row) => `<tr><td>${escapeHtml(row.name)}<br><small>${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.saleLabel)}</td><td>${row.amount ? percent(row.amount) : ""}</td><td>${row.bucketTypes.map((item) => labelFor("bucketTypes", item)).join(", ")}</td><td>${labelFor("gait", row.gait)}</td><td>${sexSummary(row)}</td></tr>`).join("") : `<tr><td colspan="6">${rows.length ? "No owners match your search." : "No owner data yet."}</td></tr>`}
+    </tbody></table></div>`;
+}
+
+function bindOwnerTableFilters(rows) {
+  const searchInput = document.querySelector("#ownerSearch");
+  const saleSelect = document.querySelector("#ownerSaleFilter");
+  if (!searchInput || !saleSelect) return;
+  const rerender = () => {
+    document.querySelector("#ownerTableBody").innerHTML = ownerTableRows(rows);
+  };
+  searchInput.addEventListener("input", () => {
+    ownerTableFilters.search = searchInput.value;
+    rerender();
+  });
+  saleSelect.addEventListener("change", () => {
+    ownerTableFilters.sale = saleSelect.value;
+    rerender();
+  });
 }
 
 function buildAfterSaleRows(responses) {
@@ -1249,20 +1322,6 @@ function buildPlanningRows(rows) {
   })).sort((a, b) => b.total - a.total);
 }
 
-function planningPanel(rows) {
-  return `<article class="panel wide"><div class="panel-head"><div><h3>Bucket Ideas to Consider</h3><p>Concrete bucket ideas ranked by requested share percentage.</p></div></div>
-    <div class="planning-list">
-      ${rows.length ? rows.map((row) => `<div class="planning-row">
-        <div><strong>${escapeHtml(row.saleLabel)}</strong><span>${labelFor("bucketTypes", row.bucketType)} | ${labelFor("gait", row.gait)} | ${labelFor("sex", row.sex)}</span></div>
-        <div><strong>${percent(row.total)}</strong><span>total requested shares</span></div>
-        <div><strong>${row.ownerCount}</strong><span>interested owners</span></div>
-        <div><strong>${percent(row.average)}</strong><span>avg. requested share</span></div>
-        <div><strong>${labelFor("maxYearlings", row.maxPreference)}</strong><span>max yearlings preference</span></div>
-      </div>`).join("") : `<p class="quiet">No bucket ideas yet.</p>`}
-    </div>
-  </article>`;
-}
-
 function afterSalePanel(rows, eligibilityDemand) {
   const horseCounts = groupDemand(rows, (row) => labelFor("specificHorseCount", row.specificHorseCount));
   const shareSizes = groupDemand(rows, (row) => labelFor("specificShareSize", row.specificShareSize));
@@ -1323,6 +1382,10 @@ function flattenResponses(responses) {
 }
 
 function exportCsv(rows) {
+  if (!rows.length) {
+    alert("There is no owner data to export yet.");
+    return;
+  }
   const header = ["name", "email", "sale", "participation", "bucket_percent", "bucket_types", "max_yearlings", "gait", "sex", "eligibility"];
   const csv = [header.join(","), ...rows.map((row) => [
     row.name,
@@ -1343,90 +1406,6 @@ function exportCsv(rows) {
   link.download = "thestable-yearling-responses.csv";
   link.click();
   URL.revokeObjectURL(url);
-}
-
-function seedDemoData() {
-  saveResponses([
-    {
-      name: "Test Owner",
-      email: "test@thestable.ca",
-      interest: "yes",
-      selectedSales: ["lexington", "ohio"],
-      eligibilityPreferences: ["kentucky", "ohio"],
-      applyMode: "amounts",
-      saleResponses: {
-        lexington: { ...clone(emptyPrefs), participation: "bucket", gait: "both", sexTrotter: "filly", sexPacer: "colt", bucketDetailMode: "detailed", bucketMatrix: demoMatrix([["trotter", "premium", "20", "1"], ["pacer", "value", "10", "3"]]) },
-        ohio: { ...clone(emptyPrefs), participation: "bucket", gait: "both", sexTrotter: "filly", sexPacer: "colt", bucketDetailMode: "detailed", bucketMatrix: demoMatrix([["trotter", "premium", "10", "1"], ["pacer", "value", "5", "3"]]) },
-      },
-    },
-    {
-      name: "Brian L.",
-      email: "brian@email.com",
-      interest: "yes",
-      selectedSales: ["lexington", "harrisburg"],
-      eligibilityPreferences: ["kentucky", "pennsylvania"],
-      applyMode: "all",
-      saleResponses: {
-        lexington: { ...clone(emptyPrefs), participation: "bucket", gait: "trotter", sex: "filly", bucketDetailMode: "simple", bucketTypes: ["premium"], maxYearlings: "1", bucketLevel: "30" },
-        harrisburg: { ...clone(emptyPrefs), participation: "bucket", gait: "trotter", sex: "filly", bucketDetailMode: "simple", bucketTypes: ["premium"], maxYearlings: "1", bucketLevel: "30" },
-      },
-    },
-    {
-      name: "Mark D.",
-      email: "markd@email.com",
-      interest: "yes",
-      selectedSales: ["ohio", "london"],
-      eligibilityPreferences: ["ohio", "ontario"],
-      applyMode: "all",
-      saleResponses: {
-        ohio: { ...clone(emptyPrefs), participation: "both", gait: "pacer", sex: "colt", bucketDetailMode: "simple", bucketTypes: ["balanced", "value"], maxYearlings: "3", bucketLevel: "10", specificHorseCount: "two", specificShareSize: "2_5" },
-        london: { ...clone(emptyPrefs), participation: "both", gait: "pacer", sex: "colt", bucketDetailMode: "simple", bucketTypes: ["balanced", "value"], maxYearlings: "3", bucketLevel: "10", specificHorseCount: "two", specificShareSize: "2_5" },
-      },
-    },
-    {
-      name: "Jennifer S.",
-      email: "jennifer@email.com",
-      interest: "yes",
-      selectedSales: ["lexington"],
-      eligibilityPreferences: ["kentucky", "new_jersey"],
-      applyMode: "all",
-      saleResponses: {
-        lexington: { ...clone(emptyPrefs), participation: "bucket", gait: "both", sexTrotter: "both", sexPacer: "filly", bucketDetailMode: "detailed", bucketMatrix: demoMatrix([["trotter", "balanced", "10", "2"], ["pacer", "premium", "5", "1"]]) },
-      },
-    },
-    {
-      name: "Robert Sikkema",
-      email: "robert@example.com",
-      interest: "yes",
-      selectedSales: ["harrisburg"],
-      eligibilityPreferences: ["pennsylvania", "new_york"],
-      applyMode: "all",
-      saleResponses: {
-        harrisburg: { ...clone(emptyPrefs), participation: "specific", gait: "trotter", sex: "both", specificHorseCount: "three_plus", specificShareSize: "1" },
-      },
-    },
-    {
-      name: "Sarah K.",
-      email: "sarah@example.com",
-      interest: "yes",
-      selectedSales: ["lexington", "london"],
-      eligibilityPreferences: ["kentucky", "ontario"],
-      applyMode: "all",
-      saleResponses: {
-        lexington: { ...clone(emptyPrefs), participation: "bucket", gait: "pacer", sex: "filly", bucketDetailMode: "simple", bucketTypes: ["value"], maxYearlings: "4", bucketLevel: "5" },
-        london: { ...clone(emptyPrefs), participation: "bucket", gait: "pacer", sex: "filly", bucketDetailMode: "simple", bucketTypes: ["value"], maxYearlings: "4", bucketLevel: "5" },
-      },
-    },
-  ]);
-  render();
-}
-
-function demoMatrix(rows) {
-  const matrix = blankBucketMatrix();
-  rows.forEach(([gait, bucketType, level, maxYearlings]) => {
-    matrix[gait][bucketType] = { enabled: true, level, amount: "", maxYearlings };
-  });
-  return matrix;
 }
 
 function labelFor(field, value) {
