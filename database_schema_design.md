@@ -1,0 +1,70 @@
+# TheStable.ca — Supabase database schema (design)
+
+Status: design only, not yet built. Waiting on TheStable's final intake questions and anonymity decision before creating the actual Supabase project. This document is the reference for when we do.
+
+## Design principles
+
+- **Identity is separated from answers.** `owners` (name/email) is a distinct table from `responses` (what they answered). This is required regardless of the anonymity decision — level 1 (hide from Anthony's dashboard) and level 2 (no linkage at all) are both just different Row Level Security policies on top of the same two-table structure. No rebuild needed either way.
+- **Reference data lives in its own tables**, not hardcoded arrays in JavaScript, so TheStable can eventually add/edit a sale or bucket type without a code change.
+- **One response row per owner per sale** (not one giant JSON blob per owner), so the admin dashboard can filter/aggregate with plain SQL instead of parsing nested JSON in JavaScript — this is what makes search/filter/sort fast once there's real volume.
+
+## Tables
+
+### `sales` (reference data)
+| column | type | notes |
+|---|---|---|
+| id | text (PK) | e.g. `ohio`, `lexington`, `harrisburg`, `london` |
+| label | text | display name, e.g. "London Classic Yearling Sale" |
+| active | boolean | so a past/cancelled sale can be hidden without deleting history |
+| sort_order | int | controls display order |
+
+### `owners` (identity — the sensitive table)
+| column | type | notes |
+|---|---|---|
+| id | uuid (PK) | generated |
+| name | text | |
+| email | text (unique) | used to recognize a returning owner |
+| created_at | timestamptz | |
+
+This is the table that gets restricted or dropped from the query entirely if the anonymity answer is "level 2." See RLS section below.
+
+### `responses` (one row per owner per sale)
+| column | type | notes |
+|---|---|---|
+| id | uuid (PK) | |
+| owner_id | uuid (FK → owners.id, nullable) | null if the anonymity decision requires no link at all |
+| sale_id | text (FK → sales.id) | |
+| interest | text | yes/no, from the top-level intake question |
+| participation | text | bucket / specific / both |
+| gait | text | trotter / pacer / both |
+| sex | text | colt / filly / both |
+| bucket_types | text[] | premium / balanced / value, multi-select |
+| bucket_level | text | 1/2/5/10/20/30/other |
+| bucket_amount | numeric | custom percentage, clamped 0-100 (already enforced client-side) |
+| max_yearlings | text | |
+| specific_horse_count | text | |
+| specific_share_size | text | |
+| eligibility | text[] | states/provinces |
+| submitted_at | timestamptz | |
+| updated_at | timestamptz | so a resubmission is visible as an update, not a silent overwrite (matches the "previous submission found" notice already built into the UI) |
+
+Note: the current app stores a nested `bucketMatrix` (per-gait, per-bucket-type detail) for the "detailed" flow. That either needs its own child table (`response_bucket_matrix`) or gets flattened into one row per gait+bucket-type combination — worth deciding once TheStable's final question set is known, since it may simplify or remove this "detailed" mode entirely.
+
+## Row Level Security (RLS) — the actual security mechanism
+
+Supabase's public "anon key" is embedded in the site's client-side code and is visible to anyone — RLS policies are what actually restrict access, not the key itself.
+
+**Baseline policies (needed regardless of the anonymity answer):**
+- `owners` table: no public read access at all. Only an authenticated admin session (see [[security-requirements]]) can read it.
+- `responses` table: a visitor can insert their own response and can read/update only the response matching their own session (via a per-owner access token, not their raw email — see below). Full-list read is admin-only.
+- `sales` table: public read-only (it's just reference data, not sensitive).
+
+**If the anonymity answer is "level 1"** (hide from Anthony's dashboard view, but keep the link): admin queries join `responses` to `owners` but the dashboard UI simply doesn't render the name/email columns. Data stays linked in the database for Anthony's actual follow-up/contact use case.
+
+**If the anonymity answer is "level 2"** (no linkage anywhere): `responses.owner_id` stays null, and identity (if collected at all, e.g. for a separate opt-in contact list) lives in a completely separate, unlinked table with no foreign key back to `responses`. This is the scenario that requires the separate-contact-mechanism design discussed with Anthony (see [[anonymity-requirement]]).
+
+**Identifying a returning owner without exposing all emails to the client:** rather than matching on raw email client-side (as the current prototype does by comparing against a hardcoded `OWNERS` array), use a Supabase Edge Function or RLS policy keyed on a per-owner magic-link token, so the client never needs read access to the full owners list just to check "have I submitted before."
+
+## What this unblocks
+
+This schema can be created in Supabase now, independent of TheStable's pending answers — the `owners`/`responses` split, RLS baseline, and reference tables (`sales`) are needed either way. Only the exact shape of `responses` (which fields survive TheStable's question revision) and the final call on `owner_id` nullability depend on their reply.

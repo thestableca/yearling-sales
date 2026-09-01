@@ -1001,13 +1001,25 @@ function submitResponse() {
   render();
 }
 
+const ADMIN_PASSCODE_HASH = "0bab60e4cf58b621210d9fcf1605a3e61e38440672e241077e91e1cee2e1b5b6";
+
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function renderAdmin() {
   if (!adminLoggedIn) {
-    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><div class="field-stack"><input class="input" id="passcode" type="password" placeholder="Passcode"></div><div class="actions single"><button class="btn primary" type="button" id="loginButton">Login</button></div><p class="prompt">Prototype passcode: stable2026</p></div></article>`;
-    document.querySelector("#loginButton").addEventListener("click", () => {
-      if (document.querySelector("#passcode").value === "stable2026") {
+    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><div class="field-stack"><input class="input" id="passcode" type="password" placeholder="Passcode"></div><p class="notice hidden" id="loginError">Incorrect passcode.</p><div class="actions single"><button class="btn primary" type="button" id="loginButton">Login</button></div></div></article>`;
+    document.querySelector("#loginButton").addEventListener("click", async () => {
+      const entered = document.querySelector("#passcode").value;
+      const enteredHash = await sha256Hex(entered);
+      if (enteredHash === ADMIN_PASSCODE_HASH) {
         adminLoggedIn = true;
         render();
+      } else {
+        document.querySelector("#loginError").classList.remove("hidden");
       }
     });
     return;
