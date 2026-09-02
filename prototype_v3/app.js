@@ -341,7 +341,7 @@ function card(meta, title, body, tag = "Question") {
 function welcomeCard() {
   return card(
     "Welcome",
-    "2026 Yearling Sale Planning",
+    "Let's plan your 2026 buckets",
     `<p class="prompt">Use the email address you use with TheStable.ca. You can review your answers before submitting.</p>
      <div class="actions single"><button class="btn primary" type="button" data-go="identify">Let's Get Started</button></div>`,
     "Welcome"
@@ -441,9 +441,9 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
       ["filly", "Fillies", ""],
       ["both", "Both colts and fillies", ""],
     ], prefs)}${actionsFn(Boolean(prefs.sexPacer))}`, tag),
-    bucketDetailMode: () => card(meta, "Should your bucket preferences be the same for every gait and bucket type?", `${radioOptions("bucketDetailMode", prefs.bucketDetailMode, [
-      ["simple", "Yes, keep one bucket preference for everything", "Fastest option."],
-      ["detailed", "No, set preferences by gait and bucket type", "Use this if premium trotters and value pacers should be handled differently."],
+    bucketDetailMode: () => card(meta, "Should your bucket preferences be the same for every gait and bucket type?", `<p class="prompt">You can change this later, but switching between these two options will clear the bucket answers you gave under the option you're switching away from.</p>${radioOptions("bucketDetailMode", prefs.bucketDetailMode, [
+      ["simple", "Yes, keep one bucket preference for everything", "Fastest option. One percentage applies to every bucket type you pick."],
+      ["detailed", "No, set preferences by gait and bucket type", "Use this if premium trotters and value pacers should have different percentages, e.g. 2% for one and 10% for another."],
     ], prefs)}${actionsFn(Boolean(prefs.bucketDetailMode))}`, "Bucket"),
     bucketMatrix: () => card(meta, "Which bucket ideas fit your interest?", `<p class="prompt">Select the bucket ideas that fit you, then set your intended share percentage. Maximum yearlings is optional guidance.</p>${bucketMatrixHtml(prefs)}${actionsFn(bucketMatrixReady(prefs))}`, "Bucket"),
     bucketTypes: () => card(meta, "Which bucket types would you consider?", `<p class="prompt">Select all that apply.</p>${checkOptions("bucketTypes", prefs.bucketTypes, BUCKET_TYPES, prefs)}${actionsFn(Boolean(prefs.bucketTypes.length))}`, "Bucket"),
@@ -455,7 +455,7 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
       ["4", "Up to 4 yearlings", "4", ""],
       ["5plus", "5 or more is OK", "5+", ""],
     ], prefs)}${actionsFn(Boolean(prefs.maxYearlings))}`, "Bucket"),
-    bucketLevel: () => card(meta, "What share percentage would you consider in each selected bucket?", `<p class="prompt">Choose the percentage you would like to reserve in a bucket. Dollar indications can be added later once estimates are confirmed.</p>${choiceOptions("bucketLevel", prefs.bucketLevel, BUCKET_LEVELS, prefs)}${prefs.bucketLevel === "other" ? `<div class="field-stack"><input class="input" id="bucketAmount" inputmode="decimal" value="${escapeHtml(prefs.bucketAmount)}" placeholder="Custom percentage, e.g. 12.5"></div>` : ""}${actionsFn(Boolean(prefs.bucketLevel && (prefs.bucketLevel !== "other" || prefs.bucketAmount)))}`, "Bucket"),
+    bucketLevel: () => card(meta, "What share percentage would you consider in each selected bucket?", `<p class="prompt">This percentage will apply to every bucket type you selected on the previous step. For example, if you selected Premium and Value and choose 5% here, that means 5% interest in Premium AND 5% interest in Value — not 5% split between them. Dollar indications can be added later once estimates are confirmed.</p><p class="prompt">Want a different percentage per bucket type instead (e.g. 2% for one, 10% for another)? Go back and choose "set preferences by gait and bucket type" instead.</p>${choiceOptions("bucketLevel", prefs.bucketLevel, BUCKET_LEVELS, prefs)}${prefs.bucketLevel === "other" ? `<div class="field-stack"><input class="input" id="bucketAmount" inputmode="decimal" value="${escapeHtml(prefs.bucketAmount)}" placeholder="Custom percentage, e.g. 12.5"></div>` : ""}${actionsFn(Boolean(prefs.bucketLevel && (prefs.bucketLevel !== "other" || prefs.bucketAmount)))}`, "Bucket"),
     specificHorseCount: () => card(meta, "How many individual horses would you usually consider buying shares in after a sale?", `${radioOptions("specificHorseCount", prefs.specificHorseCount, [
       ["one", "One horse only", ""],
       ["two", "Up to 2 horses", ""],
@@ -681,7 +681,7 @@ function identifyOwner() {
   draft.owner = owner || null;
   draft.unmatched = !owner;
   draft.identifyError = "";
-  if (existing) draft = { ...clone(emptyDraft), ...existing, view: "interest", name, email, owner: owner || null, unmatched: !owner, resumedExisting: true };
+  if (existing) draft = { ...normalizeDraft(existing), view: "interest", name, email, owner: owner || null, unmatched: !owner, resumedExisting: true };
   else draft.view = "interest";
   saveDraft();
   render();

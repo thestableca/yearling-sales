@@ -4,6 +4,8 @@
 
 These documents assume the tool has moved from the current localStorage-only demo to the planned Supabase backend (see `database_schema_design.md`) — the wording below describes that future state, not the current prototype. Update the "how we store it" language if the actual implementation changes.
 
+**2026-08-29 update:** corrected an internal inconsistency — an earlier version of the privacy notice claimed data is never shared "with anyone outside TheStable.ca," which directly contradicted the planned use of Supabase (and possibly a third-party email service for admin notifications) as data processors. Now discloses that service providers host/process the data on TheStable's behalf, and that this may mean storage outside Canada — flag this to the reviewing lawyer specifically, since the exact wording of a cross-border disclosure is something PIPEDA guidance addresses and a non-lawyer draft shouldn't be trusted to get exactly right.
+
 ---
 
 ## 1. Privacy Notice (to link from the intake form)
@@ -18,7 +20,9 @@ These documents assume the tool has moved from the current localStorage-only dem
 >
 > **How we use it:** to plan which buckets to offer, to contact you if a bucket matching your stated interest becomes available, and to let you review or update your own submission later using your email address.
 >
-> **What we don't do:** we don't sell or share your information with anyone outside TheStable.ca, and we don't use it for unrelated marketing without asking you separately first.
+> **What we don't do:** we don't sell your information, and we don't use it for unrelated marketing without asking you separately first. We don't share it with anyone outside TheStable.ca except the service providers who host and operate this form for us (see "Where it's stored" below) — they only process it on our behalf, under our instructions.
+>
+> **Where it's stored:** this form and the information you submit are hosted using third-party service providers, which may store or process data outside Canada. Your information remains subject to the laws of the country where it's stored, in addition to Canadian law.
 >
 > **How long we keep it:** for the duration of the current sale planning cycle and a reasonable period afterward for record-keeping; you can ask us to delete it sooner (see below).
 >

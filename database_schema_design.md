@@ -42,13 +42,24 @@ Status: design only, not yet built. Waiting on TheStable's final intake question
 
 This is the table that gets restricted or dropped from the query entirely if the anonymity answer is "level 2." See RLS section below.
 
-### `responses` (one row per owner per sale year)
+### `submissions` (one row per owner per intake — the top-level "yes/no interested" answer)
 | column | type | notes |
 |---|---|---|
 | id | uuid (PK) | |
+| owner_id | uuid (FK → owners.id, nullable) | |
+| year | int | which year's intake this belongs to |
+| interest | text | yes/no — the top-level "are you interested in 2026" question |
+| submitted_at / updated_at | timestamptz | |
+
+This exists because an owner who answers "no" has zero sale-scoped rows to attach an answer to — app.js's own logic confirms this: `interest = "no"` submits with `selectedSales: []` and `saleResponses: {}` (no per-sale data at all). Putting `interest` directly on `responses` (as an earlier version of this doc did) can't represent that case, since every `responses` row requires a `sale_year_id`. A "yes" answer has one `submissions` row plus one or more `responses` rows (below); a "no" answer has only the `submissions` row.
+
+### `responses` (one row per owner per sale year — only for owners who said "yes")
+| column | type | notes |
+|---|---|---|
+| id | uuid (PK) | |
+| submission_id | uuid (FK → submissions.id) | |
 | owner_id | uuid (FK → owners.id, nullable) | null if the anonymity decision requires no link at all |
 | sale_year_id | uuid (FK → sale_years.id) | scopes every response to one sale AND one year — see `sale_years` above |
-| interest | text | yes/no, from the top-level intake question |
 | participation | text | bucket / specific / both |
 | gait | text | trotter / pacer / both |
 | sex | text | colt / filly / both |
@@ -98,3 +109,8 @@ This schema can be created in Supabase now, independent of TheStable's pending a
 - **Investment-intent language**: some existing UI copy ("reserve" a bucket percentage, "Potential coverage: 136.5%") reads closer to a pooled-investment pitch than a soft interest survey — the project brief itself already flags this tension. This is a legal question for TheStable, not a dev decision — flag it, don't silently reword it.
 - **Real owner list handling**: the current hardcoded `OWNERS` array in `app.js` (Robert Sikkema, Brian L., Mark D., Jennifer S. — all fake emails) must never be replaced with TheStable's real ~900-owner list before Supabase + RLS exist. A real owner list in client-side JS on public GitHub Pages would be readable by anyone.
 - **Custom domain**: `github.io` is fine for the demo phase happening now, but isn't ideal as the long-term public-facing URL once real names/emails/investment intent are collected from real owners. Natural to bundle with the ownership-transfer milestone already tracked in memory.
+
+## Data-integrity lessons from the localStorage prototype (carry these into the Supabase migration)
+
+- **Always normalize/validate data read back from storage before merging it into live app state**, even data the app wrote itself. `prototype_v3/app.js` had a real bug (fixed 2026-08-29) where resuming an existing submission spread the raw stored response object directly into draft state, bypassing the normalization step that a fresh draft always goes through — any future field drift between what's stored and what the UI expects would have produced silent `undefined` reads. When building the Supabase-backed version, apply the same discipline: never trust a row read from the database to exactly match the current expected shape without a normalization/validation step, especially across a schema migration.
+- **Keep row-building logic consistent across all code paths that produce the same kind of row.** `flattenResponses()` in app.js builds owner-detail rows via three different branches (detailed bucket, simple bucket, specific-only) that don't all produce the same set of fields — harmless today only because nothing currently reads a field a given branch happens to omit. Worth deliberately designing the equivalent Supabase query/view to return one consistent row shape regardless of which intake path an owner took, rather than replicating this branch-shaped inconsistency in SQL.
