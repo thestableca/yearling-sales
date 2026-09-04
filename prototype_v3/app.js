@@ -808,6 +808,11 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function identifyOwner() {
   const name = document.querySelector("#nameInput").value.trim();
   const email = document.querySelector("#emailInput").value.trim().toLowerCase();
+  // Keep whatever was typed even when validation fails below, so a typo in
+  // one field doesn't force re-typing both — re-rendering after an error
+  // reads these back into the inputs' value attributes.
+  draft.name = name;
+  draft.email = email;
   if (!name || !email) {
     draft.identifyError = "Please enter both your name and email address.";
     render();
@@ -820,8 +825,6 @@ function identifyOwner() {
   }
   const owner = OWNERS.find((item) => item.email.toLowerCase() === email);
   const existing = getResponses().find((response) => response.email.toLowerCase() === email);
-  draft.name = name;
-  draft.email = email;
   draft.owner = owner || null;
   draft.unmatched = !owner;
   draft.identifyError = "";
