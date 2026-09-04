@@ -1604,4 +1604,34 @@ th .col-filter option {
 .currency-toggle { display: inline-flex; background: #fff; border: 1px solid var(--line, #d8dee8); border-radius: 999px; padding: 3px; gap: 2px; }
 .ccy-btn { font-family: "Inter", sans-serif; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; color: var(--ink-soft, #445069); background: transparent; border: none; border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: background 0.15s, color 0.15s; }
 .ccy-btn:hover { color: var(--navy-deep, #071429); }
+
+/* Print: hide anything that's only meaningful on screen (tab navigation,
+   Export/Reset/Preview buttons, currency toggle, filter controls), and
+   swap the dark navy masthead/verdict panels for a light, ink-friendly
+   outline instead of printing a full-bleed dark background. */
+@media print {
+  .site-header, .admin-tabs, .topbar-right, .back-to-site,
+  .export-btn, .currency-toggle, .preview-banner,
+  th .col-filter, .ref-info-dot { display: none !important; }
+
+  .refskin.dashboard-page, .refskin { background: #fff !important; }
+  .refskin.dashboard-page .masthead,
+  .refskin.dashboard-page .verdict,
+  .qb-block-head { background: #fff !important; border: 1px solid var(--line, #d8dee8) !important; color: var(--ink, #172033) !important; }
+  .refskin.dashboard-page .masthead .sub,
+  .refskin.dashboard-page .eyebrow,
+  .refskin.dashboard-page .verdict-label,
+  .refskin.dashboard-page .response-copy .d,
+  .refskin.dashboard-page .vs-label { color: var(--muted, #637083) !important; }
+  .refskin.dashboard-page .masthead .logo-img { filter: none !important; }
+  .refskin.dashboard-page .verdict-figure,
+  .refskin.dashboard-page .response-copy .n,
+  .refskin.dashboard-page .vs-value { color: var(--ink, #172033) !important; }
+  .refskin.dashboard-page .response-ring .ring { background: none !important; border: 2px solid var(--line, #d8dee8) !important; }
+  .refskin.dashboard-page .response-ring .ring > div { background: #fff !important; color: var(--ink, #172033) !important; }
+  .refskin.dashboard-page .vs-bars, .refskin.dashboard-page .vs-bars-empty { display: none !important; }
+
+  .ref-panel, .panel { break-inside: avoid; }
+  table thead tr { background: var(--navy-deep, #071429) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 .ccy-btn.active { background: var(--gold, #ad7f24); color: #fff; }

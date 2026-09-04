@@ -2137,7 +2137,8 @@ function buildPreviewMetricsHistory(todayMetrics) {
 function recordMetricsSnapshot(metrics) {
   let history;
   try {
-    history = JSON.parse(localStorage.getItem(METRICS_HISTORY_KEY) || "[]");
+    const parsed = JSON.parse(localStorage.getItem(METRICS_HISTORY_KEY) || "[]");
+    history = Array.isArray(parsed) ? parsed : [];
   } catch {
     history = [];
   }
