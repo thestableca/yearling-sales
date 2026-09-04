@@ -1541,12 +1541,12 @@ th .col-filter option {
 .refskin .global-tooltip.show { display: block; }
 
 /* Confirmed offer */
-.refskin.dashboard-page .confirmed-bucket-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-.refskin.dashboard-page .confirmed-bucket-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-.refskin.dashboard-page .cbc-name { font-family: "Fraunces", serif; font-weight: 600; font-size: 14.5px; color: var(--ink); margin-bottom: 4px; }
+.refskin.dashboard-page .confirmed-bucket-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; align-items: stretch; }
+.refskin.dashboard-page .confirmed-bucket-card { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; height: 100%; }
+.refskin.dashboard-page .cbc-name { font-family: "Fraunces", serif; font-weight: 600; font-size: 14.5px; line-height: 1.3; color: var(--ink); margin-bottom: 8px; min-height: 2.6em; display: flex; align-items: flex-start; }
 .refskin.dashboard-page .cbc-price { font-family: "Fraunces", serif; font-weight: 600; font-size: 18px; color: var(--navy-deep); font-variant-numeric: tabular-nums; }
 .refskin.dashboard-page .cbc-criteria { font-size: 11.5px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin-top: 6px; }
-.refskin.dashboard-page .cbc-note { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+.refskin.dashboard-page .cbc-note { font-size: 12px; color: var(--muted); margin-top: auto; padding-top: 6px; line-height: 1.4; }
 
 /* Suggestions */
 .refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.7fr 0.9fr 0.7fr 0.9fr 1fr; gap: 14px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
