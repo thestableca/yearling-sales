@@ -1,0 +1,405 @@
+// ===== Questions module: block schema, storage, and default preset =====
+// This file defines the data layer for a configurable, block-based
+// questionnaire. It does not change any current behavior on its own —
+// app.js keeps working exactly as before until it is wired to read from
+// this module in a later step.
+
+const QUESTION_SETS_KEY = "thestable_question_sets_v1";
+const CONFIRMED_BUCKETS_KEY = "thestable_confirmed_buckets_v1";
+
+// ----- Confirmed buckets -----
+// Separate from bucket_config (which drives the owner-intake question set).
+// This is Anthony's actual, finalized offer for a sale year, decided AFTER
+// reviewing demand on the dashboard's "Suggested buckets" panel — it does
+// not feed back into what owners see in the intake form.
+
+function loadConfirmedBuckets() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CONFIRMED_BUCKETS_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveConfirmedBuckets(bySaleYear) {
+  localStorage.setItem(CONFIRMED_BUCKETS_KEY, JSON.stringify(bySaleYear));
+}
+
+function getConfirmedBuckets(saleYearId) {
+  const all = loadConfirmedBuckets();
+  return all[saleYearId] || [];
+}
+
+function saveConfirmedBucketsFor(saleYearId, buckets) {
+  const all = loadConfirmedBuckets();
+  all[saleYearId] = buckets;
+  saveConfirmedBuckets(all);
+}
+
+function newConfirmedBucket() {
+  return { id: "cb_" + Math.random().toString(36).slice(2, 10), name: "New bucket", price: null, gait: "any", sex: "any", note: "" };
+}
+
+// ----- Block schema -----
+// A block looks like:
+// {
+//   id: "gait",                    // stable key; answers are stored keyed on this, never on the label
+//   type: "single_select",         // single_select | multi_select | yes_no | bucket_config | text | number
+//   label: "Which gait...",
+//   helpText: "",                  // optional prompt text shown above the options
+//   options: [{ value, label, help }],
+//   required: true,
+//   dependsOn: null,                // or { blockId, op, value } — op: equals | includes | notEmpty
+//   sortOrder: 0,
+//   gatesProgress: true             // default true; see visibleBlocks() below
+// }
+//
+// gatesProgress: most blocks must be answered before anything later can
+// appear (the walk stops and waits). A few blocks are shown together as
+// one page and don't individually block progress to what comes after —
+// e.g. bucketTypes/maxYearlings/bucketLevel are revealed as a group once
+// bucketDetailMode is answered, and the flow is allowed to move on (e.g.
+// reveal applyMode) even if one of those three is still blank. Set
+// gatesProgress: false on a block to opt out of blocking the walk.
+
+// A block's dependsOn is either a single { blockId, op, value } condition,
+// or an array of them (all must be satisfied) — used when a block only
+// becomes relevant once several earlier answers are all in, e.g.
+// bucketDetailMode needing both sexTrotter and sexPacer once gait="both".
+function blockDependsOnSatisfied(block, answers) {
+  if (!block.dependsOn) return true;
+  if (Array.isArray(block.dependsOn)) {
+    return block.dependsOn.every((condition) => conditionSatisfied(condition, answers));
+  }
+  return conditionSatisfied(block.dependsOn, answers);
+}
+
+function conditionSatisfied(condition, answers) {
+  const { blockId, op, value } = condition;
+  const parentValue = answers[blockId];
+  if (op === "notEmpty") {
+    if (Array.isArray(parentValue)) return parentValue.length > 0;
+    return Boolean(parentValue);
+  }
+  if (op === "equals") return parentValue === value;
+  if (op === "includes") {
+    if (Array.isArray(parentValue)) return parentValue.includes(value);
+    return parentValue === value;
+  }
+  // "in": parentValue must equal one of several values, e.g. gait is
+  // "trotter" OR "pacer" (but not "both", which routes to a different
+  // pair of blocks instead). value is an array for this op.
+  if (op === "in") return Array.isArray(value) && value.includes(parentValue);
+  return true;
+}
+
+function blockAnswered(block, answers) {
+  const value = answers[block.id];
+  if (block.type === "multi_select") return Array.isArray(value) && value.length > 0;
+  if (block.type === "bucket_matrix") return Boolean(value && value.ready);
+  return value !== undefined && value !== null && value !== "";
+}
+
+// Returns the ordered list of blocks that should currently be shown,
+// given the blocks defined for a question set and the answers so far.
+// This mirrors how defaultQuestions() in app.js currently reveals one
+// question (or a small related set of questions) at a time: blocks are
+// walked in sortOrder and grouped whenever consecutive blocks share the
+// exact same dependsOn (e.g. sexTrotter + sexPacer both depend on
+// gait="both", and are shown/required together as a pair). A group only
+// becomes visible once its dependsOn is satisfied, and the walk stops
+// right after the first group containing an unanswered gating block —
+// nothing after it can be reached yet, even if its own dependsOn would
+// otherwise be satisfied by a hypothetical future answer. Bucket-config
+// blocks and blocks marked gatesProgress: false are never "answered" in
+// this sense — they don't block the walk, though they still render.
+function visibleBlocks(blocks, answers) {
+  return walkBlocks(blocks, answers).visible;
+}
+
+// True once the walk has reached the natural end of the question set —
+// every block whose dependsOn is (reachably) satisfied has been shown
+// and answered — rather than stopping early on an unanswered gating
+// block. This is what tells app.js it's safe to reveal the final
+// applyMode step.
+function questionSetComplete(blocks, answers) {
+  return walkBlocks(blocks, answers).complete;
+}
+
+function walkBlocks(blocks, answers) {
+  const sorted = [...blocks].sort((a, b) => a.sortOrder - b.sortOrder);
+  const visible = [];
+  const visibleIds = new Set();
+  let i = 0;
+  let complete = true;
+  while (i < sorted.length) {
+    const block = sorted[i];
+    if (!blockReachable(block, answers, visibleIds)) {
+      i += 1;
+      continue;
+    }
+    // Collect the run of consecutive blocks sharing this exact dependsOn.
+    const group = [block];
+    let j = i + 1;
+    while (j < sorted.length && sameDependsOn(sorted[j].dependsOn, block.dependsOn)) {
+      if (blockReachable(sorted[j], answers, visibleIds)) group.push(sorted[j]);
+      j += 1;
+    }
+    visible.push(...group);
+    group.forEach((b) => visibleIds.add(b.id));
+    const blocksGate = group.some(
+      (b) => b.type !== "bucket_config" && b.gatesProgress !== false
+    );
+    const groupComplete = group.every(
+      (b) => b.type === "bucket_config" || b.gatesProgress === false || blockAnswered(b, answers)
+    );
+    if (blocksGate && !groupComplete) {
+      complete = false;
+      break;
+    }
+    i = j;
+  }
+  return { visible, complete };
+}
+
+// A block is reachable only once its dependsOn condition is satisfied
+// AND its dependsOn parent(s) were themselves actually reached (added to
+// the visible set already), not merely present somewhere in answers.
+// This keeps the walk correct even for answer combinations that a real
+// user could never produce (stale/unreachable leftover values), which
+// matters once Anthony can edit question sets and reset-on-change
+// clearing can't be relied on to keep answers internally consistent.
+function blockReachable(block, answers, visibleIds) {
+  if (!blockDependsOnSatisfied(block, answers)) return false;
+  const conditions = Array.isArray(block.dependsOn) ? block.dependsOn : block.dependsOn ? [block.dependsOn] : [];
+  return conditions.every((condition) => visibleIds.has(condition.blockId));
+}
+
+function sameDependsOn(a, b) {
+  return JSON.stringify(a || null) === JSON.stringify(b || null);
+}
+
+// ----- Storage -----
+
+function loadQuestionSets() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(QUESTION_SETS_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveQuestionSets(sets) {
+  localStorage.setItem(QUESTION_SETS_KEY, JSON.stringify(sets));
+}
+
+function getQuestionSet(saleYearId) {
+  const sets = loadQuestionSets();
+  if (sets[saleYearId]) return sets[saleYearId];
+  return defaultQuestionSet();
+}
+
+function saveQuestionSet(saleYearId, questionSet) {
+  const sets = loadQuestionSets();
+  sets[saleYearId] = questionSet;
+  saveQuestionSets(sets);
+}
+
+// ----- Default preset: reproduces today's live question set exactly -----
+// Built from the current hardcoded questions in app.js so that shipping
+// this module changes nothing until Anthony actually edits a question set.
+
+function defaultBucketConfig() {
+  return {
+    id: "bucket_config",
+    type: "bucket_config",
+    label: "Bucket options",
+    sortOrder: 100,
+    dependsOn: { blockId: "participation", op: "in", value: ["bucket", "both"] },
+    buckets: [
+      { key: "premium", name: "Premium yearling bucket", help: "Focus on higher-quality yearlings.", price: null, suggestedPrice: null },
+      { key: "balanced", name: "Balanced bucket", help: "A mix of quality and value.", price: null, suggestedPrice: null },
+      { key: "value", name: "Value buys / sale bargains bucket", help: "Look for value opportunities at the sale.", price: null, suggestedPrice: null },
+    ],
+  };
+}
+
+function defaultQuestionSet() {
+  return {
+    blocks: [
+      {
+        id: "participation",
+        type: "single_select",
+        label: "What type of yearling opportunity are you most interested in?",
+        sortOrder: 10,
+        dependsOn: null,
+        required: true,
+        options: [
+          { value: "bucket", label: "Pre-sale bucket", help: "Buckets are planned first, then yearlings are purchased to match the budget." },
+          { value: "specific", label: "After-sale individual shares", help: "Contact me if individual shares remain available after buckets are filled." },
+          { value: "both", label: "Both pre-sale bucket and after-sale individual shares", help: "" },
+        ],
+      },
+      {
+        id: "gait",
+        type: "single_select",
+        label: "Which gait should TheStable consider for you?",
+        sortOrder: 20,
+        dependsOn: { blockId: "participation", op: "notEmpty" },
+        required: true,
+        options: [
+          { value: "trotter", label: "Trotters", help: "" },
+          { value: "pacer", label: "Pacers", help: "" },
+          { value: "both", label: "Both trotters and pacers", help: "" },
+        ],
+      },
+      {
+        id: "sex",
+        type: "single_select",
+        label: "Which colt / filly preference should TheStable consider for you?",
+        sortOrder: 30,
+        dependsOn: { blockId: "gait", op: "in", value: ["trotter", "pacer"] },
+        required: true,
+        options: [
+          { value: "colt", label: "Colts", help: "" },
+          { value: "filly", label: "Fillies", help: "" },
+          { value: "both", label: "Both colts and fillies", help: "" },
+        ],
+      },
+      {
+        id: "sexTrotter",
+        type: "single_select",
+        label: "For trotters, which colt / filly preference should TheStable consider for you?",
+        sortOrder: 31,
+        dependsOn: { blockId: "gait", op: "equals", value: "both" },
+        required: true,
+        options: [
+          { value: "colt", label: "Colts", help: "" },
+          { value: "filly", label: "Fillies", help: "" },
+          { value: "both", label: "Both colts and fillies", help: "" },
+        ],
+      },
+      {
+        id: "sexPacer",
+        type: "single_select",
+        label: "For pacers, which colt / filly preference should TheStable consider for you?",
+        sortOrder: 32,
+        dependsOn: { blockId: "gait", op: "equals", value: "both" },
+        required: true,
+        options: [
+          { value: "colt", label: "Colts", help: "" },
+          { value: "filly", label: "Fillies", help: "" },
+          { value: "both", label: "Both colts and fillies", help: "" },
+        ],
+      },
+      {
+        id: "bucketDetailMode",
+        type: "single_select",
+        label: "Should your bucket preferences be the same for every gait and bucket type?",
+        helpText: "You can change this later, but switching between these two options will clear the bucket answers you gave under the option you're switching away from.",
+        sortOrder: 40,
+        dependsOn: { blockId: "participation", op: "in", value: ["bucket", "both"] },
+        required: true,
+        options: [
+          { value: "simple", label: "Yes, keep one bucket preference for everything", help: "Fastest option. One percentage applies to every bucket type you pick." },
+          { value: "detailed", label: "No, set preferences by gait and bucket type", help: "Use this if premium trotters and value pacers should have different percentages, e.g. 2% for one and 10% for another." },
+        ],
+      },
+      {
+        id: "bucketTypes",
+        type: "multi_select",
+        label: "Which bucket types would you consider?",
+        helpText: "Select all that apply.",
+        sortOrder: 50,
+        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "simple" },
+        required: true,
+        gatesProgress: false,
+        options: [
+          { value: "premium", label: "Premium yearling bucket", help: "Focus on higher-quality yearlings." },
+          { value: "balanced", label: "Balanced bucket", help: "A mix of quality and value." },
+          { value: "value", label: "Value buys / sale bargains bucket", help: "Look for value opportunities at the sale." },
+        ],
+      },
+      {
+        id: "maxYearlings",
+        type: "single_select",
+        label: "Do you have a maximum number of yearlings you prefer in a bucket?",
+        sortOrder: 51,
+        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "simple" },
+        required: true,
+        gatesProgress: false,
+        options: [
+          { value: "no_preference", label: "No preference", help: "TheStable can decide" },
+          { value: "1", label: "One yearling only", help: "" },
+          { value: "2", label: "Up to 2 yearlings", help: "" },
+          { value: "3", label: "Up to 3 yearlings", help: "" },
+          { value: "4", label: "Up to 4 yearlings", help: "" },
+          { value: "5plus", label: "5 or more is OK", help: "" },
+        ],
+      },
+      {
+        id: "bucketLevel",
+        type: "single_select",
+        label: "What share percentage would you consider in each selected bucket?",
+        helpText: "This percentage will apply to every bucket type you selected on the previous step. For example, if you selected Premium and Value and choose 5% here, that means 5% interest in Premium AND 5% interest in Value, not 5% split between them.",
+        sortOrder: 52,
+        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "simple" },
+        required: true,
+        gatesProgress: false,
+        allowCustomOther: true,
+        options: [
+          { value: "1", label: "1%", help: "Small" },
+          { value: "2", label: "2%", help: "Starter" },
+          { value: "5", label: "5%", help: "Medium" },
+          { value: "10", label: "10%", help: "Strong" },
+          { value: "20", label: "20%", help: "Large" },
+          { value: "30", label: "30%", help: "Very large" },
+          { value: "other", label: "Other %", help: "Custom" },
+        ],
+      },
+      {
+        id: "bucketMatrix",
+        type: "bucket_matrix",
+        label: "Which bucket ideas fit your interest?",
+        helpText: "Select the bucket ideas that fit you, then set your intended share percentage. Maximum yearlings is optional guidance.",
+        sortOrder: 53,
+        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "detailed" },
+        required: true,
+        gatesProgress: false,
+      },
+      {
+        id: "specificHorseCount",
+        type: "single_select",
+        label: "How many individual horses would you usually consider buying shares in after a sale?",
+        sortOrder: 60,
+        dependsOn: { blockId: "participation", op: "in", value: ["specific", "both"] },
+        required: true,
+        gatesProgress: false,
+        options: [
+          { value: "one", label: "One horse only", help: "" },
+          { value: "two", label: "Up to 2 horses", help: "" },
+          { value: "three_plus", label: "3 or more horses is OK", help: "" },
+        ],
+      },
+      {
+        id: "specificShareSize",
+        type: "single_select",
+        label: "For individual horse shares after a sale, what share size would you usually consider?",
+        sortOrder: 61,
+        dependsOn: { blockId: "participation", op: "in", value: ["specific", "both"] },
+        required: true,
+        gatesProgress: false,
+        options: [
+          { value: "1", label: "Around 1%", help: "Small share" },
+          { value: "2_5", label: "2% to 5%", help: "Medium share" },
+          { value: "5_10", label: "5% to 10%", help: "Larger share" },
+          { value: "10plus", label: "10% or more", help: "Major share" },
+          { value: "depends", label: "Depends on the horse", help: "Flexible" },
+        ],
+      },
+      defaultBucketConfig(),
+    ],
+  };
+}

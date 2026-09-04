@@ -19,6 +19,34 @@ const OWNERS = [
 const STORAGE_KEY = "thestable_yearling_responses_v7";
 const DRAFT_KEY = "thestable_yearling_draft_v7";
 const BUILD_ID = "prototype_v3_bucket_percent_no_split_v7";
+const OWNER_ROSTER_KEY = "thestable_owner_roster_v1";
+
+function getOwnerRoster() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(OWNER_ROSTER_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOwnerRoster(roster) {
+  localStorage.setItem(OWNER_ROSTER_KEY, JSON.stringify(roster));
+}
+
+// Parses one owner per line, formatted as "Name, email@example.com" (or
+// "Name <email@example.com>", or just an email on its own). Blank lines and
+// a header row containing "email" are skipped so a pasted spreadsheet
+// export works without manual cleanup first.
+function parseOwnerRosterText(text) {
+  const emailPattern = /[^\s<>,;]+@[^\s<>,;]+\.[^\s<>,;]+/;
+  return text.split("\n").map((line) => line.trim()).filter(Boolean).filter((line) => !/^name\b.*email/i.test(line)).map((line) => {
+    const emailMatch = line.match(emailPattern);
+    const email = emailMatch ? emailMatch[0].toLowerCase() : "";
+    const name = line.replace(email, "").replace(/[,<>]/g, "").trim() || email;
+    return email ? { name, email } : null;
+  }).filter(Boolean);
+}
 
 const BUCKET_TYPES = [
   ["premium", "Premium yearling bucket", "Focus on higher-quality yearlings."],
@@ -45,7 +73,7 @@ const MAX_YEARLING_OPTIONS = [
   ["5plus", "5+"],
 ];
 
-const CHART_COLORS = ["#003b86", "#d71920", "#4f7aa3", "#6f879d", "#7a2f34", "#8aa4c2"];
+const CHART_COLORS = ["#071429", "#ad7f24", "#93a1bf", "#0b1d3a", "#c9a13f", "#45557a"];
 
 function blankBucketMatrix() {
   return {
@@ -102,7 +130,14 @@ const emptyDraft = {
 
 let mode = "owner";
 let adminLoggedIn = false;
+let adminTab = "dashboard";
 let draft = loadDraft();
+// Preview mode shows the dashboard filled with fictional demo data so
+// Anthony can see what a busy dashboard looks like, without ever writing
+// that data into the same storage as real owner responses. It's a
+// runtime-only flag (never persisted), so it always resets to off on
+// reload — nobody can leave it on by accident the way a stored setting could.
+let previewMode = false;
 
 adminLink.addEventListener("click", () => {
   mode = "admin";
@@ -234,27 +269,23 @@ function bucketMatrixReady(prefs) {
   }));
 }
 
+// Question order/branching now comes from the active question set's
+// blocks (see questions.js). currentQuestionSet() returns the set for
+// the sale year currently being planned (falls back to the default
+// preset, which reproduces the original hardcoded order exactly).
+function currentQuestionSet() {
+  return getQuestionSet("default");
+}
+
 function defaultQuestions(prefs = draft.defaultPrefs) {
-  const questions = ["participation"];
-  if (!prefs.participation) return questions;
-
-  questions.push("gait");
-  if (!prefs.gait) return questions;
-
-  if (prefs.gait === "both") questions.push("sexTrotter", "sexPacer");
-  else questions.push("sex");
-
-  const sexReady = prefs.gait === "both" ? prefs.sexTrotter && prefs.sexPacer : prefs.sex;
-  if (!sexReady) return questions;
-
-  if (hasBucket(prefs)) {
-    questions.push("bucketDetailMode");
-    if (!prefs.bucketDetailMode) return questions;
-    if (usesDetailedBuckets(prefs)) questions.push("bucketMatrix");
-    else questions.push("bucketTypes", "maxYearlings", "bucketLevel");
-  }
-  if (hasSpecific(prefs)) questions.push("specificHorseCount", "specificShareSize");
-  questions.push("applyMode");
+  const allBlocks = currentQuestionSet().blocks;
+  const visible = visibleBlocks(allBlocks, prefs);
+  const blocks = visible.filter((block) => block.type !== "bucket_config");
+  const questions = blocks.map((block) => block.id);
+  // applyMode is the final step, added only once the walk has reached
+  // the natural end of the question set instead of stopping early on an
+  // unanswered gating question.
+  if (visible.length > 0 && questionSetComplete(allBlocks, prefs)) questions.push("applyMode");
   return questions;
 }
 
@@ -410,67 +441,92 @@ function eligibilityCard() {
 function defaultCard() {
   const prefs = draft.defaultPrefs;
   const questions = defaultQuestions(prefs);
-  if (draft.defaultIndex >= questions.length) draft.defaultIndex = questions.length - 1;
+  if (draft.defaultIndex >= questions.length) draft.defaultIndex = Math.max(0, questions.length - 1);
   return preferenceQuestionCard("Default preferences", questions[draft.defaultIndex], prefs, defaultActions, "Defaults");
 }
 
+// Renders a question card generically from the active question set's
+// block definitions instead of a hardcoded per-question switch. A block's
+// `type` picks the input widget (single_select -> radioOptions,
+// multi_select -> checkOptions, bucket_matrix -> the matrix editor); a
+// handful of blocks that don't fit that generic shape (applyMode's
+// dynamic options, bucketLevel's "Other %" free-text field) are handled
+// as small, explicit special cases layered on top.
 function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
-  const screens = {
-    participation: () => card(meta, "What type of yearling opportunity are you most interested in?", `${radioOptions("participation", prefs.participation, [
-      ["bucket", "Pre-sale bucket", "Buckets are planned first, then yearlings are purchased to match the budget."],
-      ["specific", "After-sale individual shares", "Contact me if individual shares remain available after buckets are filled."],
-      ["both", "Both pre-sale bucket and after-sale individual shares", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.participation))}`, tag),
-    gait: () => card(meta, "Which gait should TheStable consider for you?", `${radioOptions("gait", prefs.gait, [
-      ["trotter", "Trotters", ""],
-      ["pacer", "Pacers", ""],
-      ["both", "Both trotters and pacers", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.gait))}`, tag),
-    sex: () => card(meta, "Which colt / filly preference should TheStable consider for you?", `${radioOptions("sex", prefs.sex, [
-      ["colt", "Colts", ""],
-      ["filly", "Fillies", ""],
-      ["both", "Both colts and fillies", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.sex))}`, tag),
-    sexTrotter: () => card(meta, "For trotters, which colt / filly preference should TheStable consider for you?", `${radioOptions("sexTrotter", prefs.sexTrotter, [
-      ["colt", "Colts", ""],
-      ["filly", "Fillies", ""],
-      ["both", "Both colts and fillies", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.sexTrotter))}`, tag),
-    sexPacer: () => card(meta, "For pacers, which colt / filly preference should TheStable consider for you?", `${radioOptions("sexPacer", prefs.sexPacer, [
-      ["colt", "Colts", ""],
-      ["filly", "Fillies", ""],
-      ["both", "Both colts and fillies", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.sexPacer))}`, tag),
-    bucketDetailMode: () => card(meta, "Should your bucket preferences be the same for every gait and bucket type?", `<p class="prompt">You can change this later, but switching between these two options will clear the bucket answers you gave under the option you're switching away from.</p>${radioOptions("bucketDetailMode", prefs.bucketDetailMode, [
-      ["simple", "Yes, keep one bucket preference for everything", "Fastest option. One percentage applies to every bucket type you pick."],
-      ["detailed", "No, set preferences by gait and bucket type", "Use this if premium trotters and value pacers should have different percentages, e.g. 2% for one and 10% for another."],
-    ], prefs)}${actionsFn(Boolean(prefs.bucketDetailMode))}`, "Bucket"),
-    bucketMatrix: () => card(meta, "Which bucket ideas fit your interest?", `<p class="prompt">Select the bucket ideas that fit you, then set your intended share percentage. Maximum yearlings is optional guidance.</p>${bucketMatrixHtml(prefs)}${actionsFn(bucketMatrixReady(prefs))}`, "Bucket"),
-    bucketTypes: () => card(meta, "Which bucket types would you consider?", `<p class="prompt">Select all that apply.</p>${checkOptions("bucketTypes", prefs.bucketTypes, BUCKET_TYPES, prefs)}${actionsFn(Boolean(prefs.bucketTypes.length))}`, "Bucket"),
-    maxYearlings: () => card(meta, "Do you have a maximum number of yearlings you prefer in a bucket?", `${choiceOptions("maxYearlings", prefs.maxYearlings, [
-      ["no_preference", "No preference", "TheStable can decide", ""],
-      ["1", "One yearling only", "1", ""],
-      ["2", "Up to 2 yearlings", "2", ""],
-      ["3", "Up to 3 yearlings", "3", ""],
-      ["4", "Up to 4 yearlings", "4", ""],
-      ["5plus", "5 or more is OK", "5+", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.maxYearlings))}`, "Bucket"),
-    bucketLevel: () => card(meta, "What share percentage would you consider in each selected bucket?", `<p class="prompt">This percentage will apply to every bucket type you selected on the previous step. For example, if you selected Premium and Value and choose 5% here, that means 5% interest in Premium AND 5% interest in Value — not 5% split between them. Dollar indications can be added later once estimates are confirmed.</p><p class="prompt">Want a different percentage per bucket type instead (e.g. 2% for one, 10% for another)? Go back and choose "set preferences by gait and bucket type" instead.</p>${choiceOptions("bucketLevel", prefs.bucketLevel, BUCKET_LEVELS, prefs)}${prefs.bucketLevel === "other" ? `<div class="field-stack"><input class="input" id="bucketAmount" inputmode="decimal" value="${escapeHtml(prefs.bucketAmount)}" placeholder="Custom percentage, e.g. 12.5"></div>` : ""}${actionsFn(Boolean(prefs.bucketLevel && (prefs.bucketLevel !== "other" || prefs.bucketAmount)))}`, "Bucket"),
-    specificHorseCount: () => card(meta, "How many individual horses would you usually consider buying shares in after a sale?", `${radioOptions("specificHorseCount", prefs.specificHorseCount, [
-      ["one", "One horse only", ""],
-      ["two", "Up to 2 horses", ""],
-      ["three_plus", "3 or more horses is OK", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.specificHorseCount))}`, "After-sale shares"),
-    specificShareSize: () => card(meta, "For individual horse shares after a sale, what share size would you usually consider?", `${choiceOptions("specificShareSize", prefs.specificShareSize, [
-      ["1", "Around 1%", "Small share", ""],
-      ["2_5", "2% to 5%", "Medium share", ""],
-      ["5_10", "5% to 10%", "Larger share", ""],
-      ["10plus", "10% or more", "Major share", ""],
-      ["depends", "Depends on the horse", "Flexible", ""],
-    ], prefs)}${actionsFn(Boolean(prefs.specificShareSize))}`, "After-sale shares"),
-    applyMode: () => card(meta, "Should these preferences apply to all selected sales?", `${radioOptions("applyMode", draft.applyMode, applyModeOptions(prefs))}${actionsFn(Boolean(draft.applyMode))}`, "Apply")
-  };
-  return screens[question]();
+  if (question === "applyMode") {
+    return card(meta, "Should these preferences apply to all selected sales?", `${radioOptions("applyMode", draft.applyMode, applyModeOptions(prefs))}${actionsFn(Boolean(draft.applyMode))}`, "Apply");
+  }
+
+  const block = currentQuestionSet().blocks.find((b) => b.id === question);
+  if (!block) {
+    // No question left to show (e.g. the question set was edited down to
+    // nothing, or the requested block no longer exists). Surface this
+    // instead of silently rendering a blank, dead-end card.
+    return card(meta, "This question is no longer available", `<p class="notice">Please contact TheStable to continue — there's nothing left to answer here.</p><div class="actions single"><button class="btn" type="button" data-go="welcome">Start over</button></div>`, tag);
+  }
+  const blockTag = block.id === "participation" || block.id === "gait" || block.id === "sex" || block.id === "sexTrotter" || block.id === "sexPacer" ? tag
+    : block.dependsOn && (block.dependsOn.blockId === "participation") && block.id.startsWith("specific") ? "After-sale shares"
+    : block.dependsOn && (block.dependsOn.blockId === "participation" || block.dependsOn.blockId === "bucketDetailMode") ? "Bucket"
+    : "Question";
+
+  if (block.type === "bucket_matrix") {
+    return card(meta, block.label, `${block.helpText ? `<p class="prompt">${block.helpText}</p>` : ""}${bucketMatrixHtml(prefs)}${actionsFn(bucketMatrixReady(prefs))}`, blockTag);
+  }
+
+  if (block.type === "text" || block.type === "number") {
+    const value = prefs[block.id] || "";
+    const inputType = block.type === "number" ? "number" : "text";
+    return card(meta, block.label, `${helpText(block)}<div class="field-stack"><input class="input" type="${inputType}" data-text-field="${block.id}" data-target="${prefs === draft.defaultPrefs ? "default" : "sale"}" value="${escapeHtml(value)}" placeholder="Your answer"></div>${actionsFn(Boolean(String(value).trim()))}`, blockTag);
+  }
+
+  // The bucketTypes question's options must always match the buckets
+  // configured in the Questions admin tab's bucket_config block — they
+  // aren't kept as separate, independently-edited option lists, so
+  // renaming/removing a bucket there can't leave this question offering
+  // a bucket that no longer exists.
+  const optionRows = block.id === "bucketTypes"
+    ? bucketConfigOptionRows()
+    : (block.options || []).map((o) => [o.value, o.label, o.help || ""]);
+
+  if (block.type === "multi_select") {
+    const selected = prefs[block.id] || [];
+    if (!optionRows.length) {
+      return card(meta, block.label, `${helpText(block)}<p class="notice">No answer options are configured for this question yet.</p>${actionsFn(true)}`, blockTag);
+    }
+    return card(meta, block.label, `${helpText(block)}${checkOptions(block.id, selected, optionRows, prefs)}${actionsFn(Boolean(selected.length))}`, blockTag);
+  }
+
+  // single_select: choiceOptions (grid, with an amount/help column) is
+  // used for the value-style questions (maxYearlings, bucketLevel,
+  // specificShareSize); radioOptions (simple list) for the rest.
+  const value = prefs[block.id];
+  if (block.id === "maxYearlings" || block.id === "specificShareSize") {
+    const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
+    return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${actionsFn(Boolean(value))}`, blockTag);
+  }
+  if (block.id === "bucketLevel") {
+    const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
+    const otherInput = value === "other" ? `<div class="field-stack"><input class="input" id="bucketAmount" inputmode="decimal" value="${escapeHtml(prefs.bucketAmount)}" placeholder="Custom percentage, e.g. 12.5"></div>` : "";
+    return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${otherInput}${actionsFn(Boolean(value && (value !== "other" || prefs.bucketAmount)))}`, blockTag);
+  }
+  if (!optionRows.length) {
+    // A select-type block with no options left to choose (e.g. every
+    // option — or, for bucketTypes, every bucket — was removed in the
+    // Questions admin tab). There is nothing an owner can select, so
+    // don't strand them behind a disabled Continue button — let them
+    // proceed past it instead.
+    return card(meta, block.label, `${helpText(block)}<p class="notice">No answer options are configured for this question yet.</p>${actionsFn(true)}`, blockTag);
+  }
+  return card(meta, block.label, `${helpText(block)}${radioOptions(block.id, value, optionRows, prefs)}${actionsFn(Boolean(value))}`, blockTag);
+}
+
+function bucketConfigOptionRows() {
+  const bucketConfig = currentQuestionSet().blocks.find((b) => b.type === "bucket_config");
+  return (bucketConfig?.buckets || []).map((b) => [b.key, b.name, b.help || ""]);
+}
+
+function helpText(block) {
+  return block.helpText ? `<p class="prompt">${block.helpText}</p>` : "";
 }
 
 function applyModeOptions(prefs) {
@@ -527,7 +583,7 @@ function customChoiceCard() {
 function saleDetailCard() {
   const response = currentSaleResponse();
   const questions = saleDetailQuestions(response);
-  if (draft.questionIndex >= questions.length) draft.questionIndex = questions.length - 1;
+  if (draft.questionIndex >= questions.length) draft.questionIndex = Math.max(0, questions.length - 1);
   return preferenceQuestionCard(currentSaleLabel(), questions[draft.questionIndex], response, saleActions, "Per sale");
 }
 
@@ -583,12 +639,13 @@ function choiceOptions(field, value, options, target = null) {
 }
 
 function bucketMatrixHtml(prefs) {
+  const matrix = prefs.bucketMatrix || blankBucketMatrix();
   return `<div class="bucket-matrix">${activeGaits(prefs).map((gait) => `
     <section class="matrix-group">
       <h3>${labelFor("gait", gait)}${bucketSexLabel(prefs, gait) ? ` - ${bucketSexLabel(prefs, gait)}` : ""}</h3>
       <div class="matrix-rows">
         ${BUCKET_TYPES.map(([bucketType, label, help]) => {
-          const row = prefs.bucketMatrix[gait][bucketType];
+          const row = matrix[gait]?.[bucketType] || { enabled: false, level: "", amount: "", maxYearlings: "" };
           return `
             <div class="matrix-row ${row.enabled ? "selected" : ""}">
               <button class="matrix-toggle" type="button" data-matrix-toggle="${bucketType}" data-gait="${gait}" data-target="${prefs === draft.defaultPrefs ? "default" : "sale"}">
@@ -656,6 +713,15 @@ function bindOwner() {
   document.querySelector("#bucketAmount")?.addEventListener("input", () => {
     saveInputs();
     updateContinueState(getActivePrefs());
+  });
+  document.querySelectorAll("[data-text-field]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const target = getTarget(input.dataset.target);
+      target[input.dataset.textField] = input.value;
+      saveDraft();
+      const button = document.querySelector("[data-default-next], [data-sale-next]");
+      if (button) button.disabled = !input.value.trim();
+    });
   });
 }
 
@@ -926,6 +992,18 @@ function saveInputs() {
   }
 }
 
+// Block ids with dedicated, hand-written summary handling above/below.
+// Any other block in the active question set (i.e. a custom question
+// Anthony added in the Questions admin tab) is not covered by that
+// hardcoded logic, so it's appended generically afterwards — otherwise
+// an owner's answer to a custom question would be collected but never
+// shown back to them on the review screen before they submit.
+const KNOWN_SUMMARY_BLOCK_IDS = new Set([
+  "participation", "gait", "sex", "sexTrotter", "sexPacer",
+  "bucketDetailMode", "bucketMatrix", "bucketTypes", "maxYearlings", "bucketLevel",
+  "specificHorseCount", "specificShareSize",
+]);
+
 function summarizeSale(response) {
   const parts = [
     labelFor("participation", response.participation),
@@ -944,7 +1022,22 @@ function summarizeSale(response) {
   if (hasSpecific(response)) {
     parts.push(labelFor("specificHorseCount", response.specificHorseCount), labelFor("specificShareSize", response.specificShareSize));
   }
+  parts.push(...customAnswerSummaries(response));
   return parts.filter(Boolean).join(" | ");
+}
+
+function customAnswerSummaries(response) {
+  const customBlocks = currentQuestionSet().blocks.filter(
+    (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
+  );
+  return customBlocks.map((block) => {
+    const value = response[block.id];
+    if (value === undefined || value === null || value === "" || (Array.isArray(value) && !value.length)) return "";
+    const answerText = Array.isArray(value)
+      ? value.map((item) => labelFor(block.id, item) || item).join(", ")
+      : labelFor(block.id, value) || value;
+    return `${block.label}: ${answerText}`;
+  }).filter(Boolean);
 }
 
 function summarizeBucketMatrix(response) {
@@ -1009,6 +1102,1119 @@ async function sha256Hex(text) {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function adminTabs() {
+  const tabs = [
+    ["dashboard", "Dashboard"],
+    ["salehistory", "Sale History"],
+    ["questions", "Questions Builder"],
+    ["owners", "Owner Roster"],
+  ];
+  return `<div class="admin-tabs">${tabs.map(([id, label]) => `<button class="admin-tab ${adminTab === id ? "active" : ""}" type="button" data-admin-tab="${id}">${label}</button>`).join("")}</div>`;
+}
+
+function backToSiteLink() {
+  return `<button class="back-to-site" type="button" id="backToSite">&larr; Back to site</button>`;
+}
+
+// Clears every response/roster/history key this prototype writes to
+// localStorage. Useful for wiping out data left behind from testing the
+// owner-intake flow yourself, without needing to open devtools.
+// window.confirm() is silently blocked inside a sandboxed iframe (how a
+// published Artifact renders), so any destructive button relying on it
+// looks like it does nothing there. Arms a button on first click (swaps
+// its label to confirmText for 4s) and only runs onConfirm on a second
+// click while armed.
+function armDestructiveButton(button, confirmText, onConfirm) {
+  const originalText = button.textContent;
+  let armed = false;
+  let armTimer = null;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!armed) {
+      armed = true;
+      button.textContent = confirmText;
+      armTimer = setTimeout(() => {
+        armed = false;
+        button.textContent = originalText;
+      }, 4000);
+      return;
+    }
+    clearTimeout(armTimer);
+    onConfirm();
+  });
+}
+
+function resetDemoDataButton() {
+  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears all responses, owner roster, and history stored in this browser">Reset demo data</button>`;
+}
+
+// Only shown on the Dashboard tab, where preview mode actually changes
+// anything. previewMode itself is a runtime-only flag (see its
+// declaration) — never written to localStorage, so it can't leak.
+function previewToggleButton() {
+  if (adminTab !== "dashboard") return "";
+  return `<button class="back-to-site" type="button" id="previewToggle">${previewMode ? "Exit preview" : "Preview with demo data"}</button>`;
+}
+
+function bindAdminTabs() {
+  document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      adminTab = button.getAttribute("data-admin-tab");
+      render();
+    });
+  });
+  document.querySelector("#backToSite")?.addEventListener("click", () => {
+    mode = "owner";
+    render();
+  });
+  const resetButton = document.querySelector("#resetDemoData");
+  if (resetButton) {
+    armDestructiveButton(resetButton, "Click again to confirm", () => {
+      [STORAGE_KEY, DRAFT_KEY, OWNER_ROSTER_KEY, METRICS_HISTORY_KEY].forEach((key) => localStorage.removeItem(key));
+      render();
+    });
+  }
+  document.querySelector("#previewToggle")?.addEventListener("click", () => {
+    previewMode = !previewMode;
+    render();
+  });
+  document.querySelector("#previewOff")?.addEventListener("click", () => {
+    previewMode = false;
+    render();
+  });
+}
+
+// ===== Questions admin tab =====
+// Lets Anthony compose the owner-intake question set from block
+// templates: add/remove/reorder blocks, edit each block's label/options,
+// and configure bucket names + prices. Edits are saved immediately to
+// the "default" question set in localStorage (see questions.js) and
+// take effect on the owner intake flow right away.
+let questionsEditorState = { expandedBlockId: null };
+
+const BLOCK_TYPE_TEMPLATES = [
+  { type: "single_select", label: "Single choice", description: "Owner picks exactly one option." },
+  { type: "multi_select", label: "Multiple choice", description: "Owner can select several options." },
+  { type: "yes_no", label: "Yes / No", description: "A simple two-option question." },
+  { type: "text", label: "Short text", description: "Free-text answer." },
+  { type: "number", label: "Number", description: "Numeric answer." },
+];
+
+function blockTypeLabel(type) {
+  const found = BLOCK_TYPE_TEMPLATES.find((t) => t.type === type);
+  if (found) return found.label;
+  if (type === "bucket_matrix") return "Bucket matrix (detailed)";
+  if (type === "bucket_config") return "Bucket configuration";
+  return type;
+}
+
+function newBlockId(prefix) {
+  return `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function renderQuestionsAdmin() {
+  const questionSet = currentQuestionSet();
+  const blocks = [...questionSet.blocks].sort((a, b) => a.sortOrder - b.sortOrder);
+  const bucketConfig = blocks.find((b) => b.type === "bucket_config");
+  const orderedBlocks = blocks.filter((b) => b.type !== "bucket_config");
+
+  app.innerHTML = `
+    <div class="refskin">
+    <div class="wrap">
+      <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${resetDemoDataButton()}${backToSiteLink()}</div></div>
+
+      <div class="page-title-row">
+        <h1>Questions Builder</h1>
+      </div>
+      <p class="dek">Compose the owner intake questionnaire from ready-made question blocks. Changes apply to the intake form immediately.</p>
+
+      <div class="ref-panel" style="margin-top: 22px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Blocks</div>
+            <h2>Question blocks</h2>
+            <p>Shown to owners in this order. A block only appears once its dependency question has been answered.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="qb-block-list">
+            ${orderedBlocks.map((block, index) => questionBlockRow(block, index, orderedBlocks.length)).join("") || `<p class="notice">No blocks yet — add one below.</p>`}
+          </div>
+          <div class="qb-add-row">
+            <span>Add a block:</span>
+            ${BLOCK_TYPE_TEMPLATES.map((t) => `<button class="btn" type="button" data-add-block-type="${t.type}" title="${escapeHtml(t.description)}">${t.label}</button>`).join("")}
+          </div>
+        </div>
+      </div>
+
+      <div class="ref-panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Buckets</div>
+            <h2>Bucket options</h2>
+            <p>Names and prices offered when an owner's plan includes a pre-sale bucket. Suggested price comes from historical sale data when available.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          ${bucketConfigEditor(bucketConfig)}
+        </div>
+      </div>
+
+      <div class="ref-panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Confirmed offer</div>
+            <h2>Confirmed buckets</h2>
+            <p>The buckets TheStable is actually going to offer this sale year — decide these after reviewing demand on the Dashboard's "Suggested buckets to offer" panel. Separate from the bucket options above (which drive what owners see in the intake form); this list is just for planning and shows on the Dashboard as the finalized offer. Add as many as you need.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          ${confirmedBucketsEditor(getConfirmedBuckets("default"))}
+        </div>
+      </div>
+    </div>
+    </div>`;
+
+  bindAdminTabs();
+  bindQuestionsAdmin(questionSet);
+}
+
+function questionBlockRow(block, index, total) {
+  const expanded = questionsEditorState.expandedBlockId === block.id;
+  return `
+    <div class="qb-block ${expanded ? "expanded" : ""}">
+      <div class="qb-block-head" data-toggle-block="${block.id}">
+        <div class="qb-block-title">
+          <strong>${escapeHtml(block.label || "(untitled question)")}</strong>
+          <span class="qb-block-type">${blockTypeLabel(block.type)}</span>
+        </div>
+        <div class="qb-block-controls">
+          <button class="btn" type="button" data-move-block="${block.id}" data-dir="up" ${index === 0 ? "disabled" : ""} title="Move up">&uarr;</button>
+          <button class="btn" type="button" data-move-block="${block.id}" data-dir="down" ${index === total - 1 ? "disabled" : ""} title="Move down">&darr;</button>
+          <button class="btn red" type="button" data-remove-block="${block.id}" title="Remove">Remove</button>
+        </div>
+      </div>
+      ${expanded ? questionBlockEditor(block) : ""}
+    </div>`;
+}
+
+function questionBlockEditor(block) {
+  const optionsEditor = block.id === "bucketTypes"
+    ? `<p class="notice">This question's choices always match the buckets configured in the "Bucket options" section below — edit the bucket names there instead.</p>`
+    : block.type === "single_select" || block.type === "multi_select" || block.type === "yes_no"
+    ? `<div class="qb-options">
+        <span class="qb-field-label">Options</span>
+        ${(block.options || []).map((opt, i) => `
+          <div class="qb-option-row">
+            <input class="input" data-option-label="${block.id}" data-option-index="${i}" value="${escapeHtml(opt.label)}" placeholder="Option label">
+            ${block.type !== "yes_no" ? `<button class="btn red" type="button" data-remove-option="${block.id}" data-option-index="${i}">Remove</button>` : ""}
+          </div>`).join("")}
+        ${block.type !== "yes_no" ? `<button class="btn" type="button" data-add-option="${block.id}">Add option</button>` : ""}
+      </div>`
+    : "";
+
+  return `
+    <div class="qb-block-body">
+      <label class="qb-field">
+        <span class="qb-field-label">Question text</span>
+        <input class="input" data-block-label="${block.id}" value="${escapeHtml(block.label || "")}">
+      </label>
+      <label class="qb-field">
+        <span class="qb-field-label">Help text (optional)</span>
+        <input class="input" data-block-help="${block.id}" value="${escapeHtml(block.helpText || "")}">
+      </label>
+      ${optionsEditor}
+    </div>`;
+}
+
+function confirmedBucketsEditor(buckets) {
+  const gaitOptions = [["any", "Any gait"], ["trotter", "Trotters"], ["pacer", "Pacers"], ["both", "Both"]];
+  const sexOptions = [["any", "Any"], ["colt", "Colts"], ["filly", "Fillies"], ["either", "Either"]];
+  return `
+    <div class="qb-bucket-list">
+      ${buckets.length ? buckets.map((bucket, i) => `
+        <div class="qb-confirmed-row">
+          <input class="input" data-cb-name="${i}" value="${escapeHtml(bucket.name)}" placeholder="Bucket name">
+          <input class="input" data-cb-price="${i}" inputmode="decimal" value="${bucket.price ?? ""}" placeholder="Price ($)">
+          <select class="input" data-cb-gait="${i}">${gaitOptions.map(([v, l]) => `<option value="${v}" ${bucket.gait === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+          <select class="input" data-cb-sex="${i}">${sexOptions.map(([v, l]) => `<option value="${v}" ${bucket.sex === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+          <input class="input" data-cb-note="${i}" value="${escapeHtml(bucket.note || "")}" placeholder="Note (optional)">
+          <button class="btn red" type="button" data-remove-confirmed="${i}">Remove</button>
+        </div>`).join("") : `<p class="notice">No confirmed buckets yet — add one below once you've decided what to offer.</p>`}
+    </div>
+    <button class="btn" type="button" data-add-confirmed>Add confirmed bucket</button>`;
+}
+
+function bucketConfigEditor(bucketConfig) {
+  if (!bucketConfig) return `<p class="notice">No bucket configuration on this question set.</p>`;
+  return `
+    <div class="qb-bucket-list">
+      ${bucketConfig.buckets.map((bucket, i) => `
+        <div class="qb-bucket-row">
+          <input class="input" data-bucket-name="${i}" value="${escapeHtml(bucket.name)}" placeholder="Bucket name">
+          <input class="input" data-bucket-price="${i}" inputmode="decimal" value="${bucket.price ?? ""}" placeholder="Price ($)">
+          <span class="qb-suggested-price">${bucket.suggestedPrice != null ? `Suggested: $${Number(bucket.suggestedPrice).toLocaleString()}` : "No suggestion yet"}</span>
+          <button class="btn red" type="button" data-remove-bucket="${i}">Remove</button>
+        </div>`).join("")}
+    </div>
+    <button class="btn" type="button" data-add-bucket>Add bucket</button>`;
+}
+
+function updateQuestionSet(mutator) {
+  const questionSet = currentQuestionSet();
+  mutator(questionSet);
+  saveQuestionSet("default", questionSet);
+  render();
+}
+
+function bindQuestionsAdmin(questionSet) {
+  document.querySelectorAll("[data-toggle-block]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-toggle-block");
+      questionsEditorState.expandedBlockId = questionsEditorState.expandedBlockId === id ? null : id;
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-move-block]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const id = el.getAttribute("data-move-block");
+      const dir = el.getAttribute("data-dir");
+      updateQuestionSet((set) => {
+        const ordered = [...set.blocks].filter((b) => b.type !== "bucket_config").sort((a, b) => a.sortOrder - b.sortOrder);
+        const index = ordered.findIndex((b) => b.id === id);
+        const swapWith = dir === "up" ? index - 1 : index + 1;
+        if (swapWith < 0 || swapWith >= ordered.length) return;
+        const tmp = ordered[index].sortOrder;
+        ordered[index].sortOrder = ordered[swapWith].sortOrder;
+        ordered[swapWith].sortOrder = tmp;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-remove-block]").forEach((el) => {
+    const id = el.getAttribute("data-remove-block");
+    armDestructiveButton(el, "Confirm remove?", () => {
+      updateQuestionSet((set) => {
+        set.blocks = set.blocks.filter((b) => b.id !== id);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-add-block-type]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const type = el.getAttribute("data-add-block-type");
+      updateQuestionSet((set) => {
+        const maxSort = Math.max(0, ...set.blocks.filter((b) => b.type !== "bucket_config").map((b) => b.sortOrder));
+        const id = newBlockId(type);
+        const block = {
+          id,
+          type,
+          label: "New question",
+          helpText: "",
+          sortOrder: maxSort + 1,
+          dependsOn: null,
+          required: true,
+        };
+        if (type === "single_select" || type === "multi_select") {
+          block.options = [
+            { value: "option_1", label: "Option 1", help: "" },
+            { value: "option_2", label: "Option 2", help: "" },
+          ];
+        }
+        if (type === "yes_no") {
+          block.options = [
+            { value: "yes", label: "Yes", help: "" },
+            { value: "no", label: "No", help: "" },
+          ];
+        }
+        set.blocks.push(block);
+        questionsEditorState.expandedBlockId = id;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-block-label]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const id = el.getAttribute("data-block-label");
+      updateQuestionSet((set) => {
+        const block = set.blocks.find((b) => b.id === id);
+        if (block) block.label = el.value;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-block-help]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const id = el.getAttribute("data-block-help");
+      updateQuestionSet((set) => {
+        const block = set.blocks.find((b) => b.id === id);
+        if (block) block.helpText = el.value;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-option-label]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const id = el.getAttribute("data-option-label");
+      const index = Number(el.getAttribute("data-option-index"));
+      updateQuestionSet((set) => {
+        const block = set.blocks.find((b) => b.id === id);
+        if (block && block.options[index]) block.options[index].label = el.value;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-add-option]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-add-option");
+      updateQuestionSet((set) => {
+        const block = set.blocks.find((b) => b.id === id);
+        if (!block) return;
+        const n = block.options.length + 1;
+        block.options.push({ value: `option_${n}`, label: `Option ${n}`, help: "" });
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-remove-option]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-remove-option");
+      const index = Number(el.getAttribute("data-option-index"));
+      updateQuestionSet((set) => {
+        const block = set.blocks.find((b) => b.id === id);
+        if (block) block.options.splice(index, 1);
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-bucket-name]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const index = Number(el.getAttribute("data-bucket-name"));
+      updateQuestionSet((set) => {
+        const bucketConfig = set.blocks.find((b) => b.type === "bucket_config");
+        if (bucketConfig && bucketConfig.buckets[index]) bucketConfig.buckets[index].name = el.value;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-bucket-price]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const index = Number(el.getAttribute("data-bucket-price"));
+      updateQuestionSet((set) => {
+        const bucketConfig = set.blocks.find((b) => b.type === "bucket_config");
+        if (bucketConfig && bucketConfig.buckets[index]) {
+          const num = Number(el.value);
+          bucketConfig.buckets[index].price = el.value === "" || Number.isNaN(num) ? null : num;
+        }
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-remove-bucket]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const index = Number(el.getAttribute("data-remove-bucket"));
+      updateQuestionSet((set) => {
+        const bucketConfig = set.blocks.find((b) => b.type === "bucket_config");
+        if (bucketConfig) bucketConfig.buckets.splice(index, 1);
+      });
+    });
+  });
+
+  const addBucketButton = document.querySelector("[data-add-bucket]");
+  if (addBucketButton) {
+    addBucketButton.addEventListener("click", () => {
+      updateQuestionSet((set) => {
+        const bucketConfig = set.blocks.find((b) => b.type === "bucket_config");
+        if (!bucketConfig) return;
+        bucketConfig.buckets.push({ key: newBlockId("bucket"), name: "New bucket", help: "", price: null, suggestedPrice: null });
+      });
+    });
+  }
+
+  const updateConfirmed = (mutator) => {
+    const buckets = getConfirmedBuckets("default");
+    mutator(buckets);
+    saveConfirmedBucketsFor("default", buckets);
+    render();
+  };
+  document.querySelectorAll("[data-cb-name]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const index = Number(el.getAttribute("data-cb-name"));
+      updateConfirmed((buckets) => { if (buckets[index]) buckets[index].name = el.value; });
+    });
+  });
+  document.querySelectorAll("[data-cb-price]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const index = Number(el.getAttribute("data-cb-price"));
+      updateConfirmed((buckets) => {
+        if (!buckets[index]) return;
+        const num = Number(el.value);
+        buckets[index].price = el.value === "" || Number.isNaN(num) ? null : num;
+      });
+    });
+  });
+  document.querySelectorAll("[data-cb-gait]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const index = Number(el.getAttribute("data-cb-gait"));
+      updateConfirmed((buckets) => { if (buckets[index]) buckets[index].gait = el.value; });
+    });
+  });
+  document.querySelectorAll("[data-cb-sex]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const index = Number(el.getAttribute("data-cb-sex"));
+      updateConfirmed((buckets) => { if (buckets[index]) buckets[index].sex = el.value; });
+    });
+  });
+  document.querySelectorAll("[data-cb-note]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const index = Number(el.getAttribute("data-cb-note"));
+      updateConfirmed((buckets) => { if (buckets[index]) buckets[index].note = el.value; });
+    });
+  });
+  document.querySelectorAll("[data-remove-confirmed]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const index = Number(el.getAttribute("data-remove-confirmed"));
+      updateConfirmed((buckets) => { buckets.splice(index, 1); });
+    });
+  });
+  const addConfirmedButton = document.querySelector("[data-add-confirmed]");
+  if (addConfirmedButton) {
+    addConfirmedButton.addEventListener("click", () => {
+      updateConfirmed((buckets) => { buckets.push(newConfirmedBucket()); });
+    });
+  }
+}
+
+// ===== Sale History & Bucket Strategy admin tab =====
+// Ported from the standalone "Sale History & Bucket Strategy" artifact: a
+// historical look at every yearling sold at Lexington Selected, Harrisburg
+// Book 1, and Ohio Jug between 2008 and 2025, checked against which of them
+// went on to become a top performer. All figures below are the real
+// analysis output from that artifact, not sample/placeholder data.
+// Client-side currency toggle, ported verbatim from the reference artifact's
+// own applyCurrency()/fmtK()/fmtFull() JS (see bindCurrencyToggle() below):
+// every money figure renders once, in CAD, carrying data-cad/data-usd/
+// data-style attributes, and a page-level click handler on .ccy-btn walks
+// the DOM and rewrites .money/.money-range text in place - no server-side
+// re-render on toggle, exactly like the reference.
+const SALE_HISTORY_FX_NOTE = "using a fixed rate of $1 USD = $1.40 CAD, set on Sep 3, 2026";
+
+function shMoney(cad, usd, style = "k", suffix = "") {
+  const text = style === "full" ? refFmtFull(cad) : refFmtK(cad);
+  return `<span class="money" data-cad="${cad}" data-usd="${usd}" data-style="${style}">${text}${suffix}</span>`;
+}
+
+function shMoneyRange(cadLo, cadHi, usdLo, usdHi) {
+  const loK = Math.round(cadLo / 1000);
+  const hiK = Math.round(cadHi / 1000);
+  return `<span class="money-range" data-cad-lo="${cadLo}" data-cad-hi="${cadHi}" data-usd-lo="${usdLo}" data-usd-hi="${usdHi}">$${loK}-${hiK}k</span>`;
+}
+
+function shCcyLabel() {
+  return `<span class="ccy-label">CAD</span>`;
+}
+
+function refFmtK(value) {
+  const k = value / 1000;
+  const rounded = k >= 100 ? Math.round(k) : Math.round(k * 10) / 10;
+  return "$" + rounded.toLocaleString("en-US", { maximumFractionDigits: 1 }) + "k";
+}
+
+function refFmtFull(value) {
+  return "$" + Math.round(value).toLocaleString("en-US");
+}
+
+function renderSaleHistory() {
+  app.innerHTML = `
+    <div class="refskin">
+    <div class="wrap">
+      <div class="refskin-topbar">
+        ${adminTabs()}
+        <div class="topbar-right">
+          <div class="currency-toggle" role="group" aria-label="Currency">
+            <button class="ccy-btn active" data-ccy="cad" type="button">CAD $</button>
+            <button class="ccy-btn" data-ccy="usd" type="button">USD $</button>
+          </div>
+          ${resetDemoDataButton()}
+          ${backToSiteLink()}
+        </div>
+      </div>
+
+      <div class="page-title-row">
+        <h1>How should TheStable.ca build its buckets?</h1>
+        <div class="as-of">Analysis run <strong>Sep 3, 2026</strong></div>
+      </div>
+      <div class="intro-block">
+        <p class="dek">A look back at every yearling sold at Lexington Selected, Harrisburg Book 1, and Ohio Jug between 2008 and 2025, checked against which of them went on to become top performers. The goal: give TheStable.ca a fact-based way to decide how many horses to put in a bucket, at what price range, for the best odds, instead of relying only on gut feel. The same indicators also apply to after-sale horses offered individually in a similar price range.</p>
+        <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that showed up anywhere on a season top-earner leaderboard, at 2, 3, or 4-plus years old, at least once, in a season after it was sold as a yearling. It's a simple yes/no flag: it doesn't matter how much a top performer earned or at what age it first got there, and it says nothing about any specific 2026 yearling. It only shows how often horses at a given price went on to become one.</div>
+        <p class="currency-note">Prices on this page are shown in ${shCcyLabel()}. Use the CAD / USD switch at the top of the page to convert every figure, ${SALE_HISTORY_FX_NOTE}. This rate is not live and won't update on its own. If it has moved significantly by the time you use this, update it before relying on the USD figures.</p>
+      </div>
+
+      <div class="dash-panel">
+        <div class="dash-eyebrow"><span class="dot"></span>The short version, at a glance</div>
+        <div class="dash-grid">
+
+          <div class="dash-card">
+            <div class="dc-label">Odds of becoming a top performer, by price</div>
+            <div class="curve-row">
+              <div class="curve-bar-wrap"><div class="curve-bar-val">0.6</div><div class="curve-bar" style="height:6%"></div><div class="curve-bar-price">&lt;${shMoney(14000, 10000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">1.3</div><div class="curve-bar" style="height:13%"></div><div class="curve-bar-price">${shMoneyRange(14000, 28000, 10000, 20000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">2.2</div><div class="curve-bar" style="height:22%"></div><div class="curve-bar-price">${shMoneyRange(28000, 50000, 20000, 35714)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">3.2</div><div class="curve-bar" style="height:32%"></div><div class="curve-bar-price">${shMoneyRange(50000, 85000, 35714, 60714)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">5.4</div><div class="curve-bar" style="height:55%"></div><div class="curve-bar-price">${shMoneyRange(85000, 140000, 60714, 100000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">6.5</div><div class="curve-bar" style="height:66%"></div><div class="curve-bar-price">${shMoneyRange(140000, 210000, 100000, 150000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">8.3</div><div class="curve-bar" style="height:85%"></div><div class="curve-bar-price">${shMoneyRange(210000, 280000, 150000, 200000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">9.8</div><div class="curve-bar last" style="height:100%"></div><div class="curve-bar-price">${shMoney(280000, 200000, "k", "+")}</div></div>
+            </div>
+            <div class="curve-foot">All top figures are %. Cheapest horses: <b>0.6%</b> became a top performer. Priciest: <b>9.8%</b> did.</div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dc-label">Colt vs. filly: who makes up the top performers</div>
+            <div class="ring-wrap">
+              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 58.9%, #45557a 58.9% 100%)"><div><strong>58.9%</strong><span>colt share</span></div></div>
+              <div class="ring-legend">
+                <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Colt <b>58.9%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Filly <b>41.1%</b></div>
+              </div>
+            </div>
+            <div class="curve-foot" style="margin-top:16px;">Out of every 100 top performers, close to 59 were colts and 41 were fillies. That's because colts also have better odds individually: 3.2% of colts sold became a top performer, vs. 2.4% of fillies, at every sale and every price level, with no exceptions.</div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dc-label">Trotter vs. pacer: who makes up the top performers</div>
+            <div class="ring-wrap">
+              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 50.4%, #45557a 50.4% 100%)"><div><strong>50.4%</strong><span>pacer share</span></div></div>
+              <div class="ring-legend">
+                <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Pacer <b>50.4%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Trotter <b>49.6%</b></div>
+              </div>
+            </div>
+            <div class="curve-foot" style="margin-top:16px;">Roughly an even split between pacers and trotters among top performers, across all 3 sales combined. Individually, trotters have a very slightly better per-horse chance (3.0% vs. 2.8% for pacers), but it isn't consistent at every venue. See the sale-by-sale table below.</div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dc-label">Best bucket shape found</div>
+            <div class="verdict-num">5 horses</div>
+            <div class="verdict-sub">A ${shMoney(170000, 121428.57, "full")} ${shCcyLabel()} bucket split into 5 horses around ${shMoney(35000, 25000)} each hit <b style="color:#fff">12.5%</b> odds of landing at least one top performer.</div>
+            <div class="verdict-compare"><span>vs. 1 horse at ${shMoney(170000, 121428.57)}</span><b>8.1%</b></div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dc-label">Same budget, more horses wins</div>
+            <div class="mini-bars">
+              <div class="mini-bar-wrap"><div class="mini-bar-val">5.3%</div><div class="mini-bar" style="height:41%; background:#45557a"></div><div class="mini-bar-name">1 horse</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">5.1%</div><div class="mini-bar" style="height:39%; background:#45557a"></div><div class="mini-bar-name">2 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">8.0%</div><div class="mini-bar" style="height:62%; background:var(--gold)"></div><div class="mini-bar-name">3 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">8.1%</div><div class="mini-bar" style="height:63%; background:var(--gold-light)"></div><div class="mini-bar-name">4 horses</div></div>
+            </div>
+            <div class="curve-foot" style="margin-top:0;">Same ${shMoney(85000, 60714.29)} budget, split 4 different ways. 3 or 4 horses clearly beats 1 or 2. The full breakdown, at 3 different budget sizes, is in "One horse or several: building a bucket" below.</div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dc-label">Where top performers actually came from</div>
+            <div class="verdict-num">392</div>
+            <div class="verdict-sub">The <b style="color:#fff">${shMoney(49000, 35000)}&ndash;${shMoney(140000, 100000)}</b> range (the two biggest bands combined: 192 + 200) accounts for over 4 in 10 top performers, out of 931 found across all price levels.</div>
+            <div class="verdict-compare"><span>share of all 931 top performers</span><b>42.1%</b></div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="meta-strip">
+        <div class="meta-tile"><div class="n">2008&ndash;2025</div><div class="l">Years of sale data used</div></div>
+        <div class="meta-tile"><div class="n">32,964</div><div class="l">Yearlings sold across the 3 sales in this study</div></div>
+        <div class="meta-tile"><div class="n">931</div><div class="l">Of those went on to become a top earner</div></div>
+        <div class="meta-tile"><div class="n">1 in 35</div><div class="l">Overall odds a yearling becomes a top performer</div></div>
+      </div>
+
+      <section class="block">
+        <h2 class="section-title">How much does price matter?</h2>
+        <p class="section-lead">Every yearling sold either did or didn't go on to become a top earner later in its racing career. This splits all of them into price groups and shows what share of each group actually made it. Read the ${shMoney(210000, 150000)}&ndash;${shMoney(280000, 200000)} bar as: 1 in about 12 horses bought in that price range went on to become a top performer.</p>
+        <div class="ref-panel">
+          <div class="band-chart">
+            <div class="band-row"><div class="label">Under ${shMoney(14000, 10000)}</div><div class="band-track"><span style="width:6%; background:var(--band-1)"></span></div><div class="figs"><div class="pct">0.6%</div><div class="cnt">27 of 4,903</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(14000, 10000)} &ndash; ${shMoney(28000, 20000)}</div><div class="band-track"><span style="width:13%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">1.3%</div><div class="cnt">98 of 7,461</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(28000, 20000)} &ndash; ${shMoney(50000, 35714.29)}</div><div class="band-track"><span style="width:23%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">2.2%</div><div class="cnt">172 of 7,712</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(50000, 35714.29)} &ndash; ${shMoney(85000, 60714.29)}</div><div class="band-track"><span style="width:32%; background:var(--band-4)"></span></div><div class="figs"><div class="pct">3.2%</div><div class="cnt">192 of 6,061</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(85000, 60714.29)} &ndash; ${shMoney(140000, 100000)}</div><div class="band-track"><span style="width:56%; background:var(--band-5)"></span></div><div class="figs"><div class="pct">5.4%</div><div class="cnt">200 of 3,682</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(140000, 100000)} &ndash; ${shMoney(210000, 150000)}</div><div class="band-track"><span style="width:67%; background:var(--band-6)"></span></div><div class="figs"><div class="pct">6.5%</div><div class="cnt">111 of 1,704</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(210000, 150000)} &ndash; ${shMoney(280000, 200000)}</div><div class="band-track"><span style="width:85%; background:var(--band-7)"></span></div><div class="figs"><div class="pct">8.3%</div><div class="cnt">55 of 664</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(280000, 200000, "k", "+")}</div><div class="band-track"><span style="width:100%; background:var(--band-8)"></span></div><div class="figs"><div class="pct">9.8%</div><div class="cnt">76 of 777</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="section-title">Colt or filly? Trotter or pacer?</h2>
+        <p class="section-lead">Same split shown in "the short version" above, in more detail: out of every top performer, what share is colt vs. filly, and pacer vs. trotter.</p>
+        <div class="ref-panel">
+          <div class="totals-grid">
+            <div class="totals-card">
+              <div class="ttl">Colt vs. Filly: share of top performers</div>
+              <div class="versus-row">
+                <div class="versus-side"><div class="pct win">58.9%</div><div class="name">Colt</div><div class="n">3.2% odds per horse sold</div></div>
+                <div class="versus-vs">VS</div>
+                <div class="versus-side"><div class="pct">41.1%</div><div class="name">Filly</div><div class="n">2.4% odds per horse sold</div></div>
+              </div>
+            </div>
+            <div class="totals-card">
+              <div class="ttl">Trotter vs. Pacer: share of top performers</div>
+              <div class="versus-row">
+                <div class="versus-side"><div class="pct win">50.4%</div><div class="name">Pacer</div><div class="n">2.8% odds per horse sold</div></div>
+                <div class="versus-vs">VS</div>
+                <div class="versus-side"><div class="pct">49.6%</div><div class="name">Trotter</div><div class="n">3.0% odds per horse sold</div></div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Colts make up close to 59% of top performers, fillies the other 41%. That's partly because colts were sold in slightly bigger numbers to begin with, and partly because an individual colt has better odds (3.2% vs. 2.4% for fillies), at every sale and every price level, with no exceptions. Pacer vs. trotter is close to an even split, and (as the sale-by-sale table further down shows) which one edges ahead isn't consistent at every venue.</p>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="section-title">Does the colt/filly or trotter/pacer pattern hold at every price?</h2>
+        <p class="section-lead">The table below combines price with sex and gait. Each cell shows what share of horses in that exact group (say, "pacer colts priced ${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}") became a top performer. Green numbers are the strongest cell in that price column.</p>
+        <div class="ref-panel">
+          <div class="matrix-grid" style="grid-template-columns: 118px repeat(6, 1fr);">
+            <div class="hdr" style="background:transparent"></div>
+            <div class="hdr">Under ${shMoney(28000, 20000)}</div>
+            <div class="hdr">${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</div>
+            <div class="hdr">${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</div>
+            <div class="hdr">${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</div>
+            <div class="hdr">${shMoney(210000, 150000)}&ndash;${shMoney(280000, 200000)}</div>
+            <div class="hdr">${shMoney(280000, 200000, "k", "+")}</div>
+          </div>
+          <div class="matrix-grid" style="margin-top:2px; grid-template-columns: 118px repeat(6, 1fr);">
+            <div class="row-hdr">Trotter colt</div>
+            <div class="cell"><div class="pct">1.2%</div><div class="n">2,863</div></div>
+            <div class="cell"><div class="pct">3.1%</div><div class="n">3,309</div></div>
+            <div class="cell"><div class="pct">5.5%</div><div class="n">901</div></div>
+            <div class="cell hi"><div class="pct">8.2%</div><div class="n">464</div></div>
+            <div class="cell"><div class="pct">7.7%</div><div class="n">195</div></div>
+            <div class="cell hi"><div class="pct">11.6%</div><div class="n">258</div></div>
+
+            <div class="row-hdr">Trotter filly</div>
+            <div class="cell"><div class="pct">1.1%</div><div class="n">2,537</div></div>
+            <div class="cell"><div class="pct">2.3%</div><div class="n">3,154</div></div>
+            <div class="cell"><div class="pct">3.9%</div><div class="n">788</div></div>
+            <div class="cell"><div class="pct">5.0%</div><div class="n">381</div></div>
+            <div class="cell"><div class="pct">7.4%</div><div class="n">189</div></div>
+            <div class="cell"><div class="pct">10.3%</div><div class="n">263</div></div>
+
+            <div class="row-hdr">Pacer colt</div>
+            <div class="cell hi"><div class="pct">1.4%</div><div class="n">2,884</div></div>
+            <div class="cell hi"><div class="pct">2.7%</div><div class="n">3,794</div></div>
+            <div class="cell hi"><div class="pct">6.3%</div><div class="n">1,160</div></div>
+            <div class="cell"><div class="pct">5.9%</div><div class="n">544</div></div>
+            <div class="cell hi"><div class="pct">11.3%</div><div class="n">168</div></div>
+            <div class="cell"><div class="pct">8.1%</div><div class="n">148</div></div>
+
+            <div class="row-hdr">Pacer filly</div>
+            <div class="cell"><div class="pct">0.7%</div><div class="n">3,425</div></div>
+            <div class="cell"><div class="pct">2.7%</div><div class="n">3,192</div></div>
+            <div class="cell"><div class="pct">5.7%</div><div class="n">804</div></div>
+            <div class="cell hi"><div class="pct">7.3%</div><div class="n">302</div></div>
+            <div class="cell"><div class="pct">6.6%</div><div class="n">106</div></div>
+            <div class="cell"><div class="pct">6.6%</div><div class="n">106</div></div>
+          </div>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Trotter colts are the strongest combination once price climbs above ${shMoney(280000, 200000)}. At the cheap end, pacer colts hold a small edge. The columns on the far right (above ${shMoney(150000, 107142.86)}) are built on fewer horses (100 to 300), so treat those specific numbers as a rough signal rather than a precise one.</p>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="section-title">How old was the horse when it became a top performer?</h2>
+        <p class="section-lead">A horse can show up on the leaderboard as a 2-year-old, a 3-year-old, or older ("aged," 4 and up). All three count as "top performer" everywhere else on this page. Split apart, the percentages below show how often each price group produced a top performer at that specific age. The odds drop a lot the longer it takes.</p>
+        <div class="ref-panel">
+          <div class="matrix-grid" style="grid-template-columns: 150px repeat(5, 1fr);">
+            <div class="hdr" style="background:transparent"></div>
+            <div class="hdr">Under ${shMoney(28000, 20000)}</div>
+            <div class="hdr">${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</div>
+            <div class="hdr">${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</div>
+            <div class="hdr">${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</div>
+            <div class="hdr">${shMoney(210000, 150000, "k", "+")}</div>
+          </div>
+          <div class="matrix-grid" style="margin-top:2px; grid-template-columns: 150px repeat(5, 1fr);">
+            <div class="row-hdr">Top performer at 2</div>
+            <div class="cell"><div class="pct">0.5%</div></div>
+            <div class="cell"><div class="pct">1.4%</div></div>
+            <div class="cell"><div class="pct">3.2%</div></div>
+            <div class="cell"><div class="pct">4.1%</div></div>
+            <div class="cell hi"><div class="pct">5.6%</div></div>
+
+            <div class="row-hdr">Top performer at 3</div>
+            <div class="cell"><div class="pct">0.4%</div></div>
+            <div class="cell"><div class="pct">1.3%</div></div>
+            <div class="cell"><div class="pct">2.6%</div></div>
+            <div class="cell"><div class="pct">3.2%</div></div>
+            <div class="cell hi"><div class="pct">5.8%</div></div>
+
+            <div class="row-hdr">Top performer at 4+</div>
+            <div class="cell"><div class="pct">0.3%</div></div>
+            <div class="cell"><div class="pct">0.7%</div></div>
+            <div class="cell"><div class="pct">1.2%</div></div>
+            <div class="cell hi"><div class="pct">1.8%</div></div>
+            <div class="cell"><div class="pct">1.7%</div></div>
+          </div>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">A horse is roughly twice as likely to become a top performer at 2 or 3 as it is to first become one at 4 or older, at every price level. Worth keeping in mind: a horse that only becomes a top performer at 4+ has had two or three extra years of training and keep costs before that happened, on top of the purchase price. That cost isn't in this data, but the direction is real.</p>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="section-title">One horse or several: building a bucket</h2>
+        <p class="section-lead">Everything above is about one horse at one price. A bucket usually buys several horses. This section answers: for a fixed amount of money, is it better to buy one expensive horse, or split it across two, three, four, or five cheaper ones?</p>
+        <div class="ref-panel">
+          <p style="font-size:13.5px; line-height:1.6; margin:0 0 18px;">To compare fairly, each horse in a split is scored using the real odds for its own price, not an average across a wide range. So "2 horses at ${shMoney(85000, 60714.29)}" is scored using the actual ${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)} odds, not blended with ${shMoney(280000, 200000, "k", "+")} horses.</p>
+          <div class="bucket-grid">
+            <div class="bucket-card">
+              <div class="ttl">${shMoney(85000, 60714.29, "full")} bucket</div>
+              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(85000, 60714.29)}</span></div><div class="val">5.3%</div></div>
+              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(40000, 28571.43)} each</span></div><div class="val">5.1%</div></div>
+              <div class="split-row"><div class="lbl">3 horses<span class="spend">around ${shMoney(30000, 21428.57)} each</span></div><div class="val">8.0%</div></div>
+              <div class="split-row win"><div class="lbl">4 horses<span class="spend">around ${shMoney(21000, 15000)} each</span></div><div class="val">8.1%</div></div>
+            </div>
+            <div class="bucket-card">
+              <div class="ttl">${shMoney(170000, 121428.57, "full")} bucket</div>
+              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(170000, 121428.57)}</span></div><div class="val">8.1%</div></div>
+              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(85000, 60714.29)} each</span></div><div class="val">10.3%</div></div>
+              <div class="split-row"><div class="lbl">4 horses<span class="spend">around ${shMoney(40000, 28571.43)} each</span></div><div class="val">9.9%</div></div>
+              <div class="split-row win"><div class="lbl">5 horses<span class="spend">around ${shMoney(35000, 25000)} each</span></div><div class="val">12.5%</div></div>
+            </div>
+            <div class="bucket-card">
+              <div class="ttl">${shMoney(210000, 150000, "full")} bucket</div>
+              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(210000, 150000)}</span></div><div class="val">9.7%</div></div>
+              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(105000, 75000)} each</span></div><div class="val">11.6%</div></div>
+              <div class="split-row win"><div class="lbl">3 horses<span class="spend">around ${shMoney(70000, 50000)} each</span></div><div class="val">15.1%</div></div>
+              <div class="split-row"><div class="lbl">5 horses<span class="spend">around ${shMoney(40000, 28571.43)} each</span></div><div class="val">12.2%</div></div>
+            </div>
+          </div>
+          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">In every bucket size tested, splitting the money across several horses beat spending it all on one horse. There isn't one single "best number of horses" across every budget, but one expensive horse was the weakest option every time.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><strong>Why doesn't this match the "${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)} has the most top performers" chart above?</strong> Those are two different questions. That chart counts total top performers found across the entire market at that price (a headcount across roughly 2,400 horses). This section asks something narrower: for one fixed budget, is it better to buy one horse or split it into several? A single ${shMoney(35000, 25000)} horse has lower odds (about 2.6%) than a single ${shMoney(100000, 71428.57)} horse (about 5.6%). But splitting ${shMoney(170000, 121428.57)} into 5 cheaper horses means 5 separate chances at a top performer instead of 1, and those chances add up faster than the odds fall. That's why 5 horses at ${shMoney(35000, 25000)} (12.5%) beats 2 horses at ${shMoney(85000, 60714.29)} (10.3%) for the same total spend, even though the ${shMoney(85000, 60714.29)} price point has better odds per horse.</p>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="section-title">Where did most top performers actually come from?</h2>
+        <p class="section-lead">Every price band has a different number of horses in it, so this counts, in plain numbers, how many top performers each band actually produced.</p>
+        <div class="ref-panel">
+          <p style="font-size:13.5px; line-height:1.6; margin:0 0 14px;"><strong>Most top performers, in plain numbers, came from horses priced ${shMoney(49000, 35000)} to ${shMoney(140000, 100000)}.</strong> The ${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)} band produced the single most (200), and the cheaper ${shMoney(49000, 35000)}&ndash;${shMoney(85000, 60714.29)} band is right behind it at 192, and those horses cost less to buy. Combined, these two neighboring bands account for 392 of the 931 top performers on this page, 42.1%, more than 4 in 10. That's simply where a large number of horses were bought at a decent price, so it's also where a large number of top performers turned up.</p>
+          <div class="band-chart">
+            <div class="band-row"><div class="label">Under ${shMoney(21000, 15000)}</div><div class="band-track"><span style="width:36%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">72</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(21000, 15000)}&ndash;${shMoney(28000, 20000)}</div><div class="band-track"><span style="width:26%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">53</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(28000, 20000)}&ndash;${shMoney(35000, 25000)}</div><div class="band-track"><span style="width:32%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">64</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(35000, 25000)}&ndash;${shMoney(42000, 30000)}</div><div class="band-track"><span style="width:24%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">49</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(42000, 30000)}&ndash;${shMoney(49000, 35000)}</div><div class="band-track"><span style="width:30%; background:var(--band-4)"></span></div><div class="figs"><div class="pct">59</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(49000, 35000)}&ndash;${shMoney(85000, 60714.29)}</div><div class="band-track"><span style="width:96%; background:var(--gold)"></span></div><div class="figs"><div class="pct">192</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}<span style="display:block;font-size:10.5px;font-weight:500;color:var(--muted)">most top performers</span></div><div class="band-track"><span style="width:100%; background:var(--gold)"></span></div><div class="figs"><div class="pct">200</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</div><div class="band-track"><span style="width:56%; background:var(--band-6)"></span></div><div class="figs"><div class="pct">111</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(210000, 150000, "k", "+")}</div><div class="band-track"><span style="width:66%; background:var(--band-7)"></span></div><div class="figs"><div class="pct">131</div><div class="cnt">top performers here</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="section-title">Does this pattern hold at every sale, or does it differ by venue?</h2>
+        <p class="section-lead">Lexington, Harrisburg, and Ohio are three different sales with different buyers and different horses. This checks whether the price pattern above holds true at each one individually, or whether one sale behaves differently.</p>
+        <div class="ref-panel">
+          <table>
+            <thead><tr><th>Sale</th><th>Under ${shMoney(28000, 20000)}</th><th>${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</th><th>${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</th><th>${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</th><th>${shMoney(210000, 150000, "k", "+")}</th></tr></thead>
+            <tbody>
+              <tr><td class="venue-name">Lexington Selected</td><td>1.2%</td><td>3.1%</td><td>6.3%</td><td>6.6%</td><td>8.4%</td></tr>
+              <tr><td class="venue-name">Harrisburg Book 1</td><td>0.9%</td><td>2.3%</td><td>4.3%</td><td>6.6%</td><td>10.4%</td></tr>
+              <tr><td class="venue-name">Ohio Jug</td><td>1.1%</td><td>3.1%</td><td>7.4%</td><td>2.5%</td><td>9.1%</td></tr>
+            </tbody>
+          </table>
+          <table style="margin-top:20px;">
+            <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th></tr></thead>
+            <tbody>
+              <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">4.3%</td><td>3.0%</td><td>3.7%</td><td>3.8%</td></tr>
+              <tr><td class="venue-name">Harrisburg Book 1</td><td class="win-cell">2.5%</td><td>2.1%</td><td>2.5%</td><td>2.4%</td></tr>
+              <tr><td class="venue-name">Ohio Jug</td><td class="win-cell">2.4%</td><td>2.1%</td><td class="win-cell">2.8%</td><td>1.8%</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Colts beat fillies at every sale, without exception. Trotters vs. pacers is close at Lexington and Harrisburg, but Ohio clearly favors trotters. Ohio's two highest price bands only have a handful of horses in them, so treat those two numbers as a weak signal rather than a solid one.</p>
+        </div>
+      </section>
+
+      <div class="footer-note">
+        This looks at every yearling sold at Lexington Selected, Harrisburg Book 1, and Ohio Jug from 2008 through 2025, checked against season top-earner rankings through 2025 (the 2026 racing season is still in progress and was excluded, since an unfinished season understates what a horse will eventually earn). "Top performer" means the horse appeared anywhere on a season top-earner leaderboard, at 2, 3, or 4-plus years old, at least once. Horses were matched between the sale records and the earnings leaderboards by name, which can occasionally miss a spelling variation or mix up two horses with the same name. This is a backward-looking pattern in past results, not a prediction about any specific 2026 yearling. It only shows how often horses in a given price range have become top performers, nothing more. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${SALE_HISTORY_FX_NOTE}.
+      </div>
+    </div>
+    </div>`;
+
+  bindAdminTabs();
+  bindSaleHistory();
+}
+
+function bindSaleHistory() {
+  bindCurrencyToggle();
+}
+
+// Client-side currency toggle, ported verbatim from the reference artifact's
+// applyCurrency()/fmtK()/fmtFull() functions: walks every .money/.money-range
+// span in the DOM and rewrites its text from the data-cad/data-usd/data-style
+// attributes baked in at render time, instead of re-rendering the page.
+function bindCurrencyToggle() {
+  document.querySelectorAll(".ccy-btn").forEach((btn) => {
+    btn.addEventListener("click", () => applyCurrency(btn.dataset.ccy));
+  });
+}
+
+function applyCurrency(ccy) {
+  document.querySelectorAll(".money").forEach((el) => {
+    const raw = parseFloat(el.dataset[ccy]);
+    const suffix = el.textContent.trim().endsWith("+") ? "+" : "";
+    const text = el.dataset.style === "full" ? refFmtFull(raw) : refFmtK(raw);
+    el.textContent = text + suffix;
+  });
+  document.querySelectorAll(".money-range").forEach((el) => {
+    const lo = parseFloat(el.dataset[`${ccy}Lo`]);
+    const hi = parseFloat(el.dataset[`${ccy}Hi`]);
+    const loK = Math.round(lo / 1000);
+    const hiK = Math.round(hi / 1000);
+    el.textContent = `$${loK}-${hiK}k`;
+  });
+  document.querySelectorAll(".ccy-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.ccy === ccy);
+  });
+  document.querySelectorAll(".ccy-label").forEach((el) => {
+    el.textContent = ccy.toUpperCase();
+  });
+}
+
+const METRICS_HISTORY_KEY = "thestable_dashboard_metrics_history_v1";
+
+// Records today's dashboard totals so a trend ("vs. 14 days ago") can be
+// shown once enough history has accumulated. One entry per calendar day;
+// re-visiting the dashboard the same day overwrites today's entry instead
+// of duplicating it.
+// Fabricates a 14-day upward trend ending at today's real (preview)
+// numbers, purely for display — never written to localStorage. Gives
+// preview mode the same "filled-in sparkline" look as an established
+// dashboard would have, without needing 14 real days of history.
+function buildPreviewMetricsHistory(todayMetrics) {
+  const history = [];
+  for (let d = 13; d >= 0; d--) {
+    const dt = new Date();
+    dt.setDate(dt.getDate() - d);
+    const rampUp = 0.55 + (0.45 * (13 - d)) / 13;
+    history.push({
+      date: dt.toISOString().slice(0, 10),
+      bucketOwnerCount: Math.round(todayMetrics.bucketOwnerCount * rampUp),
+      afterSaleOwnerCount: Math.round(todayMetrics.afterSaleOwnerCount * rampUp),
+      avgInvestment: Math.round(todayMetrics.avgInvestment * (0.85 + 0.15 * rampUp)),
+      requestedCoveragePct: Math.round(todayMetrics.requestedCoveragePct * rampUp),
+    });
+  }
+  history[history.length - 1] = { date: history[history.length - 1].date, ...todayMetrics };
+  return history;
+}
+
+function recordMetricsSnapshot(metrics) {
+  let history;
+  try {
+    history = JSON.parse(localStorage.getItem(METRICS_HISTORY_KEY) || "[]");
+  } catch {
+    history = [];
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const withoutToday = history.filter((entry) => entry.date !== today);
+  withoutToday.push({ date: today, ...metrics });
+  withoutToday.sort((a, b) => a.date.localeCompare(b.date));
+  localStorage.setItem(METRICS_HISTORY_KEY, JSON.stringify(withoutToday.slice(-90)));
+  return withoutToday;
+}
+
+function trendFor(history, key, current) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 14);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const baseline = history.find((entry) => entry.date >= cutoffStr && entry.date !== new Date().toISOString().slice(0, 10));
+  if (!baseline) return null;
+  const past = Number(baseline[key] || 0);
+  const delta = current - past;
+  const pct = past ? (delta / past) * 100 : null;
+  return { past, pctLabel: pct == null ? null : `${Math.abs(pct).toFixed(1)}%`, direction: delta > 0 ? "up" : delta < 0 ? "down" : "flat", date: baseline.date };
+}
+
+function sparklinePoints(history, key, current) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 14);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const points = history.filter((entry) => entry.date >= cutoffStr && entry.date !== today).map((entry) => Number(entry[key] || 0));
+  points.push(current);
+  return points.slice(-7);
+}
+
+function vsBarsHtml(points, formatFn) {
+  if (points.length < 2) return `<div class="vs-bars-empty">Not enough history yet — check back after a few more days of responses.</div>`;
+  const max = Math.max(...points, 1);
+  const bars = points.map((value, i) => {
+    const isLast = i === points.length - 1;
+    const height = Math.max(4, Math.round((value / max) * 100));
+    const label = i === 0 || isLast ? `<span class="vsb-t">${formatFn(value)}</span>` : "";
+    return `<div class="vsb${isLast ? " vsb-now" : ""}" style="height:${height}%">${label}</div>`;
+  }).join("");
+  return `<div class="vs-bars">${bars}</div><div class="vsb-axis"><span>${points.length > 1 ? "Earliest" : ""}</span><span>Now</span></div>`;
+}
+
+function renderOwnerRosterAdmin() {
+  const roster = getOwnerRoster();
+  const respondedEmails = new Set(getResponses().map((item) => (item.email || "").toLowerCase()));
+
+  app.innerHTML = `
+    <div class="refskin">
+    <div class="wrap">
+      <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${resetDemoDataButton()}${backToSiteLink()}</div></div>
+
+      <div class="page-title-row">
+        <h1>Owner Roster</h1>
+      </div>
+      <p class="dek">The full list of owners invited to respond, so the dashboard can show a real response rate. Import this once you have TheStable's owner list; until then the dashboard shows "no data" instead of a guess.</p>
+
+      <div class="ref-panel" style="margin-top: 22px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Import</div>
+            <h2>Add owners</h2>
+            <p>Paste one owner per line: "Name, email@example.com" (or just an email). Pasting again adds new owners without duplicating existing ones.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <textarea class="input" id="ownerRosterInput" rows="6" placeholder="Jane Smith, jane@example.com&#10;Mark Doe, markd@example.com" style="width:100%; font-family: inherit; resize: vertical;"></textarea>
+          <div class="qb-add-row" style="margin-top: 12px;">
+            <button class="btn primary" type="button" id="ownerRosterImport">Import owners</button>
+            <button class="btn red" type="button" id="ownerRosterClear" ${roster.length ? "" : "disabled"}>Clear roster</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ref-panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Roster</div>
+            <h2>${roster.length} owner${roster.length === 1 ? "" : "s"} on file</h2>
+            <p>${roster.length ? `${[...respondedEmails].filter((email) => roster.some((o) => o.email === email)).length} of ${roster.length} have responded so far.` : "No owners imported yet."}</p>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          ${roster.length ? `
+          <table>
+            <thead><tr><th>Owner</th><th>Email</th><th>Responded</th><th></th></tr></thead>
+            <tbody>
+              ${roster.map((owner, i) => `
+              <tr>
+                <td><div class="owner-name">${escapeHtml(owner.name)}</div></td>
+                <td>${escapeHtml(owner.email)}</td>
+                <td>${respondedEmails.has(owner.email) ? "Yes" : "Not yet"}</td>
+                <td><button class="btn red" type="button" data-remove-owner="${i}">Remove</button></td>
+              </tr>`).join("")}
+            </tbody>
+          </table>` : `<p class="notice" style="margin:18px 20px;">Paste owners above to build the roster.</p>`}
+        </div>
+      </div>
+    </div>
+    </div>`;
+
+  bindAdminTabs();
+  document.querySelector("#ownerRosterImport").addEventListener("click", () => {
+    const textarea = document.querySelector("#ownerRosterInput");
+    const parsed = parseOwnerRosterText(textarea.value);
+    if (!parsed.length) return;
+    const existing = getOwnerRoster();
+    const existingEmails = new Set(existing.map((o) => o.email));
+    const merged = [...existing, ...parsed.filter((o) => !existingEmails.has(o.email))];
+    saveOwnerRoster(merged);
+    renderOwnerRosterAdmin();
+  });
+  const clearButton = document.querySelector("#ownerRosterClear");
+  if (clearButton && !clearButton.disabled) {
+    armDestructiveButton(clearButton, "Confirm clear?", () => {
+      saveOwnerRoster([]);
+      renderOwnerRosterAdmin();
+    });
+  }
+  document.querySelectorAll("[data-remove-owner]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.getAttribute("data-remove-owner"));
+      const roster = getOwnerRoster();
+      roster.splice(index, 1);
+      saveOwnerRoster(roster);
+      renderOwnerRosterAdmin();
+    });
+  });
+}
+
+// Builds a fictional dataset shaped like real intake responses, purely to
+// preview a busy dashboard. Deterministic (no Math.random) so the preview
+// looks the same every time instead of jittering on every render. Never
+// touches localStorage — callers read this instead of getResponses() /
+// getOwnerRoster() / bucketPriceFor() while previewMode is on.
+function buildPreviewDataset() {
+  const firstNames = ["Jane", "Mark", "Susan", "David", "Linda", "Michael", "Karen", "Robert", "Patricia", "James", "Nancy", "Thomas", "Sandra", "Daniel", "Betty", "Paul", "Carol", "Steven", "Ruth", "Kevin"];
+  const lastNames = ["Smith", "Doe", "Miller", "Taylor", "Anderson", "Reed", "Clark", "Kessler", "Owens", "Foster", "Bennett", "Hayes", "Coleman", "Pierce", "Sutton", "Marsh", "Doyle", "Grant", "Wells", "Barrett"];
+  const salesPool = REAL_SALES.map((s) => s.id);
+  const bucketPool = [["premium"], ["balanced"], ["value"], ["premium", "balanced"], ["value"], ["balanced"]];
+  const gaits = ["trotter", "pacer", "both"];
+  const sexes = ["colt", "filly", "either"];
+  const eligibilityPool = ["kentucky", "ohio", "ontario", "pennsylvania", "new_york"];
+  const horseCounts = ["one", "two", "three_plus"];
+  const shareSizes = ["1", "2_5", "5_10", "10plus", "depends"];
+
+  const responses = [];
+  for (let i = 0; i < 42; i++) {
+    const sale = salesPool[i % salesPool.length];
+    const gait = gaits[i % gaits.length];
+    // Every 4th owner is also interested in after-sale individual shares
+    // (participation "both"), so that panel has real preview data too —
+    // matches how a real owner can want both a bucket and after-sale shares.
+    const alsoAfterSale = i % 4 === 0;
+    responses.push({
+      id: "preview_" + i,
+      ownerId: null,
+      name: `${firstNames[i % firstNames.length]} ${lastNames[(i * 3) % lastNames.length]}`,
+      email: `preview_owner${i}@example.com`,
+      selectedSales: [sale],
+      eligibilityPreferences: [eligibilityPool[i % eligibilityPool.length]],
+      saleResponses: {
+        [sale]: {
+          participation: alsoAfterSale ? "both" : "bucket",
+          gait,
+          sex: sexes[i % sexes.length],
+          sexTrotter: "",
+          sexPacer: "",
+          bucketDetailMode: "simple",
+          bucketTypes: bucketPool[i % bucketPool.length],
+          maxYearlings: "no_preference",
+          bucketLevel: ["1", "2", "3", "5"][i % 4],
+          bucketAmount: "",
+          bucketMatrix: blankBucketMatrix(),
+          specificHorseCount: alsoAfterSale ? horseCounts[i % horseCounts.length] : "",
+          specificShareSize: alsoAfterSale ? shareSizes[i % shareSizes.length] : "",
+          note: "",
+        },
+      },
+      submittedAt: new Date(Date.now() - i * 3600000).toISOString(),
+    });
+  }
+
+  const roster = responses.map((r) => ({ name: r.name, email: r.email }));
+  for (let i = 0; i < 18; i++) {
+    roster.push({ name: `${firstNames[(i + 7) % firstNames.length]} ${lastNames[(i + 11) % lastNames.length]}`, email: `preview_noresponse${i}@example.com` });
+  }
+
+  const prices = { premium: 15000, balanced: 8000, value: 3000 };
+  const confirmedBuckets = [
+    { id: "cb_preview_1", name: "Premium Trotter Colts", price: 15000, gait: "trotter", sex: "colt", note: "" },
+    { id: "cb_preview_2", name: "Balanced — Any gait, Fillies", price: 8000, gait: "any", sex: "filly", note: "" },
+    { id: "cb_preview_3", name: "Value Buys", price: 3000, gait: "any", sex: "any", note: "" },
+  ];
+
+  return { responses, roster, prices, confirmedBuckets };
+}
+
 function renderAdmin() {
   if (!adminLoggedIn) {
     app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><div class="field-stack"><input class="input" id="passcode" type="password" placeholder="Passcode"></div><p class="notice hidden" id="loginError">Incorrect passcode.</p><div class="actions single"><button class="btn primary" type="button" id="loginButton">Login</button></div></div></article>`;
@@ -1024,7 +2230,21 @@ function renderAdmin() {
     });
     return;
   }
-  const responses = getResponses();
+  if (adminTab === "questions") {
+    renderQuestionsAdmin();
+    return;
+  }
+  if (adminTab === "salehistory") {
+    renderSaleHistory();
+    return;
+  }
+  if (adminTab === "owners") {
+    renderOwnerRosterAdmin();
+    return;
+  }
+
+  const preview = previewMode ? buildPreviewDataset() : null;
+  const responses = preview ? preview.responses : getResponses();
   const rows = flattenResponses(responses);
   const bucketRows = rows.filter((row) => hasBucket(row) && row.amount);
   const afterSaleRows = buildAfterSaleRows(responses);
@@ -1033,101 +2253,353 @@ function renderAdmin() {
   const afterSaleOwnerCount = new Set(afterSaleRows.map((row) => row.email)).size;
   const totalPercent = bucketRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const saleDemand = groupDemand(bucketRows, (row) => row.saleLabel);
+  // Same estimated-capital math as the hero figure, but broken out per
+  // sale — only computed when at least one bucket type has a price set.
+  const saleCapital = new Map();
+  bucketRows.forEach((row) => {
+    const price = bucketPriceFor(row.bucketTypes[0], preview ? preview.prices : null);
+    if (price == null) return;
+    const current = saleCapital.get(row.saleLabel) || 0;
+    saleCapital.set(row.saleLabel, current + (Number(row.amount || 0) / 100) * price);
+  });
   const bucketDemand = groupDemand(bucketRows, (row) => labelFor("bucketTypes", row.bucketTypes[0]));
   const gaitDemand = groupDemand(bucketRows, (row) => labelFor("gait", row.gait));
   const sexDemand = groupDemand(bucketRows, (row) => labelFor("sex", row.sex));
-  const gaitSexDemand = groupDemand(bucketRows, (row) => `${labelFor("gait", row.gait)} / ${labelFor("sex", row.sex)}`);
   const shareSizeDemand = groupDemand(bucketRows, bucketShareBand);
   const eligibilityDemand = groupMultiDemand(bucketRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
   const afterSaleEligibility = groupMultiDemand(afterSaleRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
-  const suggestions = buildBucketSuggestions(bucketRows);
-  const summaryItems = [
-    summaryItem("Most popular sale", saleDemand[0]),
-    summaryItem("Top requested jurisdiction", eligibilityDemand[0]),
-    summaryItem("Most requested gait", gaitDemand[0]),
-    summaryItem("Most common share size", shareSizeDemand[0]),
-  ];
+  const previewPrices = preview ? preview.prices : null;
+  const suggestions = buildBucketSuggestions(bucketRows, previewPrices);
+  const confirmedBuckets = preview ? preview.confirmedBuckets : getConfirmedBuckets("default");
+
+  const asOf = new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const ownerRoster = preview ? preview.roster : getOwnerRoster();
+  const invitedCount = ownerRoster.length;
+  // Two distinct percentages: how many of the *invited* owners have
+  // responded at all (needs the imported roster as the denominator — "no
+  // data" until Anthony imports one), versus how many of the owners who
+  // *did* respond went on to ask for a pre-sale bucket (always computable
+  // from response data alone).
+  const responseRatePct = invitedCount ? Math.round((ownerCount / invitedCount) * 100) : null;
+  const bucketInterestPct = ownerCount ? Math.round((bucketOwnerCount / ownerCount) * 100) : 0;
+  // Estimated dollar figure: each row's requested share (%) times that
+  // row's bucket-type price, summed. Rows whose bucket type has no price
+  // set yet in the Questions Builder are excluded from the dollar total
+  // (their share % still counts toward totalPercent above).
+  const pricedRows = bucketRows.filter((row) => bucketPriceFor(row.bucketTypes[0], previewPrices) != null);
+  const estimatedCapital = pricedRows.reduce((sum, row) => sum + (Number(row.amount || 0) / 100) * bucketPriceFor(row.bucketTypes[0], previewPrices), 0);
+  const hasCapitalEstimate = pricedRows.length > 0;
+  const requestedCoveragePct = Math.round(totalPercent);
+  const avgInvestment = hasCapitalEstimate && bucketOwnerCount ? Math.round(estimatedCapital / bucketOwnerCount) : null;
+
+  // Preview mode never writes a snapshot — otherwise fictional demo numbers
+  // would pollute the real trend history shown once preview is turned off.
+  // It fabricates its own flat 14-day history instead, purely for display.
+  const metricsHistory = preview
+    ? buildPreviewMetricsHistory({ bucketOwnerCount, afterSaleOwnerCount, avgInvestment: avgInvestment ?? 0, requestedCoveragePct })
+    : recordMetricsSnapshot({ bucketOwnerCount, afterSaleOwnerCount, avgInvestment: avgInvestment ?? 0, requestedCoveragePct });
+  const trendRow = (key, current, trendSuffix = " vs. 14 days ago") => {
+    const trend = trendFor(metricsHistory, key, current);
+    if (!trend || trend.pctLabel == null) return "";
+    return `<span class="vs-trend ${trend.direction}">${trend.direction === "up" ? "&#9650;" : trend.direction === "down" ? "&#9660;" : ""} ${trend.pctLabel}${trendSuffix}</span>`;
+  };
+  const trendBars = (key, current, formatFn) => vsBarsHtml(sparklinePoints(metricsHistory, key, current), formatFn);
 
   app.innerHTML = `
-    <section class="admin-dashboard">
-        <div class="admin-titlebar">
+    <div class="refskin dashboard-page">
+    <div class="wrap">
+      <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${previewToggleButton()}${resetDemoDataButton()}${backToSiteLink()}</div></div>
+
+      ${preview ? `<div class="preview-banner">Previewing with fictional demo data — no real responses were touched. <button type="button" id="previewOff">Show my real data</button></div>` : ""}
+
+      <div class="masthead">
+        <div class="brand">
+          <img class="logo-img" src="../assets/thestable-logo-official.png" alt="TheStable.ca">
+          <span class="div"></span>
+          <span class="sub">Response Dashboard</span>
+        </div>
+        <div class="masthead-right">
+          <div class="as-of light">Responses as of <strong>${asOf}</strong></div>
+          <button class="export-btn" type="button" id="exportCsv">Export CSV</button>
+        </div>
+      </div>
+
+      <!-- VERDICT -->
+      <div class="verdict">
+        <div class="verdict-top">
           <div>
-            <span class="eyebrow">2026 Yearling Sale Planning</span>
-            <h1>Bucket Builder Dashboard</h1>
-            <p>See where owner demand is strongest before deciding which yearling buckets to offer.</p>
+            <div class="eyebrow"><span class="dot"></span> ${hasCapitalEstimate ? "Indicative capital, all sales" : "Requested bucket share, all sales"}</div>
+            <div class="verdict-figure">${!bucketRows.length ? "No data" : hasCapitalEstimate ? `${money(estimatedCapital)} <span class="verdict-figure-sub">(${percent(totalPercent)} requested share)</span>` : percent(totalPercent)}</div>
+            <div class="verdict-label">${bucketRows.length ? `Total requested bucket interest across ${saleDemand.length} sale${saleDemand.length === 1 ? "" : "s"} currently in the intake. Non-binding, for planning only.${hasCapitalEstimate ? "" : " Set bucket prices in Questions Builder to also see a dollar figure here."}` : "No pre-sale bucket responses yet. This figure will fill in as owners submit the intake."}</div>
           </div>
-          <div class="admin-actions"><button class="btn primary" type="button" id="exportCsv">Export CSV</button></div>
+          <div class="response-ring">
+            <div class="ring" style="--pct:${responseRatePct ?? 0}">${responseRatePct == null ? `<div class="ring-empty">No data</div>` : `<div>${responseRatePct}%</div>`}</div>
+            <div class="response-copy">
+              <div class="n">${responseRatePct == null ? `No owners responded yet` : `${ownerCount} of ${invitedCount} owners responded`}</div>
+              <div class="d">${ownerCount ? `${bucketInterestPct}% of respondents want a bucket &middot; ${afterSaleOwnerCount} also interested in after-sale shares` : "No responses yet"}</div>
+            </div>
+          </div>
         </div>
 
-        <section class="admin-grid">
-          ${kpiCard("Responses", ownerCount, "Unique owners who submitted the intake.", "unique owners")}
-          ${kpiCard("Pre-sale bucket buyers", bucketOwnerCount, "Owners who selected pre-sale buckets or both.", "owners")}
-          ${kpiCard("Requested bucket shares", percent(totalPercent), "Total of requested bucket percentages across selected bucket ideas. This is demand input, not final bucket capacity.", "total requested")}
-          ${kpiCard("After-sale buyers", afterSaleOwnerCount, "Owners who want to look at individual shares after the sales.", "owners")}
-        </section>
+        <div class="verdict-strip">
+          <div class="vs-item">
+            <div class="vs-label">Pre-sale bucket buyers</div>
+            <div class="vs-row"><span class="vs-value">${bucketOwnerCount}</span>${trendRow("bucketOwnerCount", bucketOwnerCount)}</div>
+            ${trendBars("bucketOwnerCount", bucketOwnerCount, (v) => `${Math.round(v)}`)}
+          </div>
+          <div class="vs-item">
+            <div class="vs-label">After-sale buyers</div>
+            <div class="vs-row"><span class="vs-value">${afterSaleOwnerCount}</span>${trendRow("afterSaleOwnerCount", afterSaleOwnerCount)}</div>
+            ${trendBars("afterSaleOwnerCount", afterSaleOwnerCount, (v) => `${Math.round(v)}`)}
+          </div>
+          <div class="vs-item">
+            <div class="vs-label">Avg. investment / owner</div>
+            <div class="vs-row"><span class="vs-value">${avgInvestment != null ? money(avgInvestment) : "No data"}</span>${avgInvestment != null ? trendRow("avgInvestment", avgInvestment) : ""}</div>
+            ${avgInvestment != null ? trendBars("avgInvestment", avgInvestment, (v) => money(v)) : `<div class="vs-bars-empty">Set bucket prices in Questions Builder to see this.</div>`}
+          </div>
+          <div class="vs-item">
+            <div class="vs-label">Requested bucket coverage</div>
+            <div class="vs-row"><span class="vs-value">${requestedCoveragePct}%</span>${trendRow("requestedCoveragePct", requestedCoveragePct)}</div>
+            ${trendBars("requestedCoveragePct", requestedCoveragePct, (v) => `${Math.round(v)}%`)}
+          </div>
+        </div>
+      </div>
 
-        <section class="summary-strip">
-          ${summaryItems.join("")}
-        </section>
+      <!-- CONFIRMED OFFER -->
+      <div class="ref-panel">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Confirmed offer</div>
+            <h2>Buckets we're offering</h2>
+            <p>TheStable's finalized bucket lineup for this sale year, set in Questions Builder.</p>
+          </div>
+        </div>
+        <div class="panel-body" style="padding-top: 4px;">
+          ${confirmedBuckets.length ? `<div class="confirmed-bucket-list">${confirmedBuckets.map((b) => `
+          <div class="confirmed-bucket-card">
+            <div class="cbc-name">${escapeHtml(b.name)}</div>
+            <div class="cbc-price">${b.price != null ? money(b.price) : "No price set"}</div>
+            <div class="cbc-criteria">${[b.gait !== "any" ? labelFor("gait", b.gait) : null, b.sex !== "any" ? labelFor("sex", b.sex) : null].filter(Boolean).join(" &middot; ") || "Open to any gait/sex"}</div>
+            ${b.note ? `<div class="cbc-note">${escapeHtml(b.note)}</div>` : ""}
+          </div>`).join("")}</div>` : `<p class="quiet" style="padding:6px 4px;">No buckets confirmed yet. Review demand below, then set the final lineup in Questions Builder &rarr; Confirmed buckets.</p>`}
+        </div>
+      </div>
 
-        <section class="admin-section">
-          <div class="section-title"><div><span class="tag">Recommendation</span><h2>Suggested Buckets to Offer</h2></div><p>Algorithmic suggestions based on sale, bucket type, gait, colt/filly, jurisdiction, share demand and number of buyers.</p></div>
-          ${suggestionPanel(suggestions)}
-        </section>
+      <!-- SUGGESTIONS -->
+      <div class="ref-panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Recommendation</div>
+            <h2>Suggested buckets to offer</h2>
+            <p>Ranked by requested share, owner count, and jurisdiction fit. Not final bucket capacity.</p>
+          </div>
+          <span class="ref-info-dot" tabindex="0">i<span class="tip">Suggestions are ranked by how much of a sale's owners have expressed interest, how many owners that represents, and whether the top requested share size fits the sale's jurisdiction rules. This is not a final decision on which buckets to actually offer.</span></span>
+        </div>
+        <div class="panel-body" style="padding-top: 4px;">
+          ${suggestions.length ? suggestions.map((row) => `
+          <div class="sugg-row">
+            <div>
+              <span class="status ${row.status.toLowerCase()}">${suggIcon(row.status)}${row.status}</span>
+              <div class="sugg-title">${escapeHtml(row.saleLabel)} &middot; ${escapeHtml(labelFor("bucketTypes", row.bucketType))} &middot; ${escapeHtml(labelFor("gait", row.gait))} &middot; ${escapeHtml(labelFor("sex", row.sex))}</div>
+              <div class="sugg-sub">${row.eligibility.length ? row.eligibility.map((item) => escapeHtml(item.label)).join(", ") : "No jurisdiction preference captured"}</div>
+            </div>
+            <div class="stat-block"><div class="num">${percent(row.total)}</div><div class="lbl">requested share</div></div>
+            <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
+            <div class="stat-block"><div class="num">${row.shareSizes.length ? escapeHtml(row.shareSizes[0].label) : "No data"}${row.topShareDollarBand ? ` <span class="stat-sub">(~${escapeHtml(row.topShareDollarBand)})</span>` : ""}</div><div class="lbl">top share size</div></div>
+            <div class="fill-meter"><div class="bar"><span style="width:${Math.max(4, Math.min(100, row.total))}%"></span></div><div class="pct">${row.fillSignal}</div></div>
+          </div>`).join("") : `<p class="quiet" style="padding:6px 4px;">No bucket suggestions yet. Suggestions will appear once owners submit pre-sale bucket responses.</p>`}
+        </div>
+      </div>
 
-        <section class="dashboard-grid">
-          ${barPanel("Popular Sales", saleDemand, "Requested bucket shares by sale.")}
-          ${barPanel("Requested Jurisdictions", eligibilityDemand, "State or province eligibility owners prefer, such as Kentucky, Ohio or Ontario.")}
-          ${barPanel("Trotter vs Pacer", gaitDemand, "Requested bucket shares by gait.")}
-          ${barPanel("Colt / Filly", sexDemand, "Requested bucket shares by colt/filly preference.")}
-          ${barPanel("Gait + Colt/Filly", gaitSexDemand, "Demand for combinations such as Pacer/Filly or Trotter/Colt.")}
-          ${barPanel("Share Size", shareSizeDemand, "Shows whether demand comes from many small buyers or fewer larger buyers.")}
-        </section>
+      <!-- ROW: sale demand + bucket type mix -->
+      <div class="grid-2">
+        <div class="ref-panel">
+          <div class="panel-head">
+            <h2>Interest by sale</h2>
+            <span class="ref-info-dot" tabindex="0">i<span class="tip">Total requested bucket share and number of owners who expressed interest, per sale, based on pre-sale bucket responses collected so far.</span></span>
+          </div>
+          <div class="panel-body">
+            ${refBarList(saleDemand, saleCapital)}
+          </div>
+        </div>
+        <div class="ref-panel">
+          <div class="panel-head">
+            <h2>Bucket type mix</h2>
+            <span class="ref-info-dot" tabindex="0">i<span class="tip">Share of total requested percentage that falls into each bucket type (Premium, Balanced, Value buys), based on what owners selected in their response.</span></span>
+          </div>
+          <div class="panel-body">
+            ${refDonut(bucketDemand)}
+          </div>
+        </div>
+      </div>
 
-        <section class="diagram-grid compact">
-          ${donutPanel("Bucket Type Mix", bucketDemand)}
-          ${donutPanel("Sale Mix", saleDemand)}
-          ${donutPanel("Jurisdiction Mix", eligibilityDemand)}
-        </section>
+      <!-- ROW: gait / sex / share size -->
+      <div class="grid-3">
+        <div class="ref-panel">
+          <div class="panel-head"><h2>Trotter vs. Pacer</h2></div>
+          <div class="panel-body">${refBarList(gaitDemand)}</div>
+        </div>
+        <div class="ref-panel">
+          <div class="panel-head"><h2>Colt / Filly</h2></div>
+          <div class="panel-body">${refBarList(sexDemand)}</div>
+        </div>
+        <div class="ref-panel">
+          <div class="panel-head"><h2>Share size</h2></div>
+          <div class="panel-body">${refBarList(shareSizeDemand)}</div>
+        </div>
+      </div>
 
-        ${afterSalePanel(afterSaleRows, afterSaleEligibility)}
-        ${ownerTable(rows)}
-    </section>`;
+      <div class="grid-2">
+        <div class="ref-panel">
+          <div class="panel-head">
+            <h2>Requested jurisdictions</h2>
+            <span class="ref-info-dot" tabindex="0">i<span class="tip">State or province eligibility owners prefer, such as Kentucky, Ohio or Ontario.</span></span>
+          </div>
+          <div class="panel-body">${refBarList(eligibilityDemand)}</div>
+        </div>
+        <div class="ref-panel">
+          <div class="panel-head"><h2>After-sale individual shares</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Useful after the sales, when remaining shares can be matched to owners who did not join a bucket or want extra horses.</span></span></div>
+          <div class="panel-body">
+            ${afterSaleRows.length ? `
+            <div class="bar-list">
+              <div class="bar-row"><div class="meta"><span class="name">How many horses</span></div>${miniChipRow(groupDemand(afterSaleRows, (row) => labelFor("specificHorseCount", row.specificHorseCount)))}</div>
+              <div class="bar-row"><div class="meta"><span class="name">Typical share size</span></div>${miniChipRow(groupDemand(afterSaleRows, (row) => labelFor("specificShareSize", row.specificShareSize)))}</div>
+              <div class="bar-row"><div class="meta"><span class="name">Preferred jurisdictions</span></div>${miniChipRow(afterSaleEligibility)}</div>
+            </div>` : `<p class="quiet">No after-sale interest captured yet.</p>`}
+          </div>
+        </div>
+      </div>
+
+      <!-- OWNER TABLE -->
+      <div class="ref-panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Owners</div>
+            <h2>Owner detail</h2>
+            <p>Use this to see who sits behind a specific signal.</p>
+          </div>
+        </div>
+        <div id="ownerTableBody">${refOwnerTableRows(rows)}</div>
+      </div>
+    </div>
+    </div>
+    <div id="globalTooltip" class="global-tooltip"></div>`;
   document.querySelector("#exportCsv").addEventListener("click", () => exportCsv(rows));
   bindOwnerTableFilters(rows);
-  bindInfoTips();
+  bindDashboardTooltips();
+  bindAdminTabs();
 }
 
-function kpiCard(label, value, help, note) {
-  return `<div class="kpi"><small>${label}${infoTip(help)}</small><strong>${value}</strong><span>${note}</span></div>`;
+function suggIcon(status) {
+  if (status === "Offer") return `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.2 5.6L18 8.4l-4.4 3.9L15 18l-5-3.3L5 18l1.4-5.7L2 8.4l5.8-.8z"/></svg>`;
+  if (status === "Shortlist") return `<svg viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="7"/></svg>`;
+  return `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 100 14 7 7 0 000-14zm.75 3.5v3.9l3.3 2-0.75 1.2-4.05-2.4V6.5z"/></svg>`;
 }
 
-function infoTip(text) {
-  return `<button class="info-tip" type="button" title="${escapeHtml(text)}" aria-label="${escapeHtml(text)}" data-tip="${escapeHtml(text)}">i</button>`;
+function refBarList(items, dollarByLabel = null) {
+  const max = Math.max(1, ...items.map((item) => item.total));
+  return `<div class="bar-list">
+    ${items.length ? items.map((item) => {
+      const dollar = dollarByLabel?.get(item.label);
+      return `<div class="bar-row"><div class="meta"><span class="name">${escapeHtml(item.label)}</span><span class="amt">${percent(item.total)}${dollar ? ` (${money(dollar)})` : ""} &middot; ${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}</span></div><div class="bar-track"><span style="width:${Math.max(4, (item.total / max) * 100)}%"></span></div></div>`;
+    }).join("") : `<p class="quiet">No bucket data yet.</p>`}
+  </div>`;
 }
 
-function bindInfoTips() {
-  document.querySelectorAll(".info-tip").forEach((button) => {
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const wasActive = button.classList.contains("active");
-      document.querySelectorAll(".info-tip.active").forEach((item) => item.classList.remove("active"));
-      if (!wasActive) {
-        button.classList.add("active");
-        setTimeout(() => {
-          document.addEventListener("click", closeInfoTips, { once: true });
-        }, 0);
-      }
-    });
+function miniChipRow(items) {
+  return `<div class="amt">${items.length ? items.slice(0, 4).map((item) => `${escapeHtml(item.label)} (${item.count})`).join(", ") : "No data"}</div>`;
+}
+
+function refDonut(items) {
+  const total = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  if (!total || !items.length) {
+    return `<p class="quiet">No bucket data yet.</p>`;
+  }
+  let startAngle = 0;
+  const paths = items.slice(0, 6).map((item, index) => {
+    const fraction = Number(item.total || 0) / total;
+    const endAngle = startAngle + fraction * 360;
+    const path = donutArcPath(startAngle, endAngle);
+    const color = CHART_COLORS[index % CHART_COLORS.length];
+    startAngle = endAngle;
+    return `<path d="${path}" fill="${color}" stroke="#f8f6f1" stroke-width="1.5"/>`;
+  }).join("");
+  return `<div class="donut-row">
+    <svg class="donut-svg" viewBox="0 0 120 120" width="116" height="116">${paths}</svg>
+    <div class="legend">
+      ${items.slice(0, 6).map((item, index) => `<div class="leg-row"><span class="sw" style="background:${CHART_COLORS[index % CHART_COLORS.length]}"></span><span class="name">${escapeHtml(item.label)}</span><span class="pct">${percent(Math.round((Number(item.total || 0) / total) * 1000) / 10)}</span><span class="amt">${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}</span></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function donutArcPath(startDeg, endDeg) {
+  const cx = 60, cy = 60, r = 58;
+  const toXY = (deg) => {
+    const rad = ((deg - 90) * Math.PI) / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+  const [x1, y1] = toXY(startDeg);
+  const [x2, y2] = toXY(endDeg);
+  const largeArc = endDeg - startDeg > 180 ? 1 : 0;
+  if (endDeg - startDeg >= 359.99) {
+    return `M ${cx} ${cy} L ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`;
+  }
+  return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+}
+
+function refOwnerTableRows(rows) {
+  const search = ownerTableFilters.search.trim().toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (ownerTableFilters.sale && row.sale !== ownerTableFilters.sale) return false;
+    if (ownerTableFilters.type && !row.bucketTypes.some((item) => labelFor("bucketTypes", item) === ownerTableFilters.type)) return false;
+    if (ownerTableFilters.gait && labelFor("gait", row.gait) !== ownerTableFilters.gait) return false;
+    if (ownerTableFilters.sex && sexSummary(row) !== ownerTableFilters.sex) return false;
+    if (search && !row.name.toLowerCase().includes(search) && !row.email.toLowerCase().includes(search)) return false;
+    return true;
   });
+  if (ownerTableFilters.pctSort) {
+    filtered.sort((a, b) => (ownerTableFilters.pctSort === "asc" ? a.amount - b.amount : b.amount - a.amount));
+  }
+  const saleOptions = [...new Map(rows.map((row) => [row.sale, row.saleLabel])).entries()];
+  const typeOptions = [...new Set(rows.flatMap((row) => row.bucketTypes.map((item) => labelFor("bucketTypes", item))))].filter(Boolean);
+  const gaitOptions = [...new Set(rows.map((row) => labelFor("gait", row.gait)))].filter(Boolean);
+  const sexOptions = [...new Set(rows.map((row) => sexSummary(row)))].filter(Boolean);
+  return `<div style="overflow-x:auto;"><table><thead><tr>
+      <th>Owner<input class="col-filter" id="ownerSearch" type="search" placeholder="Search name or email" value="${escapeHtml(ownerTableFilters.search)}"></th>
+      <th>Sale<select class="col-filter" id="ownerSaleFilter"><option value="">All sales</option>${saleOptions.map(([id, label]) => `<option value="${id}" ${ownerTableFilters.sale === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></th>
+      <th>Bucket %<select class="col-filter" id="ownerPctSort"><option value="">Unsorted</option><option value="asc" ${ownerTableFilters.pctSort === "asc" ? "selected" : ""}>Low to high</option><option value="desc" ${ownerTableFilters.pctSort === "desc" ? "selected" : ""}>High to low</option></select></th>
+      <th>Type<select class="col-filter" id="ownerTypeFilter"><option value="">All types</option>${typeOptions.map((t) => `<option value="${escapeHtml(t)}" ${ownerTableFilters.type === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select></th>
+      <th>Gait<select class="col-filter" id="ownerGaitFilter"><option value="">All gaits</option>${gaitOptions.map((g) => `<option value="${escapeHtml(g)}" ${ownerTableFilters.gait === g ? "selected" : ""}>${escapeHtml(g)}</option>`).join("")}</select></th>
+      <th>Colt / Filly<select class="col-filter" id="ownerSexFilter"><option value="">All</option>${sexOptions.map((s) => `<option value="${escapeHtml(s)}" ${ownerTableFilters.sex === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select></th>
+    </tr></thead><tbody>
+      ${filtered.length ? filtered.map((row) => `<tr><td><div class="owner-name">${escapeHtml(row.name)}</div><div class="owner-email">${escapeHtml(row.email)}</div></td><td>${escapeHtml(row.saleLabel)}</td><td class="pct-cell">${row.amount ? percent(row.amount) : ""}</td><td>${row.bucketTypes.map((item) => escapeHtml(labelFor("bucketTypes", item))).join(", ")}</td><td>${escapeHtml(labelFor("gait", row.gait))}</td><td>${escapeHtml(sexSummary(row))}</td></tr>`).join("") : `<tr><td colspan="6">${rows.length ? "No owners match your filters." : "No owner data yet."}</td></tr>`}
+    </tbody></table></div>
+    <div class="foot-note">Showing ${filtered.length} of ${rows.length} owner row${rows.length === 1 ? "" : "s"}. Use the filters above to refine.</div>`;
 }
 
-function closeInfoTips() {
-  document.querySelectorAll(".info-tip.active").forEach((item) => item.classList.remove("active"));
-}
-
-function summaryItem(label, item) {
-  return `<article class="summary-card"><small>${label}</small><strong>${item ? escapeHtml(item.label) : "No data"}</strong><span>${item ? `${percent(item.total)} requested | ${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}` : "Submit responses or load demo data"}</span></article>`;
+function bindDashboardTooltips() {
+  const tooltip = document.getElementById("globalTooltip");
+  if (!tooltip) return;
+  document.querySelectorAll(".ref-info-dot").forEach((dot) => {
+    const show = () => {
+      const tipEl = dot.querySelector(".tip");
+      if (!tipEl) return;
+      tooltip.textContent = tipEl.textContent;
+      tooltip.classList.add("show");
+      const dotBox = dot.getBoundingClientRect();
+      const tipBox = tooltip.getBoundingClientRect();
+      let left = dotBox.left + dotBox.width / 2 - tipBox.width / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tipBox.width - 8));
+      const top = dotBox.top - tipBox.height - 10;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    };
+    const hide = () => tooltip.classList.remove("show");
+    dot.addEventListener("mouseenter", show);
+    dot.addEventListener("mouseleave", hide);
+    dot.addEventListener("focus", show);
+    dot.addEventListener("blur", hide);
+  });
 }
 
 function bucketShareBand(row) {
@@ -1138,6 +2610,29 @@ function bucketShareBand(row) {
   if (amount <= 10) return "6-10%";
   if (amount <= 20) return "11-20%";
   return "More than 20%";
+}
+
+function money(value) {
+  return `$${Math.round(value).toLocaleString("en-US")}`;
+}
+
+function bucketPriceFor(bucketType, previewPrices = null) {
+  if (previewPrices) return previewPrices[bucketType] ?? null;
+  const bucketConfig = currentQuestionSet().blocks.find((b) => b.type === "bucket_config");
+  const bucket = bucketConfig?.buckets.find((b) => b.key === bucketType);
+  const price = Number(bucket?.price);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+function shareBandDollarLabel(bandLabel, bucketPrice) {
+  if (!bucketPrice) return null;
+  const match = bandLabel.match(/(\d+)(?:-(\d+))?%/);
+  if (!match) return null;
+  const lo = Number(match[1]);
+  const hi = match[2] ? Number(match[2]) : lo;
+  const loAmt = money((lo / 100) * bucketPrice);
+  const hiAmt = money((hi / 100) * bucketPrice);
+  return lo === hi ? loAmt : `${loAmt} – ${hiAmt}`;
 }
 
 function groupDemand(rows, keyFn) {
@@ -1173,80 +2668,41 @@ function sortDemand(a, b) {
   return b.count - a.count;
 }
 
-function buildBucketSuggestions(rows) {
+function buildBucketSuggestions(rows, previewPrices = null) {
   return buildPlanningRows(rows).map((row) => {
     const relatedRows = rows.filter((item) => item.sale === row.sale && item.bucketTypes[0] === row.bucketType && item.gait === row.gait && item.sex === row.sex);
     const eligibility = groupMultiDemand(relatedRows, (item) => item.eligibility.map((id) => labelFor("eligibility", id))).slice(0, 3);
     const shareSizes = groupDemand(relatedRows, bucketShareBand).slice(0, 2);
+    const bucketPrice = bucketPriceFor(row.bucketType, previewPrices);
+    const topShareDollarBand = shareSizes.length ? shareBandDollarLabel(shareSizes[0].label, bucketPrice) : null;
     const score = row.total + row.ownerCount * 8;
     const status = row.total >= 80 || (row.total >= 45 && row.ownerCount >= 3) ? "Offer" : row.total >= 30 || row.ownerCount >= 2 ? "Shortlist" : "Watch";
-    const fillSignal = row.total >= 100 ? `${(row.total / 100).toFixed(1)}x a 100% bucket` : `${percent(row.total)} of a 100% bucket`;
-    return { ...row, eligibility, shareSizes, score, status, fillSignal };
+    const fillSignal = `${(row.total / 100).toFixed(1)}×`;
+    return { ...row, eligibility, shareSizes, topShareDollarBand, score, status, fillSignal };
   }).sort((a, b) => b.score - a.score);
 }
 
-function suggestionPanel(rows) {
-  return `<article class="panel suggestion-panel">
-    <div class="suggestion-list">
-      ${rows.length ? rows.map((row) => `<div class="suggestion-row">
-        <div>
-          <span class="status-pill ${row.status.toLowerCase()}">${row.status}</span>
-          <strong>${escapeHtml(row.saleLabel)} | ${labelFor("bucketTypes", row.bucketType)} | ${labelFor("gait", row.gait)} | ${labelFor("sex", row.sex)}</strong>
-          <small>${row.eligibility.length ? row.eligibility.map((item) => item.label).join(", ") : "No jurisdiction preference captured"}</small>
-        </div>
-        <div><strong>${percent(row.total)}</strong><span>requested share</span></div>
-        <div><strong>${row.ownerCount}</strong><span>owners</span></div>
-        <div><strong>${percent(row.average)}</strong><span>avg share</span></div>
-        <div><strong>${row.fillSignal}</strong><span>vs 100% bucket ${infoTip("This compares current demand with one theoretical full bucket for this exact sale/type/gait/colt-filly idea. It is only a planning signal, not a final bucket count.")}</span></div>
-        <div><strong>${row.shareSizes.map((item) => item.label).join(", ") || "No data"}</strong><span>buyer size mix</span></div>
-      </div>`).join("") : `<p class="quiet">No bucket suggestions yet.</p>`}
-    </div>
-  </article>`;
-}
-
-const ownerTableFilters = { search: "", sale: "" };
-
-function ownerTable(rows) {
-  return `<article class="panel owner-panel">
-    <div class="section-title"><div><span class="tag">Owners</span><h2>Owner Detail</h2></div><p>Use this to see who sits behind a specific signal.</p></div>
-    <div class="owner-table-filters">
-      <input class="input" id="ownerSearch" type="search" placeholder="Search by name or email" value="${escapeHtml(ownerTableFilters.search)}">
-      <select class="input" id="ownerSaleFilter">
-        <option value="">All sales</option>
-        ${REAL_SALES.map((sale) => `<option value="${sale.id}" ${ownerTableFilters.sale === sale.id ? "selected" : ""}>${escapeHtml(sale.label)}</option>`).join("")}
-      </select>
-    </div>
-    <div id="ownerTableBody">${ownerTableRows(rows)}</div>
-  </article>`;
-}
-
-function ownerTableRows(rows) {
-  const search = ownerTableFilters.search.trim().toLowerCase();
-  const filtered = rows.filter((row) => {
-    if (ownerTableFilters.sale && row.sale !== ownerTableFilters.sale) return false;
-    if (search && !row.name.toLowerCase().includes(search) && !row.email.toLowerCase().includes(search)) return false;
-    return true;
-  });
-  return `<div class="table-wrap compact-table"><table><thead><tr><th>Owner</th><th>Sale</th><th>Bucket %</th><th>Type</th><th>Gait</th><th>Colt / Filly</th></tr></thead><tbody>
-      ${filtered.length ? filtered.map((row) => `<tr><td>${escapeHtml(row.name)}<br><small>${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.saleLabel)}</td><td>${row.amount ? percent(row.amount) : ""}</td><td>${row.bucketTypes.map((item) => labelFor("bucketTypes", item)).join(", ")}</td><td>${labelFor("gait", row.gait)}</td><td>${sexSummary(row)}</td></tr>`).join("") : `<tr><td colspan="6">${rows.length ? "No owners match your search." : "No owner data yet."}</td></tr>`}
-    </tbody></table></div>`;
-}
+const ownerTableFilters = { search: "", sale: "", type: "", gait: "", sex: "", pctSort: "" };
 
 function bindOwnerTableFilters(rows) {
-  const searchInput = document.querySelector("#ownerSearch");
-  const saleSelect = document.querySelector("#ownerSaleFilter");
-  if (!searchInput || !saleSelect) return;
   const rerender = () => {
-    document.querySelector("#ownerTableBody").innerHTML = ownerTableRows(rows);
+    document.querySelector("#ownerTableBody").innerHTML = refOwnerTableRows(rows);
+    bindOwnerTableFilters(rows);
   };
-  searchInput.addEventListener("input", () => {
-    ownerTableFilters.search = searchInput.value;
-    rerender();
-  });
-  saleSelect.addEventListener("change", () => {
-    ownerTableFilters.sale = saleSelect.value;
-    rerender();
-  });
+  const bind = (id, key, event = "input") => {
+    const el = document.querySelector(`#${id}`);
+    if (!el) return;
+    el.addEventListener(event, () => {
+      ownerTableFilters[key] = el.value;
+      rerender();
+    });
+  };
+  bind("ownerSearch", "search");
+  bind("ownerSaleFilter", "sale", "change");
+  bind("ownerPctSort", "pctSort", "change");
+  bind("ownerTypeFilter", "type", "change");
+  bind("ownerGaitFilter", "gait", "change");
+  bind("ownerSexFilter", "sex", "change");
 }
 
 function buildAfterSaleRows(responses) {
@@ -1264,44 +2720,6 @@ function buildAfterSaleRows(responses) {
       specificShareSize: saleResponse.specificShareSize,
     }];
   }));
-}
-
-function barPanel(title, items, note) {
-  const max = Math.max(1, ...items.map((item) => item.total));
-  return `<article class="panel"><div class="panel-head"><div><h3>${title}${infoTip(note)}</h3></div></div>
-    <div class="bar-list">
-      ${items.length ? items.map((item) => `<div class="bar-row"><div class="bar-meta"><strong>${escapeHtml(item.label)}</strong><span>${percent(item.total)} | ${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}</span></div><div class="bar-track"><span style="width:${Math.max(4, (item.total / max) * 100)}%"></span></div></div>`).join("") : `<p class="quiet">No bucket data yet.</p>`}
-    </div>
-  </article>`;
-}
-
-function donutPanel(title, items) {
-  const total = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
-  const gradient = total ? donutGradient(items, total) : "#e4e9f1";
-  const top = items[0];
-  const note = top ? `${top.label} has the largest share of current responses.` : "No data yet.";
-  return `<article class="panel diagram-panel">
-    <div class="panel-head"><div><h3>${title}${infoTip(note)}</h3></div></div>
-    <div class="donut-wrap">
-      <div class="donut" style="background:${gradient}"><div><strong>${top ? percent(top.total) : "0%"}</strong><span>${top ? escapeHtml(top.label) : "No data"}</span></div></div>
-      <div class="legend-list">
-        ${items.length ? items.slice(0, 6).map((item, index) => `<div class="legend-row"><span class="legend-swatch" style="background:${CHART_COLORS[index % CHART_COLORS.length]}"></span><strong>${escapeHtml(item.label)}</strong><em>${percent(item.total)}</em></div>`).join("") : `<p class="quiet">No data yet.</p>`}
-      </div>
-    </div>
-  </article>`;
-}
-
-function donutGradient(items, total) {
-  let start = 0;
-  const parts = items.map((item, index) => {
-    const size = (Number(item.total || 0) / total) * 100;
-    const end = start + size;
-    const color = CHART_COLORS[index % CHART_COLORS.length];
-    const part = `${color} ${start}% ${end}%`;
-    start = end;
-    return part;
-  });
-  return `conic-gradient(${parts.join(", ")})`;
 }
 
 function buildPlanningRows(rows) {
@@ -1334,22 +2752,6 @@ function buildPlanningRows(rows) {
   })).sort((a, b) => b.total - a.total);
 }
 
-function afterSalePanel(rows, eligibilityDemand) {
-  const horseCounts = groupDemand(rows, (row) => labelFor("specificHorseCount", row.specificHorseCount));
-  const shareSizes = groupDemand(rows, (row) => labelFor("specificShareSize", row.specificShareSize));
-  return `<article class="panel after-sale-panel"><div class="panel-head"><div><h3>After-Sale Individual Shares${infoTip("Useful after the sales, when remaining shares can be matched to owners who did not join a bucket or want extra horses.")}</h3></div></div>
-    <div class="after-sale-grid">
-      <div class="mini-section"><strong>How many horses to show${infoTip("How many individual horses these owners would normally consider after a sale.")}</strong>${miniList(horseCounts, "count")}</div>
-      <div class="mini-section"><strong>Typical share size${infoTip("The share size owners expect when buying individual horses after the sale.")}</strong>${miniList(shareSizes, "count")}</div>
-      <div class="mini-section"><strong>Preferred jurisdictions${infoTip("State or province eligibility preferences from owners interested in individual shares after the sales.")}</strong>${miniList(eligibilityDemand, "count")}</div>
-    </div>
-  </article>`;
-}
-
-function miniList(items, metric) {
-  return `<div class="chip-list">${items.length ? items.slice(0, 5).map((item) => `<span class="data-chip">${escapeHtml(item.label)} <b>${metric === "total" ? percent(item.total) : item.count}</b></span>`).join("") : `<span class="data-chip">No data</span>`}</div>`;
-}
-
 function flattenResponses(responses) {
   return responses.flatMap((response) => response.selectedSales.flatMap((saleId) => {
     const saleResponse = response.saleResponses[saleId] || {};
@@ -1366,6 +2768,7 @@ function flattenResponses(responses) {
         gait: bucketRow.gait,
         sex: bucketRow.sex,
         participation: saleResponse.participation,
+        _rawResponse: saleResponse,
       }));
     }
 
@@ -1385,11 +2788,12 @@ function flattenResponses(responses) {
           participation: saleResponse.participation,
           specificHorseCount: saleResponse.specificHorseCount,
           specificShareSize: saleResponse.specificShareSize,
+          _rawResponse: saleResponse,
         })));
     }
 
     const amount = saleResponse.bucketLevel === "other" ? saleResponse.bucketAmount : saleResponse.bucketLevel;
-    return { name: response.name, email: response.email, sale: saleId, saleLabel: saleById(saleId)?.label || saleId, eligibility: response.eligibilityPreferences || [], amount: Number(amount || 0), ...saleResponse };
+    return { name: response.name, email: response.email, sale: saleId, saleLabel: saleById(saleId)?.label || saleId, eligibility: response.eligibilityPreferences || [], amount: Number(amount || 0), ...saleResponse, _rawResponse: saleResponse };
   }));
 }
 
@@ -1398,7 +2802,14 @@ function exportCsv(rows) {
     alert("There is no owner data to export yet.");
     return;
   }
-  const header = ["name", "email", "sale", "participation", "bucket_percent", "bucket_types", "max_yearlings", "gait", "sex", "eligibility"];
+  // Any question Anthony added in the Questions admin tab beyond the
+  // fixed set below gets its own trailing CSV column, keyed by its
+  // current label, so admin-added questions aren't silently dropped
+  // from the export.
+  const customBlocks = currentQuestionSet().blocks.filter(
+    (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
+  );
+  const header = ["name", "email", "sale", "participation", "bucket_percent", "bucket_types", "max_yearlings", "gait", "sex", "eligibility", ...customBlocks.map((b) => b.label)];
   const csv = [header.join(","), ...rows.map((row) => [
     row.name,
     row.email,
@@ -1410,6 +2821,11 @@ function exportCsv(rows) {
     labelFor("gait", row.gait),
     sexSummary(row),
     row.eligibility.map((item) => labelFor("eligibility", item)).join("; "),
+    ...customBlocks.map((block) => {
+      const value = row._rawResponse?.[block.id];
+      if (value === undefined || value === null || value === "") return "";
+      return Array.isArray(value) ? value.map((item) => labelFor(block.id, item) || item).join("; ") : (labelFor(block.id, value) || value);
+    }),
   ].map((value) => `"${String(value || "").replaceAll('"', '""')}"`).join(","))].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -1420,18 +2836,34 @@ function exportCsv(rows) {
   URL.revokeObjectURL(url);
 }
 
+// Fallback labels for fields that aren't part of the block-based question
+// set (sales/eligibility choices are asked earlier in the flow, outside
+// currentQuestionSet()). Block-backed fields (participation, gait, sex,
+// bucketTypes, maxYearlings, specificHorseCount, specificShareSize, ...)
+// resolve their option labels from the live question set below instead,
+// so a label Anthony edits in the Questions admin tab is reflected here
+// and in CSV exports without needing a matching code change.
+const FALLBACK_LABELS = {
+  eligibility: { ohio: "Ohio eligible", kentucky: "Kentucky eligible", new_jersey: "New Jersey eligible", pennsylvania: "Pennsylvania eligible", ontario: "Ontario eligible", new_york: "New York eligible", indiana: "Indiana eligible", no_preference: "No strong preference" },
+  bucketTypes: { premium: "Premium", value: "Value Buy", balanced: "Balanced" },
+};
+
+// bucket_config is the single source of truth for bucket names — see
+// bucketConfigOptionRows(). bucketTypes must resolve labels from there
+// first (not from its own block.options), or a bucket renamed/removed
+// in the Questions admin tab would still show its old name everywhere
+// this label is used (review screen, CSV export, dashboard charts).
 function labelFor(field, value) {
-  const labels = {
-    participation: { bucket: "Pre-sale bucket", specific: "After-sale individual shares", both: "Both" },
-    gait: { trotter: "Trotters", pacer: "Pacers", both: "Both" },
-    sex: { colt: "Colts", filly: "Fillies", both: "Both" },
-    eligibility: { ohio: "Ohio eligible", kentucky: "Kentucky eligible", new_jersey: "New Jersey eligible", pennsylvania: "Pennsylvania eligible", ontario: "Ontario eligible", new_york: "New York eligible", indiana: "Indiana eligible", no_preference: "No strong preference" },
-    bucketTypes: { premium: "Premium", value: "Value Buy", balanced: "Balanced" },
-    maxYearlings: { no_preference: "No preference", "1": "1", "2": "2", "3": "3", "4": "4", "5plus": "5+" },
-    specificHorseCount: { one: "One horse only", two: "Up to 2 horses", three_plus: "3+ horses is OK" },
-    specificShareSize: { "1": "Around 1%", "2_5": "2% to 5%", "5_10": "5% to 10%", "10plus": "10%+", depends: "Depends" },
-  };
-  return labels[field]?.[value] || "";
+  if (field === "bucketTypes") {
+    const bucketConfig = currentQuestionSet().blocks.find((b) => b.type === "bucket_config");
+    const bucket = bucketConfig?.buckets.find((b) => b.key === value);
+    if (bucket) return bucket.name;
+    return FALLBACK_LABELS.bucketTypes[value] || "";
+  }
+  const block = currentQuestionSet().blocks.find((b) => b.id === field);
+  const optionLabel = block?.options?.find((o) => o.value === value)?.label;
+  if (optionLabel) return optionLabel;
+  return FALLBACK_LABELS[field]?.[value] || "";
 }
 
 function escapeHtml(value) {
