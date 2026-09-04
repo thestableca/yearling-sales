@@ -1587,7 +1587,7 @@ function bindQuestionsAdmin(questionSet) {
         const bucketConfig = set.blocks.find((b) => b.type === "bucket_config");
         if (bucketConfig && bucketConfig.buckets[index]) {
           const num = Number(el.value);
-          bucketConfig.buckets[index].price = el.value === "" || Number.isNaN(num) ? null : num;
+          bucketConfig.buckets[index].price = el.value === "" || Number.isNaN(num) || num <= 0 ? null : num;
         }
       });
     });
@@ -1632,7 +1632,7 @@ function bindQuestionsAdmin(questionSet) {
       updateConfirmed((buckets) => {
         if (!buckets[index]) return;
         const num = Number(el.value);
-        buckets[index].price = el.value === "" || Number.isNaN(num) ? null : num;
+        buckets[index].price = el.value === "" || Number.isNaN(num) || num <= 0 ? null : num;
       });
     });
   });
