@@ -1217,6 +1217,25 @@ th .col-filter option {
   align-items: center;
 }
 
+.roster-upload-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.roster-upload-divider::before,
+.roster-upload-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
 @media (max-width: 760px) {
   .qb-block-head {
     flex-wrap: wrap;

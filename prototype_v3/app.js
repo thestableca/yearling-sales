@@ -48,6 +48,84 @@ function parseOwnerRosterText(text) {
   }).filter(Boolean);
 }
 
+// Parses one line of RFC 4180-ish CSV into cells, handling quoted fields
+// (so a name like "Smith, Jane" in quotes doesn't split into two columns).
+function parseCsvLine(line) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (char === '"') { inQuotes = false; }
+      else current += char;
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      cells.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current);
+  return cells.map((c) => c.trim());
+}
+
+// Turns a CSV or spreadsheet-export text blob into owner rows. Looks for
+// columns named like "name"/"email" in a header row; falls back to
+// treating the first two columns as name/email when there's no
+// recognizable header (e.g. a plain two-column list with no headers).
+function parseOwnerRosterCsv(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const rows = lines.map(parseCsvLine);
+  const header = rows[0].map((cell) => cell.toLowerCase());
+  const nameIdx = header.findIndex((h) => /name/.test(h));
+  const emailIdx = header.findIndex((h) => /e-?mail/.test(h));
+  const hasHeader = nameIdx !== -1 || emailIdx !== -1;
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const resolvedEmailIdx = emailIdx !== -1 ? emailIdx : dataRows[0]?.findIndex((c) => c.includes("@")) ?? 1;
+  const resolvedNameIdx = nameIdx !== -1 ? nameIdx : (resolvedEmailIdx === 0 ? 1 : 0);
+  return dataRows.map((cells) => {
+    const email = (cells[resolvedEmailIdx] || "").trim().toLowerCase();
+    const name = (cells[resolvedNameIdx] || "").trim() || email;
+    return email && email.includes("@") ? { name, email } : null;
+  }).filter(Boolean);
+}
+
+// Reads an owner list from an uploaded File — .csv/.txt as plain text,
+// .xlsx/.xls via the SheetJS library (loaded from cdnjs the first time
+// this runs). Returns parsed {name, email} rows either way.
+async function parseOwnerRosterFile(file) {
+  const isSpreadsheet = /\.(xlsx|xls)$/i.test(file.name);
+  if (!isSpreadsheet) {
+    const text = await file.text();
+    return parseOwnerRosterCsv(text);
+  }
+  await ensureXlsxLibraryLoaded();
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+  const csvText = XLSX.utils.sheet_to_csv(firstSheet);
+  return parseOwnerRosterCsv(csvText);
+}
+
+let xlsxLibraryPromise = null;
+function ensureXlsxLibraryLoaded() {
+  if (window.XLSX) return Promise.resolve();
+  if (xlsxLibraryPromise) return xlsxLibraryPromise;
+  xlsxLibraryPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("Could not load the Excel-reading library. Check your internet connection and try again."));
+    document.head.appendChild(script);
+  });
+  return xlsxLibraryPromise;
+}
+
 const BUCKET_TYPES = [
   ["premium", "Premium yearling bucket", "Focus on higher-quality yearlings."],
   ["balanced", "Balanced bucket", "A mix of quality and value."],
@@ -2085,9 +2163,16 @@ function renderOwnerRosterAdmin() {
         <div class="panel-body">
           <textarea class="input" id="ownerRosterInput" rows="6" placeholder="Jane Smith, jane@example.com&#10;Mark Doe, markd@example.com" style="width:100%; font-family: inherit; resize: vertical;"></textarea>
           <div class="qb-add-row" style="margin-top: 12px;">
-            <button class="btn primary" type="button" id="ownerRosterImport">Import owners</button>
+            <button class="btn primary" type="button" id="ownerRosterImport">Import pasted list</button>
             <button class="btn red" type="button" id="ownerRosterClear" ${roster.length ? "" : "disabled"}>Clear roster</button>
           </div>
+          <div class="roster-upload-divider"><span>or</span></div>
+          <label class="btn" id="ownerRosterFileLabel" style="display:inline-flex; cursor:pointer;">
+            Upload CSV or Excel file
+            <input type="file" id="ownerRosterFile" accept=".csv,.txt,.xlsx,.xls" style="display:none;">
+          </label>
+          <span class="qb-suggested-price" id="ownerRosterFileStatus"></span>
+          <p class="quiet" style="margin-top:8px;">Works with a spreadsheet exported from Excel or Google Sheets. Include a header row with "Name" and "Email" columns if you can — if not, the first two columns are used.</p>
         </div>
       </div>
 
@@ -2119,15 +2204,40 @@ function renderOwnerRosterAdmin() {
     </div>`;
 
   bindAdminTabs();
-  document.querySelector("#ownerRosterImport").addEventListener("click", () => {
-    const textarea = document.querySelector("#ownerRosterInput");
-    const parsed = parseOwnerRosterText(textarea.value);
-    if (!parsed.length) return;
+  const mergeIntoRoster = (parsed) => {
     const existing = getOwnerRoster();
     const existingEmails = new Set(existing.map((o) => o.email));
     const merged = [...existing, ...parsed.filter((o) => !existingEmails.has(o.email))];
     saveOwnerRoster(merged);
+    return merged.length - existing.length;
+  };
+  document.querySelector("#ownerRosterImport").addEventListener("click", () => {
+    const textarea = document.querySelector("#ownerRosterInput");
+    const parsed = parseOwnerRosterText(textarea.value);
+    if (!parsed.length) return;
+    mergeIntoRoster(parsed);
     renderOwnerRosterAdmin();
+  });
+  document.querySelector("#ownerRosterFile").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const status = document.querySelector("#ownerRosterFileStatus");
+    status.textContent = "Reading file...";
+    try {
+      const parsed = await parseOwnerRosterFile(file);
+      if (!parsed.length) {
+        status.textContent = `No valid name/email rows found in "${file.name}".`;
+        return;
+      }
+      const added = mergeIntoRoster(parsed);
+      renderOwnerRosterAdmin();
+      // renderOwnerRosterAdmin() just replaced this element, so the status
+      // message has to be set again after the fact, on the new element.
+      const newStatus = document.querySelector("#ownerRosterFileStatus");
+      if (newStatus) newStatus.textContent = `Imported ${added} new owner${added === 1 ? "" : "s"} from "${file.name}" (${parsed.length} rows found).`;
+    } catch (err) {
+      status.textContent = err.message || "Could not read that file.";
+    }
   });
   const clearButton = document.querySelector("#ownerRosterClear");
   if (clearButton && !clearButton.disabled) {
@@ -2217,8 +2327,9 @@ function buildPreviewDataset() {
 
 function renderAdmin() {
   if (!adminLoggedIn) {
-    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><div class="field-stack"><input class="input" id="passcode" type="password" placeholder="Passcode"></div><p class="notice hidden" id="loginError">Incorrect passcode.</p><div class="actions single"><button class="btn primary" type="button" id="loginButton">Login</button></div></div></article>`;
-    document.querySelector("#loginButton").addEventListener("click", async () => {
+    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><form id="loginForm"><div class="field-stack"><input class="input" id="passcode" type="password" placeholder="Passcode" autofocus></div><p class="notice hidden" id="loginError">Incorrect passcode.</p><div class="actions single"><button class="btn primary" type="submit" id="loginButton">Login</button></div></form></div></article>`;
+    document.querySelector("#loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
       const entered = document.querySelector("#passcode").value;
       const enteredHash = await sha256Hex(entered);
       if (enteredHash === ADMIN_PASSCODE_HASH) {
