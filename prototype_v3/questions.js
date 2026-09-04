@@ -6,6 +6,21 @@
 
 const QUESTION_SETS_KEY = "thestable_question_sets_v1";
 const CONFIRMED_BUCKETS_KEY = "thestable_confirmed_buckets_v1";
+const EXCHANGE_RATE_KEY = "thestable_usd_per_cad_v1";
+const DEFAULT_USD_PER_CAD = 1 / 1.4; // matches the rate the reference data was originally computed with
+
+// ----- Exchange rate -----
+// The single source of truth for CAD -> USD conversion, used by both the
+// Sale History currency toggle and the Dashboard's capital figure. Stored
+// as USD-per-1-CAD (e.g. 0.7143) so every conversion is just cad * rate.
+function getExchangeRate() {
+  const stored = Number(localStorage.getItem(EXCHANGE_RATE_KEY));
+  return Number.isFinite(stored) && stored > 0 ? stored : DEFAULT_USD_PER_CAD;
+}
+
+function saveExchangeRate(usdPerCad) {
+  localStorage.setItem(EXCHANGE_RATE_KEY, String(usdPerCad));
+}
 
 // ----- Confirmed buckets -----
 // Separate from bucket_config (which drives the owner-intake question set).

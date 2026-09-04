@@ -1353,6 +1353,24 @@ function renderQuestionsAdmin() {
           ${confirmedBucketsEditor(getConfirmedBuckets("default"))}
         </div>
       </div>
+
+      <div class="ref-panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Exchange rate</div>
+            <h2>CAD / USD conversion rate</h2>
+            <p>Used by the CAD/USD switch on the Sale History and Dashboard pages. Not live — update it here whenever the actual rate has moved and you want the USD figures to reflect that.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="qb-add-row">
+            <span>$1 USD =</span>
+            <input class="input" id="exchangeRateInput" inputmode="decimal" style="max-width:140px;" value="${(1 / getExchangeRate()).toFixed(4)}">
+            <span>CAD</span>
+          </div>
+          <p class="quiet" style="margin-top:8px;">Currently: $1 CAD = $${getExchangeRate().toFixed(4)} USD.</p>
+        </div>
+      </div>
     </div>
     </div>`;
 
@@ -1666,6 +1684,19 @@ function bindQuestionsAdmin(questionSet) {
       updateConfirmed((buckets) => { buckets.push(newConfirmedBucket()); });
     });
   }
+
+  const rateInput = document.querySelector("#exchangeRateInput");
+  if (rateInput) {
+    rateInput.addEventListener("change", () => {
+      const cadPerUsd = Number(rateInput.value);
+      if (!Number.isFinite(cadPerUsd) || cadPerUsd <= 0) {
+        rateInput.value = (1 / getExchangeRate()).toFixed(4);
+        return;
+      }
+      saveExchangeRate(1 / cadPerUsd);
+      render();
+    });
+  }
 }
 
 // ===== Sale History & Bucket Strategy admin tab =====
@@ -1680,7 +1711,10 @@ function bindQuestionsAdmin(questionSet) {
 // data-style attributes, and a page-level click handler on .ccy-btn walks
 // the DOM and rewrites .money/.money-range text in place - no server-side
 // re-render on toggle, exactly like the reference.
-const SALE_HISTORY_FX_NOTE = "using a fixed rate of $1 USD = $1.40 CAD, set on Sep 3, 2026";
+function saleHistoryFxNote() {
+  const cadPerUsd = 1 / getExchangeRate();
+  return `using a fixed rate of $1 USD = $${cadPerUsd.toFixed(2)} CAD, set in Questions Builder`;
+}
 
 function shMoney(cad, usd, style = "k", suffix = "") {
   const text = style === "full" ? refFmtFull(cad) : refFmtK(cad);
@@ -1730,7 +1764,7 @@ function renderSaleHistory() {
       <div class="intro-block">
         <p class="dek">A look back at every yearling sold at Lexington Selected, Harrisburg Book 1, and Ohio Jug between 2008 and 2025, checked against which of them went on to become top performers. The goal: give TheStable.ca a fact-based way to decide how many horses to put in a bucket, at what price range, for the best odds, instead of relying only on gut feel. The same indicators also apply to after-sale horses offered individually in a similar price range.</p>
         <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that showed up anywhere on a season top-earner leaderboard, at 2, 3, or 4-plus years old, at least once, in a season after it was sold as a yearling. It's a simple yes/no flag: it doesn't matter how much a top performer earned or at what age it first got there, and it says nothing about any specific 2026 yearling. It only shows how often horses at a given price went on to become one.</div>
-        <p class="currency-note">Prices on this page are shown in ${shCcyLabel()}. Use the CAD / USD switch at the top of the page to convert every figure, ${SALE_HISTORY_FX_NOTE}. This rate is not live and won't update on its own. If it has moved significantly by the time you use this, update it before relying on the USD figures.</p>
+        <p class="currency-note">Prices on this page are shown in ${shCcyLabel()}. Use the CAD / USD switch at the top of the page to convert every figure, ${saleHistoryFxNote()}. This rate is not live and won't update on its own. If it has moved significantly by the time you use this, update it before relying on the USD figures.</p>
       </div>
 
       <div class="dash-panel">
@@ -2019,7 +2053,7 @@ function renderSaleHistory() {
       </section>
 
       <div class="footer-note">
-        This looks at every yearling sold at Lexington Selected, Harrisburg Book 1, and Ohio Jug from 2008 through 2025, checked against season top-earner rankings through 2025 (the 2026 racing season is still in progress and was excluded, since an unfinished season understates what a horse will eventually earn). "Top performer" means the horse appeared anywhere on a season top-earner leaderboard, at 2, 3, or 4-plus years old, at least once. Horses were matched between the sale records and the earnings leaderboards by name, which can occasionally miss a spelling variation or mix up two horses with the same name. This is a backward-looking pattern in past results, not a prediction about any specific 2026 yearling. It only shows how often horses in a given price range have become top performers, nothing more. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${SALE_HISTORY_FX_NOTE}.
+        This looks at every yearling sold at Lexington Selected, Harrisburg Book 1, and Ohio Jug from 2008 through 2025, checked against season top-earner rankings through 2025 (the 2026 racing season is still in progress and was excluded, since an unfinished season understates what a horse will eventually earn). "Top performer" means the horse appeared anywhere on a season top-earner leaderboard, at 2, 3, or 4-plus years old, at least once. Horses were matched between the sale records and the earnings leaderboards by name, which can occasionally miss a spelling variation or mix up two horses with the same name. This is a backward-looking pattern in past results, not a prediction about any specific 2026 yearling. It only shows how often horses in a given price range have become top performers, nothing more. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${saleHistoryFxNote()}.
       </div>
     </div>
     </div>`;
@@ -2043,15 +2077,23 @@ function bindCurrencyToggle() {
 }
 
 function applyCurrency(ccy) {
+  const rate = getExchangeRate();
+  const toCcy = (cad) => (ccy === "usd" ? cad * rate : cad);
   document.querySelectorAll(".money").forEach((el) => {
-    const raw = parseFloat(el.dataset[ccy]);
+    // Always convert live from the CAD figure using the current stored
+    // rate, rather than trusting a pre-computed data-usd value — that way
+    // editing the rate in Questions Builder retroactively updates every
+    // figure on this page instead of requiring 50+ hardcoded numbers to
+    // be recalculated by hand.
+    const cad = parseFloat(el.dataset.cad);
+    const raw = toCcy(cad);
     const suffix = el.textContent.trim().endsWith("+") ? "+" : "";
     const text = el.dataset.style === "full" ? refFmtFull(raw) : refFmtK(raw);
     el.textContent = text + suffix;
   });
   document.querySelectorAll(".money-range").forEach((el) => {
-    const lo = parseFloat(el.dataset[`${ccy}Lo`]);
-    const hi = parseFloat(el.dataset[`${ccy}Hi`]);
+    const lo = toCcy(parseFloat(el.dataset.cadLo));
+    const hi = toCcy(parseFloat(el.dataset.cadHi));
     const loK = Math.round(lo / 1000);
     const hiK = Math.round(hi / 1000);
     el.textContent = `$${loK}-${hiK}k`;
@@ -2433,6 +2475,10 @@ function renderAdmin() {
           <span class="sub">Response Dashboard</span>
         </div>
         <div class="masthead-right">
+          ${hasCapitalEstimate ? `<div class="currency-toggle" role="group" aria-label="Currency">
+            <button class="ccy-btn active" data-ccy="cad" type="button">CAD $</button>
+            <button class="ccy-btn" data-ccy="usd" type="button">USD $</button>
+          </div>` : ""}
           <div class="as-of light">Responses as of <strong>${asOf}</strong></div>
           <button class="export-btn" type="button" id="exportCsv">Export CSV</button>
         </div>
@@ -2443,7 +2489,7 @@ function renderAdmin() {
         <div class="verdict-top">
           <div>
             <div class="eyebrow"><span class="dot"></span> ${hasCapitalEstimate ? "Indicative capital, all sales" : "Requested bucket share, all sales"}</div>
-            <div class="verdict-figure">${!bucketRows.length ? "No data" : hasCapitalEstimate ? `${money(estimatedCapital)} <span class="verdict-figure-sub">(${percent(totalPercent)} requested share)</span>` : percent(totalPercent)}</div>
+            <div class="verdict-figure">${!bucketRows.length ? "No data" : hasCapitalEstimate ? `<span class="money" data-cad="${estimatedCapital}" data-style="full">${money(estimatedCapital)}</span><sup class="ccy-label">CAD</sup> <span class="verdict-figure-sub">(${percent(totalPercent)} requested share)</span>` : percent(totalPercent)}</div>
             <div class="verdict-label">${bucketRows.length ? `Total requested bucket interest across ${saleDemand.length} sale${saleDemand.length === 1 ? "" : "s"} currently in the intake. Non-binding, for planning only.${hasCapitalEstimate ? "" : " Set bucket prices in Questions Builder to also see a dollar figure here."}` : "No pre-sale bucket responses yet. This figure will fill in as owners submit the intake."}</div>
           </div>
           <div class="response-ring">
@@ -2603,6 +2649,7 @@ function renderAdmin() {
   document.querySelector("#exportCsv").addEventListener("click", () => exportCsv(rows));
   bindOwnerTableFilters(rows);
   bindDashboardTooltips();
+  bindCurrencyToggle();
   bindAdminTabs();
 }
 
