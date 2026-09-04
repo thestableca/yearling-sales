@@ -356,7 +356,10 @@ function currentQuestionSet() {
 }
 
 function defaultQuestions(prefs = draft.defaultPrefs) {
-  const allBlocks = currentQuestionSet().blocks;
+  // Archived blocks (see archiveQuestionBlock()) are never shown to
+  // owners — Anthony can restore one from Questions Builder any time,
+  // but while archived it's as if it doesn't exist for the intake flow.
+  const allBlocks = currentQuestionSet().blocks.filter((b) => !b.archived);
   const visible = visibleBlocks(allBlocks, prefs);
   const blocks = visible.filter((block) => block.type !== "bucket_config");
   const questions = blocks.map((block) => block.id);
@@ -687,7 +690,7 @@ function reviewCard() {
 }
 
 function doneCard() {
-  return card("Complete", "Thank you!", `<p class="prompt">Your preferences have been submitted successfully.</p><div class="actions single"><button class="btn primary" type="button" data-start-over>Close</button></div>`, "Complete");
+  return card("Complete", "Thank you!", `<p class="prompt">Your preferences have been submitted successfully.</p><p class="prompt">Want to change something later? Come back to this page and enter the same email address — your answers will load back in so you can update and resubmit them.</p><div class="actions single"><button class="btn primary" type="button" data-start-over>Close</button></div>`, "Complete");
 }
 
 function radioOptions(field, value, options, target = null) {
@@ -1297,7 +1300,8 @@ function renderQuestionsAdmin() {
   const questionSet = currentQuestionSet();
   const blocks = [...questionSet.blocks].sort((a, b) => a.sortOrder - b.sortOrder);
   const bucketConfig = blocks.find((b) => b.type === "bucket_config");
-  const orderedBlocks = blocks.filter((b) => b.type !== "bucket_config");
+  const orderedBlocks = blocks.filter((b) => b.type !== "bucket_config" && !b.archived);
+  const archivedBlocks = blocks.filter((b) => b.type !== "bucket_config" && b.archived);
 
   app.innerHTML = `
     <div class="refskin">
@@ -1327,6 +1331,33 @@ function renderQuestionsAdmin() {
           </div>
         </div>
       </div>
+
+      ${archivedBlocks.length ? `
+      <div class="ref-panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Archived</div>
+            <h2>Archived questions</h2>
+            <p>Hidden from owners, not shown on the Dashboard — but nothing is lost. Restore any of these any time.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="qb-block-list">
+            ${archivedBlocks.map((block) => `
+            <div class="qb-block qb-block-archived">
+              <div class="qb-block-head">
+                <div class="qb-block-title">
+                  <strong>${escapeHtml(block.label || "(untitled question)")}</strong>
+                  <span class="qb-block-type">${blockTypeLabel(block.type)}</span>
+                </div>
+                <div class="qb-block-controls">
+                  <button class="btn primary" type="button" data-restore-block="${block.id}">Restore</button>
+                </div>
+              </div>
+            </div>`).join("")}
+          </div>
+        </div>
+      </div>` : ""}
 
       <div class="ref-panel" style="margin-top: 18px;">
         <div class="panel-head">
@@ -1380,17 +1411,22 @@ function renderQuestionsAdmin() {
 
 function questionBlockRow(block, index, total) {
   const expanded = questionsEditorState.expandedBlockId === block.id;
+  const dashboardImpact = CORE_QUESTION_DASHBOARD_IMPACT[block.id];
+  const archiveTitle = dashboardImpact
+    ? `Archiving this also affects ${dashboardImpact} on the Dashboard`
+    : "Hides this question from owners and its Dashboard panel (if any) — restore any time from Archived questions below";
   return `
     <div class="qb-block ${expanded ? "expanded" : ""}">
       <div class="qb-block-head" data-toggle-block="${block.id}">
         <div class="qb-block-title">
           <strong>${escapeHtml(block.label || "(untitled question)")}</strong>
           <span class="qb-block-type">${blockTypeLabel(block.type)}</span>
+          ${dashboardImpact ? `<span class="qb-core-flag" title="Drives ${escapeHtml(dashboardImpact)} on the Dashboard">Drives a Dashboard panel</span>` : ""}
         </div>
         <div class="qb-block-controls">
           <button class="btn" type="button" data-move-block="${block.id}" data-dir="up" ${index === 0 ? "disabled" : ""} title="Move up">&uarr;</button>
           <button class="btn" type="button" data-move-block="${block.id}" data-dir="down" ${index === total - 1 ? "disabled" : ""} title="Move down">&darr;</button>
-          <button class="btn red" type="button" data-remove-block="${block.id}" title="Remove">Remove</button>
+          <button class="btn red" type="button" data-remove-block="${block.id}" title="${escapeHtml(archiveTitle)}">Archive</button>
         </div>
       </div>
       ${expanded ? questionBlockEditor(block) : ""}
@@ -1459,6 +1495,42 @@ function bucketConfigEditor(bucketConfig) {
     <button class="btn" type="button" data-add-bucket>Add bucket</button>`;
 }
 
+// Questions whose id a fixed Dashboard panel reads directly by name (via
+// labelFor()/groupDemand() calls elsewhere in this file) — archiving one
+// of these makes that specific panel show "Unknown" instead of real
+// labels, even though old answers are preserved. Everything else is a
+// question Anthony added himself, which the Dashboard already handles
+// generically (see customQuestionPanels()) — archiving those has no
+// such side effect.
+const CORE_QUESTION_DASHBOARD_IMPACT = {
+  participation: "the \"Suggested buckets to offer\" panel and the pre-sale/after-sale split",
+  gait: "the \"Trotter vs. Pacer\" panel and the Gait column in Owner detail",
+  sex: "the \"Colt / Filly\" panel and the Colt/Filly column in Owner detail",
+  bucketTypes: "the \"Bucket type mix\" panel and \"Suggested buckets to offer\"",
+  maxYearlings: "bucket suggestion sizing on the Dashboard",
+  specificHorseCount: "the \"After-sale individual shares\" panel",
+  specificShareSize: "the \"Share size\" and \"After-sale individual shares\" panels",
+  eligibility: "the \"Requested jurisdictions\" panel",
+};
+
+// Archives a block instead of deleting it: it stops showing to owners and
+// its Dashboard panel (if any) goes blank, but nothing is lost — Anthony
+// can restore it from the "Archived questions" list at any time, and
+// existing answers already collected are never touched.
+function archiveQuestionBlock(id) {
+  updateQuestionSet((set) => {
+    const block = set.blocks.find((b) => b.id === id);
+    if (block) block.archived = true;
+  });
+}
+
+function restoreQuestionBlock(id) {
+  updateQuestionSet((set) => {
+    const block = set.blocks.find((b) => b.id === id);
+    if (block) block.archived = false;
+  });
+}
+
 function updateQuestionSet(mutator) {
   const questionSet = currentQuestionSet();
   mutator(questionSet);
@@ -1494,11 +1566,12 @@ function bindQuestionsAdmin(questionSet) {
 
   document.querySelectorAll("[data-remove-block]").forEach((el) => {
     const id = el.getAttribute("data-remove-block");
-    armDestructiveButton(el, "Confirm remove?", () => {
-      updateQuestionSet((set) => {
-        set.blocks = set.blocks.filter((b) => b.id !== id);
-      });
-    });
+    const confirmLabel = CORE_QUESTION_DASHBOARD_IMPACT[id] ? "This affects a Dashboard panel — archive?" : "Confirm archive?";
+    armDestructiveButton(el, confirmLabel, () => archiveQuestionBlock(id));
+  });
+
+  document.querySelectorAll("[data-restore-block]").forEach((el) => {
+    el.addEventListener("click", () => restoreQuestionBlock(el.getAttribute("data-restore-block")));
   });
 
   document.querySelectorAll("[data-add-block-type]").forEach((el) => {
