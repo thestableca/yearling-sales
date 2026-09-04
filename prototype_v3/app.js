@@ -2470,6 +2470,8 @@ function renderAdmin() {
         </div>
       </div>
 
+      ${customQuestionPanels(rows)}
+
       <!-- OWNER TABLE -->
       <div class="ref-panel" style="margin-top: 18px;">
         <div class="panel-head">
@@ -2547,8 +2549,64 @@ function donutArcPath(startDeg, endDeg) {
   return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
 }
 
+// Generic dashboard panel for any question Anthony added in Questions
+// Builder beyond the fixed set — a bar chart of answer counts for
+// single/multi-select and yes/no questions, a simple list of the distinct
+// answers given for text/number questions. This is intentionally plain:
+// it's what makes a brand-new question show up on the dashboard with zero
+// extra code, not a substitute for a purpose-built chart like the bucket
+// suggestions panel above (see the "how it flows to the dashboard" answer
+// this was built for — some questions still deserve a custom view).
+function customQuestionPanels(rows) {
+  const customBlocks = customTableColumns();
+  if (!customBlocks.length) return "";
+  const panels = customBlocks.map((block) => {
+    const answered = rows.filter((row) => {
+      const value = row._rawResponse?.[block.id];
+      return value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && !value.length);
+    });
+    if (block.type === "text" || block.type === "number") {
+      const distinctAnswers = [...new Set(answered.map((row) => String(row._rawResponse[block.id]).trim()).filter(Boolean))];
+      return `<div class="ref-panel">
+        <div class="panel-head"><h2>${escapeHtml(block.label)}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Free-text question added in Questions Builder. Showing distinct answers given so far.</span></span></div>
+        <div class="panel-body">${distinctAnswers.length ? `<p class="quiet" style="line-height:1.7;">${distinctAnswers.map((a) => escapeHtml(a)).join(" &middot; ")}</p>` : `<p class="quiet">No answers yet.</p>`}</div>
+      </div>`;
+    }
+    const demand = groupDemand(answered, (row) => {
+      const value = row._rawResponse[block.id];
+      return Array.isArray(value) ? value.map((v) => labelFor(block.id, v) || v).join(", ") : (labelFor(block.id, value) || value);
+    });
+    return `<div class="ref-panel">
+      <div class="panel-head"><h2>${escapeHtml(block.label)}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Question added in Questions Builder. Shown here automatically — for a purpose-built chart like the bucket suggestions above, that needs custom design work.</span></span></div>
+      <div class="panel-body">${refBarList(demand)}</div>
+    </div>`;
+  });
+  // Two per row, same as the other secondary panels on this dashboard.
+  const rowsOfTwo = [];
+  for (let i = 0; i < panels.length; i += 2) rowsOfTwo.push(panels.slice(i, i + 2));
+  return rowsOfTwo.map((pair) => `<div class="grid-2">${pair.join("")}</div>`).join("");
+}
+
+// Any question Anthony added in the Questions admin tab beyond the fixed
+// set app.js already knows how to summarize (see KNOWN_SUMMARY_BLOCK_IDS)
+// gets its own trailing column here too — same mechanism CSV export and
+// the review screen already use, so a new question doesn't need code
+// changes anywhere else to show up in the owner table.
+function customTableColumns() {
+  return currentQuestionSet().blocks.filter(
+    (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
+  );
+}
+
+function customColumnValue(row, block) {
+  const value = row._rawResponse?.[block.id];
+  if (value === undefined || value === null || value === "") return "";
+  return Array.isArray(value) ? value.map((item) => labelFor(block.id, item) || item).join(", ") : (labelFor(block.id, value) || value);
+}
+
 function refOwnerTableRows(rows) {
   const search = ownerTableFilters.search.trim().toLowerCase();
+  const customColumns = customTableColumns();
   const filtered = rows.filter((row) => {
     if (ownerTableFilters.sale && row.sale !== ownerTableFilters.sale) return false;
     if (ownerTableFilters.type && !row.bucketTypes.some((item) => labelFor("bucketTypes", item) === ownerTableFilters.type)) return false;
@@ -2571,8 +2629,9 @@ function refOwnerTableRows(rows) {
       <th>Type<select class="col-filter" id="ownerTypeFilter"><option value="">All types</option>${typeOptions.map((t) => `<option value="${escapeHtml(t)}" ${ownerTableFilters.type === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select></th>
       <th>Gait<select class="col-filter" id="ownerGaitFilter"><option value="">All gaits</option>${gaitOptions.map((g) => `<option value="${escapeHtml(g)}" ${ownerTableFilters.gait === g ? "selected" : ""}>${escapeHtml(g)}</option>`).join("")}</select></th>
       <th>Colt / Filly<select class="col-filter" id="ownerSexFilter"><option value="">All</option>${sexOptions.map((s) => `<option value="${escapeHtml(s)}" ${ownerTableFilters.sex === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select></th>
+      ${customColumns.map((block) => `<th>${escapeHtml(block.label)}</th>`).join("")}
     </tr></thead><tbody>
-      ${filtered.length ? filtered.map((row) => `<tr><td><div class="owner-name">${escapeHtml(row.name)}</div><div class="owner-email">${escapeHtml(row.email)}</div></td><td>${escapeHtml(row.saleLabel)}</td><td class="pct-cell">${row.amount ? percent(row.amount) : ""}</td><td>${row.bucketTypes.map((item) => escapeHtml(labelFor("bucketTypes", item))).join(", ")}</td><td>${escapeHtml(labelFor("gait", row.gait))}</td><td>${escapeHtml(sexSummary(row))}</td></tr>`).join("") : `<tr><td colspan="6">${rows.length ? "No owners match your filters." : "No owner data yet."}</td></tr>`}
+      ${filtered.length ? filtered.map((row) => `<tr><td><div class="owner-name">${escapeHtml(row.name)}</div><div class="owner-email">${escapeHtml(row.email)}</div></td><td>${escapeHtml(row.saleLabel)}</td><td class="pct-cell">${row.amount ? percent(row.amount) : ""}</td><td>${row.bucketTypes.map((item) => escapeHtml(labelFor("bucketTypes", item))).join(", ")}</td><td>${escapeHtml(labelFor("gait", row.gait))}</td><td>${escapeHtml(sexSummary(row))}</td>${customColumns.map((block) => `<td>${escapeHtml(customColumnValue(row, block))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${6 + customColumns.length}">${rows.length ? "No owners match your filters." : "No owner data yet."}</td></tr>`}
     </tbody></table></div>
     <div class="foot-note">Showing ${filtered.length} of ${rows.length} owner row${rows.length === 1 ? "" : "s"}. Use the filters above to refine.</div>`;
 }
