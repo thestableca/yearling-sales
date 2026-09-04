@@ -1589,6 +1589,13 @@ th .col-filter option {
   .refskin.dashboard-page .sugg-row { grid-template-columns: 1fr 1fr; row-gap: 10px; }
 }
 
+@media (max-width: 520px) {
+  .refskin.dashboard-page .masthead { flex-wrap: wrap; gap: 12px; padding: 16px 18px; }
+  .refskin.dashboard-page .masthead .logo-img { height: 48px; }
+  .refskin.dashboard-page .masthead .sub { font-size: 11px; white-space: normal; }
+  .refskin.dashboard-page .masthead-right { flex-wrap: wrap; gap: 8px 12px; }
+}
+
 /* Top bar (both refskin pages): tabs on the left, page-specific controls
    on the right - matches the reference's .top-bar layout exactly. */
 .refskin-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
