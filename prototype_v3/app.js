@@ -216,6 +216,11 @@ let draft = loadDraft();
 // runtime-only flag (never persisted), so it always resets to off on
 // reload — nobody can leave it on by accident the way a stored setting could.
 let previewMode = false;
+// CAD/USD toggle choice, shared across the Dashboard and Sale History tabs
+// so picking USD on one and switching tabs doesn't silently reset it back
+// to CAD — this is applied on every render() via applyCurrency(), not
+// just when a .ccy-btn is clicked.
+let selectedCurrency = "cad";
 
 adminLink.addEventListener("click", () => {
   mode = "admin";
@@ -2159,10 +2164,17 @@ function bindSaleHistory() {
 // applyCurrency()/fmtK()/fmtFull() functions: walks every .money/.money-range
 // span in the DOM and rewrites its text from the data-cad/data-usd/data-style
 // attributes baked in at render time, instead of re-rendering the page.
+// Also re-applies selectedCurrency immediately (not just on click), so
+// switching tabs and coming back — a fresh render() — keeps showing
+// whichever currency was last chosen instead of resetting to CAD.
 function bindCurrencyToggle() {
   document.querySelectorAll(".ccy-btn").forEach((btn) => {
-    btn.addEventListener("click", () => applyCurrency(btn.dataset.ccy));
+    btn.addEventListener("click", () => {
+      selectedCurrency = btn.dataset.ccy;
+      applyCurrency(selectedCurrency);
+    });
   });
+  if (document.querySelector(".ccy-btn")) applyCurrency(selectedCurrency);
 }
 
 function applyCurrency(ccy) {
