@@ -1325,13 +1325,13 @@ th .col-filter option {
 .refskin .export-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; background: var(--navy-deep); color: #fff; font-size: 13px; font-weight: 600; border: 1px solid var(--navy-deep); cursor: pointer; font-family: inherit; }
 .refskin .export-btn:hover { background: var(--navy); }
 
-.refskin.dashboard-page .masthead { display: flex; align-items: center; justify-content: space-between; gap: 24px; background: var(--navy-deep); padding: 22px 28px; border-radius: 14px; margin-bottom: 22px; }
-.refskin.dashboard-page .masthead .brand { display: flex; align-items: center; gap: 16px; }
-.refskin.dashboard-page .masthead .logo-img { height: 76px; width: auto; display: block; filter: brightness(0) saturate(100%) invert(74%) sepia(45%) saturate(688%) hue-rotate(2deg) brightness(93%) contrast(89%); }
-.refskin.dashboard-page .masthead .div { width: 1px; height: 30px; background: rgba(255,255,255,0.2); }
-.refskin.dashboard-page .masthead .sub { font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-light); font-weight: 600; }
-.refskin.dashboard-page .masthead .export-btn { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: var(--ivory); }
-.refskin.dashboard-page .masthead .export-btn:hover { background: rgba(255,255,255,0.16); }
+.refskin .masthead { display: flex; align-items: center; justify-content: space-between; gap: 24px; background: var(--navy-deep); padding: 22px 28px; border-radius: 14px; margin-bottom: 22px; }
+.refskin .masthead .brand { display: flex; align-items: center; gap: 16px; }
+.refskin .masthead .logo-img { height: 76px; width: auto; display: block; filter: brightness(0) saturate(100%) invert(74%) sepia(45%) saturate(688%) hue-rotate(2deg) brightness(93%) contrast(89%); }
+.refskin .masthead .div { width: 1px; height: 30px; background: rgba(255,255,255,0.2); }
+.refskin .masthead .sub { font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-light); font-weight: 600; }
+.refskin .masthead .export-btn { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: var(--ivory); }
+.refskin .masthead .export-btn:hover { background: rgba(255,255,255,0.16); }
 
 /* Generic .btn/.input controls (Questions Builder's Move/Remove/Add
    buttons and text fields) recolored to the same navy/gold/Fraunces
@@ -1611,10 +1611,10 @@ th .col-filter option {
 }
 
 @media (max-width: 520px) {
-  .refskin.dashboard-page .masthead { flex-wrap: wrap; gap: 12px; padding: 16px 18px; }
-  .refskin.dashboard-page .masthead .logo-img { height: 48px; }
-  .refskin.dashboard-page .masthead .sub { font-size: 11px; white-space: normal; }
-  .refskin.dashboard-page .masthead-right { flex-wrap: wrap; gap: 8px 12px; }
+  .refskin .masthead { flex-wrap: wrap; gap: 12px; padding: 16px 18px; }
+  .refskin .masthead .logo-img { height: 48px; }
+  .refskin .masthead .sub { font-size: 11px; white-space: normal; }
+  .refskin .masthead-right { flex-wrap: wrap; gap: 8px 12px; }
 }
 
 /* Top bar (both refskin pages): tabs on the left, page-specific controls
@@ -1636,15 +1636,15 @@ th .col-filter option {
   th .col-filter, .ref-info-dot { display: none !important; }
 
   .refskin.dashboard-page, .refskin { background: #fff !important; }
-  .refskin.dashboard-page .masthead,
+  .refskin .masthead,
   .refskin.dashboard-page .verdict,
   .qb-block-head { background: #fff !important; border: 1px solid var(--line, #d8dee8) !important; color: var(--ink, #172033) !important; }
-  .refskin.dashboard-page .masthead .sub,
+  .refskin .masthead .sub,
   .refskin.dashboard-page .eyebrow,
   .refskin.dashboard-page .verdict-label,
   .refskin.dashboard-page .response-copy .d,
   .refskin.dashboard-page .vs-label { color: var(--muted, #637083) !important; }
-  .refskin.dashboard-page .masthead .logo-img { filter: none !important; }
+  .refskin .masthead .logo-img { filter: none !important; }
   .refskin.dashboard-page .verdict-figure,
   .refskin.dashboard-page .response-copy .n,
   .refskin.dashboard-page .vs-value { color: var(--ink, #172033) !important; }

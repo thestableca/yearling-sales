@@ -1200,6 +1200,22 @@ function backToSiteLink() {
   return `<button class="back-to-site" type="button" id="backToSite">&larr; Back to site</button>`;
 }
 
+// Shared navy masthead banner (logo + section label) shown at the top of
+// every admin tab, so Dashboard/Sale History/Questions Builder/Owner
+// Roster all look consistent — previously only Dashboard had one and the
+// other three used a plain title line instead.
+function adminMasthead(label, rightContent = "") {
+  return `
+      <div class="masthead">
+        <div class="brand">
+          <img class="logo-img" src="../assets/thestable-logo-official.png" alt="TheStable.ca">
+          <span class="div"></span>
+          <span class="sub">${escapeHtml(label)}</span>
+        </div>
+        <div class="masthead-right">${rightContent}</div>
+      </div>`;
+}
+
 // Clears every response/roster/history key this prototype writes to
 // localStorage. Useful for wiping out data left behind from testing the
 // owner-intake flow yourself, without needing to open devtools.
@@ -1308,9 +1324,8 @@ function renderQuestionsAdmin() {
     <div class="wrap">
       <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${resetDemoDataButton()}${backToSiteLink()}</div></div>
 
-      <div class="page-title-row">
-        <h1>Questions Builder</h1>
-      </div>
+      ${adminMasthead("Questions Builder")}
+
       <p class="dek">Compose the owner intake questionnaire from ready-made question blocks. Changes apply to the intake form immediately.</p>
 
       <div class="ref-panel" style="margin-top: 22px;">
@@ -1821,14 +1836,15 @@ function renderSaleHistory() {
       <div class="refskin-topbar">
         ${adminTabs()}
         <div class="topbar-right">
-          <div class="currency-toggle" role="group" aria-label="Currency">
-            <button class="ccy-btn active" data-ccy="cad" type="button">CAD $</button>
-            <button class="ccy-btn" data-ccy="usd" type="button">USD $</button>
-          </div>
           ${resetDemoDataButton()}
           ${backToSiteLink()}
         </div>
       </div>
+
+      ${adminMasthead("Sale History", `<div class="currency-toggle" role="group" aria-label="Currency">
+            <button class="ccy-btn active" data-ccy="cad" type="button">CAD $</button>
+            <button class="ccy-btn" data-ccy="usd" type="button">USD $</button>
+          </div>`)}
 
       <div class="page-title-row">
         <h1>How should TheStable.ca build its buckets?</h1>
@@ -2266,9 +2282,8 @@ function renderOwnerRosterAdmin() {
     <div class="wrap">
       <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${resetDemoDataButton()}${backToSiteLink()}</div></div>
 
-      <div class="page-title-row">
-        <h1>Owner Roster</h1>
-      </div>
+      ${adminMasthead("Owner Roster")}
+
       <p class="dek">The full list of owners invited to respond, so the dashboard can show a real response rate. Import this once you have TheStable's owner list; until then the dashboard shows "no data" instead of a guess.</p>
 
       <div class="ref-panel" style="margin-top: 22px;">
@@ -2542,21 +2557,13 @@ function renderAdmin() {
 
       ${preview ? `<div class="preview-banner">Previewing with fictional demo data — no real responses were touched. <button type="button" id="previewOff">Show my real data</button></div>` : ""}
 
-      <div class="masthead">
-        <div class="brand">
-          <img class="logo-img" src="../assets/thestable-logo-official.png" alt="TheStable.ca">
-          <span class="div"></span>
-          <span class="sub">Response Dashboard</span>
-        </div>
-        <div class="masthead-right">
+      ${adminMasthead("Response Dashboard", `
           ${hasCapitalEstimate ? `<div class="currency-toggle" role="group" aria-label="Currency">
             <button class="ccy-btn active" data-ccy="cad" type="button">CAD $</button>
             <button class="ccy-btn" data-ccy="usd" type="button">USD $</button>
           </div>` : ""}
           <div class="as-of light">Responses as of <strong>${asOf}</strong></div>
-          <button class="export-btn" type="button" id="exportCsv">Export CSV</button>
-        </div>
-      </div>
+          <button class="export-btn" type="button" id="exportCsv">Export CSV</button>`)}
 
       <!-- VERDICT -->
       <div class="verdict">
