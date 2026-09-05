@@ -16,22 +16,22 @@ const OWNERS = [
   { id: "own_004", name: "Jennifer S.", email: "jennifer@email.com" },
 ];
 
-const STORAGE_KEY = "thestable_yearling_responses_v7";
 const DRAFT_KEY = "thestable_yearling_draft_v7";
 const BUILD_ID = "prototype_v3_bucket_percent_no_split_v7";
-const OWNER_ROSTER_KEY = "thestable_owner_roster_v1";
 
+// Anthony's pasted/imported "expected owners" list (used only to show
+// who hasn't responded yet — not the authentication source, and not the
+// same as the real `owners` database table populated by actual sign-ins).
+// Lives in admin_settings now (see questions.js's getSetting/setSetting)
+// instead of localStorage, for the same robustness reason as the other
+// admin config: it should survive a cleared cache or a different device.
 function getOwnerRoster() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(OWNER_ROSTER_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  const stored = getSetting("owner_roster", []);
+  return Array.isArray(stored) ? stored : [];
 }
 
-function saveOwnerRoster(roster) {
-  localStorage.setItem(OWNER_ROSTER_KEY, JSON.stringify(roster));
+async function saveOwnerRoster(roster) {
+  await setSetting("owner_roster", roster);
 }
 
 // Parses one owner per line, formatted as "Name, email@example.com" (or
@@ -1331,13 +1331,13 @@ function armDestructiveButton(button, confirmText, onConfirm) {
   });
 }
 
-// Note: since real responses now live in Supabase (not this browser), this
-// only clears locally-cached admin UI state (draft, pasted owner roster,
-// dashboard metrics history) — it no longer touches actual submitted
-// responses. Clearing real response data is an admin-database action, not
-// a local browser reset, and isn't exposed here on purpose.
+// Note: real responses, the owner roster, metrics history, question sets,
+// exchange rate, and confirmed buckets all live in Supabase now — this
+// button only clears the local in-progress intake draft in this browser.
+// Clearing real data is an admin-database action, not a local browser
+// reset, and isn't exposed here on purpose.
 function resetDemoDataButton() {
-  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears locally-cached admin data (draft, pasted roster, metrics history) — does not delete real submitted responses">Reset local data</button>`;
+  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears the local in-progress intake draft in this browser — does not delete real data">Reset local draft</button>`;
 }
 
 // Only shown on the Dashboard tab, where preview mode actually changes
@@ -1367,7 +1367,12 @@ function bindAdminTabs() {
   const resetButton = document.querySelector("#resetDemoData");
   if (resetButton) {
     armDestructiveButton(resetButton, "Click again to confirm", () => {
-      [STORAGE_KEY, DRAFT_KEY, OWNER_ROSTER_KEY, METRICS_HISTORY_KEY].forEach((key) => localStorage.removeItem(key));
+      // Only DRAFT_KEY still lives in the browser — owner roster, metrics
+      // history, question sets, exchange rate, and confirmed buckets all
+      // moved to the database (admin_settings table), and real responses
+      // live there too. This button intentionally only clears the local
+      // in-progress draft now.
+      [DRAFT_KEY].forEach((key) => localStorage.removeItem(key));
       render();
     });
   }
@@ -2303,8 +2308,6 @@ function applyCurrency(ccy) {
   });
 }
 
-const METRICS_HISTORY_KEY = "thestable_dashboard_metrics_history_v1";
-
 // Records today's dashboard totals so a trend ("vs. 14 days ago") can be
 // shown once enough history has accumulated. One entry per calendar day;
 // re-visiting the dashboard the same day overwrites today's entry instead
@@ -2332,19 +2335,15 @@ function buildPreviewMetricsHistory(todayMetrics) {
 }
 
 function recordMetricsSnapshot(metrics) {
-  let history;
-  try {
-    const parsed = JSON.parse(localStorage.getItem(METRICS_HISTORY_KEY) || "[]");
-    history = Array.isArray(parsed) ? parsed : [];
-  } catch {
-    history = [];
-  }
+  const stored = getSetting("metrics_history", []);
+  const history = Array.isArray(stored) ? stored : [];
   const today = new Date().toISOString().slice(0, 10);
   const withoutToday = history.filter((entry) => entry.date !== today);
   withoutToday.push({ date: today, ...metrics });
   withoutToday.sort((a, b) => a.date.localeCompare(b.date));
-  localStorage.setItem(METRICS_HISTORY_KEY, JSON.stringify(withoutToday.slice(-90)));
-  return withoutToday;
+  const trimmed = withoutToday.slice(-90);
+  setSetting("metrics_history", trimmed).catch((err) => console.error("Failed to save metrics history:", err));
+  return trimmed;
 }
 
 function trendFor(history, key, current) {
@@ -2450,7 +2449,7 @@ function renderOwnerRosterAdmin() {
     const existing = getOwnerRoster();
     const existingEmails = new Set(existing.map((o) => o.email));
     const merged = [...existing, ...parsed.filter((o) => !existingEmails.has(o.email))];
-    saveOwnerRoster(merged);
+    saveOwnerRoster(merged).catch((err) => console.error("Failed to save owner roster:", err));
     return merged.length - existing.length;
   };
   document.querySelector("#ownerRosterImport").addEventListener("click", () => {
@@ -2484,7 +2483,7 @@ function renderOwnerRosterAdmin() {
   const clearButton = document.querySelector("#ownerRosterClear");
   if (clearButton && !clearButton.disabled) {
     armDestructiveButton(clearButton, "Confirm clear?", () => {
-      saveOwnerRoster([]);
+      saveOwnerRoster([]).catch((err) => console.error("Failed to clear owner roster:", err));
       renderOwnerRosterAdmin();
     });
   }
@@ -2493,7 +2492,7 @@ function renderOwnerRosterAdmin() {
       const index = Number(button.getAttribute("data-remove-owner"));
       const roster = getOwnerRoster();
       roster.splice(index, 1);
-      saveOwnerRoster(roster);
+      saveOwnerRoster(roster).catch((err) => console.error("Failed to save owner roster:", err));
       renderOwnerRosterAdmin();
     });
   });
