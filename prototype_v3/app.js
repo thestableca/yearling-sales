@@ -2576,7 +2576,7 @@ function buildPreviewDataset() {
 
 function renderAdmin() {
   if (!isAdminSignedIn()) {
-    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><form id="loginForm"><div class="field-stack"><input class="input" id="adminEmail" type="email" placeholder="Email" autocomplete="username" autofocus><input class="input" id="adminPassword" type="password" placeholder="Password" autocomplete="current-password"></div><p class="notice hidden" id="loginError">Incorrect email or password.</p><div class="actions single"><button class="btn primary" type="submit" id="loginButton">Login</button></div></form></div></article>`;
+    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><form id="loginForm"><div class="field-stack"><input class="input" id="adminEmail" type="email" placeholder="Email" autocomplete="username" autofocus><input class="input" id="adminPassword" type="password" placeholder="Password" autocomplete="current-password"></div><p class="notice hidden" id="loginError">Incorrect email or password.</p><div class="actions single"><button class="btn primary" type="submit" id="loginButton">Login</button></div></form><button class="text-link" type="button" id="forgotPasswordLink" style="margin-top:12px;">Forgot password?</button><p class="notice hidden" id="forgotPasswordStatus"></p></div></article>`;
     document.querySelector("#loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = document.querySelector("#adminEmail").value.trim();
@@ -2592,6 +2592,21 @@ function renderAdmin() {
         loginButton.disabled = false;
         loginButton.textContent = "Login";
       }
+    });
+    document.querySelector("#forgotPasswordLink").addEventListener("click", async () => {
+      const email = document.querySelector("#adminEmail").value.trim();
+      const status = document.querySelector("#forgotPasswordStatus");
+      if (!email) {
+        status.textContent = "Enter your email above first, then click \"Forgot password?\" again.";
+        status.classList.remove("hidden");
+        return;
+      }
+      status.textContent = "Sending a password reset link…";
+      status.classList.remove("hidden");
+      const { error } = await supabaseAsAdmin().auth.resetPasswordForEmail(email);
+      status.textContent = error
+        ? "Something went wrong sending the reset link. Please try again."
+        : "If that email has an admin account, a password reset link has been sent.";
     });
     return;
   }

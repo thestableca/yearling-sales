@@ -102,21 +102,44 @@ async function fetchOwnSubmission(email) {
   return buildResponseFromRows(submission, responseRows || [], email);
 }
 
+// Supabase/PostgREST caps a single select at 1000 rows by default. With
+// an expected ~900 owners, and typically 1-2+ responses rows per owner
+// (one per selected sale), the responses table alone can plausibly
+// exceed 1000 rows — at which point an unpaginated select would silently
+// return only the first 1000, with no error, and the dashboard would
+// quietly under-count without any sign anything was wrong. fetchPaged()
+// walks pages of PAGE_SIZE until a page comes back short (Postgres's own
+// indication that no more rows follow), so the real row count is always
+// used, whatever the count.
+const PAGE_SIZE = 1000;
+
+async function fetchPaged(queryBuilder) {
+  const allRows = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await queryBuilder().range(from, from + PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return { data: allRows, error: null };
+}
+
 // Replaces the old localStorage-backed getResponses(). Admin-only per RLS
 // (is_admin()) — callers on the owner-facing side never need the full list.
 async function fetchAllResponses() {
   await loadSaleYears();
-  const { data: submissions, error: subError } = await supabaseAsAdmin()
-    .from("submissions")
-    .select("*")
-    .order("submitted_at", { ascending: false });
+  const { data: submissions, error: subError } = await fetchPaged(() =>
+    supabaseAsAdmin().from("submissions").select("*").order("submitted_at", { ascending: false })
+  );
   if (subError) {
     console.error("fetchAllResponses (submissions) failed:", subError.message);
     return [];
   }
-  const { data: responseRows, error: respError } = await supabaseAsAdmin()
-    .from("responses")
-    .select("*");
+  const { data: responseRows, error: respError } = await fetchPaged(() =>
+    supabaseAsAdmin().from("responses").select("*")
+  );
   if (respError) {
     console.error("fetchAllResponses (responses) failed:", respError.message);
     return [];
