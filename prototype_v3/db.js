@@ -80,11 +80,12 @@ function buildResponseFromRows(submission, responseRows, ownerEmailFallback) {
 // email's row simply gets nothing back, enforced server-side.
 async function fetchOwnSubmission(email) {
   await loadSaleYears();
+  const currentYear = await getCurrentSaleYearNumber();
   const { data: submission, error: subError } = await supabaseAsOwner()
     .from("submissions")
     .select("*")
     .eq("email", email.toLowerCase())
-    .eq("year", new Date().getFullYear())
+    .eq("year", currentYear)
     .maybeSingle();
   if (subError || !submission) {
     if (subError) console.error("fetchOwnSubmission failed:", subError.message);
@@ -123,16 +124,32 @@ async function fetchAllResponses() {
   return submissions.map((submission) => buildResponseFromRows(submission, responseRows));
 }
 
-// Replaces the old localStorage-backed submitResponse() write. Upserts by
-// email (matching the old "filter out existing, then push" re-submission
-// behavior) using a real unique constraint + transaction-safe upsert
-// instead of a full-table read-modify-write.
+// Replaces the old localStorage-backed submitResponse() write.
+//
+// Uses a real database upsert (submissions_email_year_unique constraint,
+// see supabase/migrations/*_fix_email_normalization.sql) instead of a
+// select-then-insert-or-update — the old pattern had a real race
+// condition (two concurrent submits, e.g. two browser tabs, could both
+// "not find an existing row" and both insert, creating duplicates) which
+// an upsert on a real constraint closes atomically at the database level
+// regardless of what the client does.
+//
+// The submission's `year` comes from the CURRENT sale year (is_current
+// in sale_years), not the system clock's calendar year — a previous
+// version used new Date().getFullYear(), which would have silently
+// scoped a resubmission to a DIFFERENT year than the owner's original
+// submission the moment the sale runs past December 31st, making them
+// unfindable as "the same owner" and defeating the whole point of this
+// upsert. sale_years.year already exists specifically to avoid the
+// calendar year ever being trusted for this.
 async function persistSubmission(response) {
   await loadCurrentSaleYearMap();
 
+  const currentYear = await getCurrentSaleYearNumber();
+
   const submissionPayload = {
     owner_id: response.ownerId || null,
-    year: new Date().getFullYear(),
+    year: currentYear,
     interest: response.interest,
     name: response.name,
     email: response.email,
@@ -142,41 +159,39 @@ async function persistSubmission(response) {
     updated_at: new Date().toISOString(),
   };
 
-  // Find an existing submission for this email (this year) to update in
-  // place, matching the old "resubmission replaces the previous one"
-  // behavior — otherwise insert a new one.
-  const { data: existing } = await supabaseAsOwner()
+  const { data: upserted, error: upsertError } = await supabaseAsOwner()
     .from("submissions")
+    .upsert(submissionPayload, { onConflict: "email,year" })
     .select("id")
-    .eq("email", response.email)
-    .eq("year", submissionPayload.year)
-    .maybeSingle();
+    .single();
+  if (upsertError) return { ok: false, message: upsertError.message };
+  const submissionId = upserted.id;
 
-  let submissionId = existing?.id;
-  if (submissionId) {
-    const { error: updateError } = await supabaseAsOwner()
-      .from("submissions")
-      .update(submissionPayload)
-      .eq("id", submissionId);
-    if (updateError) return { ok: false, message: updateError.message };
-    // Clear old per-sale responses before re-inserting current ones, so a
-    // resubmission that drops a previously-selected sale doesn't leave a
-    // stale row behind.
-    await supabaseAsOwner().from("responses").delete().eq("submission_id", submissionId);
-  } else {
-    const { data: inserted, error: insertError } = await supabaseAsOwner()
-      .from("submissions")
-      .insert(submissionPayload)
-      .select("id")
-      .single();
-    if (insertError) return { ok: false, message: insertError.message };
-    submissionId = inserted.id;
-  }
+  // Clear old per-sale responses before re-inserting current ones, so a
+  // resubmission that drops a previously-selected sale doesn't leave a
+  // stale row behind. Note: this delete-then-insert is not atomic — if
+  // the insert below fails after this succeeds, the owner's prior
+  // responses are gone. Acceptable here because submitResponse() in
+  // app.js surfaces any failure to the owner with a "please try again"
+  // message rather than silently declaring success, so a failed
+  // resubmission is visible and re-submittable, not silently lost.
+  const { error: deleteError } = await supabaseAsOwner().from("responses").delete().eq("submission_id", submissionId);
+  if (deleteError) return { ok: false, message: deleteError.message };
 
+  const skippedSales = [];
   const responseRows = Object.entries(response.saleResponses || {})
     .map(([saleId, prefs]) => {
       const saleYearId = saleIdToCurrentSaleYearId.get(saleId);
-      if (!saleYearId) return null;
+      if (!saleYearId) {
+        // A selected sale has no current sale_year row — e.g. Anthony
+        // deactivated it between when the owner started the form and
+        // when they submitted. Previously this silently dropped the
+        // owner's answers for that sale with no trace anywhere. Now it's
+        // surfaced back to the caller so the UI can tell the owner,
+        // instead of quietly losing part of their submission.
+        skippedSales.push(saleId);
+        return null;
+      }
       return {
         submission_id: submissionId,
         owner_id: response.ownerId || null,
@@ -191,7 +206,31 @@ async function persistSubmission(response) {
     if (responsesError) return { ok: false, message: responsesError.message };
   }
 
+  if (skippedSales.length) {
+    console.error("persistSubmission: these selected sales had no active sale_year and were not saved:", skippedSales);
+    return { ok: true, skippedSales };
+  }
+
   return { ok: true };
+}
+
+// The submissions.year to scope a submission to — the year of whichever
+// sale_year is currently marked is_current, not the system clock's
+// calendar year (see persistSubmission's comment for why). Falls back to
+// the system year only if, unexpectedly, no sale_year is marked current
+// at all (so a submission still gets written rather than failing outright).
+async function getCurrentSaleYearNumber() {
+  const { data, error } = await supabasePublic()
+    .from("sale_years")
+    .select("year")
+    .eq("is_current", true)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) {
+    console.error("getCurrentSaleYearNumber: no is_current sale_year found, falling back to system clock year:", error?.message);
+    return new Date().getFullYear();
+  }
+  return data.year;
 }
 
 // Loads Anthony's admin settings (exchange rate, confirmed buckets,

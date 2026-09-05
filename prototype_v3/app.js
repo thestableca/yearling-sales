@@ -194,6 +194,7 @@ const emptyDraft = {
   authLinkSent: false,
   submitting: false,
   submitError: "",
+  submitWarning: "",
   name: "",
   email: "",
   interest: "",
@@ -718,7 +719,8 @@ function reviewCard() {
 }
 
 function doneCard() {
-  return card("Complete", "Thank you!", `<p class="prompt">Your preferences have been submitted successfully.</p><p class="prompt">Want to change something later? Come back to this page and enter the same email address — your answers will load back in so you can update and resubmit them.</p><div class="actions single"><button class="btn primary" type="button" data-start-over>Close</button></div>`, "Complete");
+  const warning = draft.submitWarning ? `<p class="notice">${escapeHtml(draft.submitWarning)}</p>` : "";
+  return card("Complete", "Thank you!", `<p class="prompt">Your preferences have been submitted successfully.</p>${warning}<p class="prompt">Want to change something later? Come back to this page and enter the same email address — your answers will load back in so you can update and resubmit them.</p><div class="actions single"><button class="btn primary" type="button" data-start-over>Close</button></div>`, "Complete");
 }
 
 function radioOptions(field, value, options, target = null) {
@@ -900,11 +902,12 @@ async function resumeAfterOwnerSignIn() {
   // TheStable's roster," i.e. unmatched, until a real name is on file.
   const owner = ownerRow?.name ? ownerRow : null;
 
+  const currentYear = await getCurrentSaleYearNumber();
   const { data: existingSubmission } = await supabaseAsOwner()
     .from("submissions")
     .select("id")
     .eq("email", email.toLowerCase())
-    .eq("year", new Date().getFullYear())
+    .eq("year", currentYear)
     .maybeSingle();
 
   draft.email = email;
@@ -1267,8 +1270,13 @@ async function submitResponse() {
     render();
     return;
   }
+  const skippedSales = result.skippedSales;
   resetDraft();
   draft.view = "done";
+  if (skippedSales?.length) {
+    const labels = skippedSales.map((saleId) => saleById(saleId)?.label || saleId).join(", ");
+    draft.submitWarning = `Your answers were saved, but ${labels} ${skippedSales.length === 1 ? "is" : "are"} not currently open for this year's intake, so ${skippedSales.length === 1 ? "that sale wasn't" : "those sales weren't"} included. Please contact TheStable if this seems wrong.`;
+  }
   render();
 }
 
