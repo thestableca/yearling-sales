@@ -192,6 +192,8 @@ const emptyDraft = {
   resumedExisting: false,
   identifyError: "",
   authLinkSent: false,
+  submitting: false,
+  submitError: "",
   name: "",
   email: "",
   interest: "",
@@ -222,8 +224,28 @@ let previewMode = false;
 // just when a .ccy-btn is clicked.
 let selectedCurrency = "cad";
 
+// Admin screens (Dashboard/Sale History/Owner Roster) read responses
+// synchronously via getResponses() below, matching how they always worked
+// against localStorage. Since the real data now lives in Supabase (an
+// async fetch), responsesCache holds the last successful fetch and
+// refreshAdminData() populates it before rendering — render() itself stays
+// synchronous throughout the admin screens, only the load/refresh step is
+// async. responsesLoading distinguishes "haven't fetched yet" (show a
+// loading state) from "fetched, zero responses" (show the real empty state).
+let responsesCache = [];
+let responsesLoading = false;
+
+async function refreshAdminData() {
+  responsesLoading = true;
+  render();
+  responsesCache = await fetchAllResponses();
+  responsesLoading = false;
+  render();
+}
+
 adminLink.addEventListener("click", () => {
   mode = "admin";
+  if (isAdminSignedIn()) refreshAdminData();
   render();
 });
 
@@ -255,17 +277,10 @@ function resetDraft() {
   localStorage.removeItem(DRAFT_KEY);
 }
 
+// Synchronous read of the last-fetched responses — see responsesCache /
+// refreshAdminData() above for how this is kept up to date.
 function getResponses() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveResponses(responses) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(responses));
+  return responsesCache;
 }
 
 function normalizeDraft(value = {}) {
@@ -695,7 +710,8 @@ function reviewCard() {
     "Final step",
     "Review Your 2026 Yearling Sale Plan",
     `<div class="review-list">${items}</div>
-     <div class="actions"><button class="btn" type="button" data-review-back>Back</button><button class="btn red" type="button" data-submit>Confirm & Submit</button></div>`,
+     ${draft.submitError ? `<p class="notice">${escapeHtml(draft.submitError)}</p>` : ""}
+     <div class="actions"><button class="btn" type="button" data-review-back ${draft.submitting ? "disabled" : ""}>Back</button><button class="btn red" type="button" data-submit ${draft.submitting ? "disabled" : ""}>${draft.submitting ? "Submitting…" : "Confirm & Submit"}</button></div>`,
     "Review"
   );
 }
@@ -863,33 +879,55 @@ async function identifyOwner() {
 }
 
 // Called once a magic-link redirect has produced a real owner session
-// (see restoreOwnerSession in supabase-client.js). Loads any existing
-// submission for this verified email and moves the draft into the intake
-// flow — this is the sign-in-verified equivalent of the old identifyOwner
-// owner-matching step.
-function resumeAfterOwnerSignIn() {
+// (see restoreOwnerSession in supabase-client.js). Looks up the verified
+// owner record and any existing submission for this email, then moves the
+// draft into the intake flow — this is the sign-in-verified equivalent of
+// the old identifyOwner owner-matching step, now backed by the real
+// `owners`/`submissions` tables instead of the hardcoded OWNERS array.
+async function resumeAfterOwnerSignIn() {
   const email = ownerEmail();
   if (!email) return;
-  const owner = OWNERS.find((item) => item.email.toLowerCase() === email.toLowerCase());
-  const existing = getResponses().find((response) => response.email.toLowerCase() === email.toLowerCase());
+
+  const { data: ownerRow } = await supabaseData
+    .from("owners")
+    .select("id, name, email")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+  // A blank name means the owners row exists only because the magic-link
+  // function auto-created it on first contact (see
+  // send-owner-magic-link/index.ts) — treat that the same as "not on
+  // TheStable's roster," i.e. unmatched, until a real name is on file.
+  const owner = ownerRow?.name ? ownerRow : null;
+
+  const { data: existingSubmission } = await supabaseData
+    .from("submissions")
+    .select("id")
+    .eq("email", email.toLowerCase())
+    .eq("year", new Date().getFullYear())
+    .maybeSingle();
+
   draft.email = email;
   draft.name = draft.name || owner?.name || "";
-  draft.owner = owner || null;
+  draft.owner = owner ? { id: owner.id, name: owner.name, email: owner.email } : null;
   draft.unmatched = !owner;
   draft.authLinkSent = false;
-  if (existing) {
-    draft = { ...normalizeDraft(existing), view: "interest", name: draft.name, email, owner: owner || null, unmatched: !owner, resumedExisting: true };
+
+  if (existingSubmission) {
+    const existing = await fetchOwnSubmission(email);
+    if (existing) {
+      draft = { ...normalizeDraft(existing), view: "interest", name: draft.name, email, owner: draft.owner, unmatched: draft.unmatched, resumedExisting: true };
+    }
   } else if (draft.view === "welcome" || draft.view === "identify") {
     draft.view = "interest";
   }
   saveDraft();
 }
 
-function interestNext() {
+async function interestNext() {
   if (draft.interest === "no") {
     draft.selectedSales = [];
     draft.saleResponses = {};
-    submitResponse();
+    await submitResponse();
     return;
   }
   draft.view = "sales";
@@ -1204,7 +1242,7 @@ function sexSummary(response) {
   return labelFor("sex", response.sex);
 }
 
-function submitResponse() {
+async function submitResponse() {
   const response = {
     id: draft.owner?.id || `unmatched_${draft.email}`,
     ownerId: draft.owner?.id || null,
@@ -1218,9 +1256,16 @@ function submitResponse() {
     saleResponses: draft.saleResponses,
     submittedAt: new Date().toISOString(),
   };
-  const responses = getResponses().filter((item) => item.email.toLowerCase() !== response.email.toLowerCase());
-  responses.push(response);
-  saveResponses(responses);
+  draft.submitting = true;
+  draft.submitError = "";
+  render();
+  const result = await persistSubmission(response);
+  draft.submitting = false;
+  if (!result.ok) {
+    draft.submitError = "We couldn't save your submission. Please try again — " + result.message;
+    render();
+    return;
+  }
   resetDraft();
   draft.view = "done";
   render();
@@ -1285,8 +1330,13 @@ function armDestructiveButton(button, confirmText, onConfirm) {
   });
 }
 
+// Note: since real responses now live in Supabase (not this browser), this
+// only clears locally-cached admin UI state (draft, pasted owner roster,
+// dashboard metrics history) — it no longer touches actual submitted
+// responses. Clearing real response data is an admin-database action, not
+// a local browser reset, and isn't exposed here on purpose.
 function resetDemoDataButton() {
-  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears all responses, owner roster, and history stored in this browser">Reset demo data</button>`;
+  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears locally-cached admin data (draft, pasted roster, metrics history) — does not delete real submitted responses">Reset local data</button>`;
 }
 
 // Only shown on the Dashboard tab, where preview mode actually changes
@@ -2524,13 +2574,17 @@ function renderAdmin() {
       loginButton.textContent = "Logging in…";
       const result = await adminSignIn(email, password);
       if (result.ok) {
-        render();
+        refreshAdminData();
       } else {
         document.querySelector("#loginError").classList.remove("hidden");
         loginButton.disabled = false;
         loginButton.textContent = "Login";
       }
     });
+    return;
+  }
+  if (responsesLoading) {
+    app.innerHTML = `<article class="card"><div class="card-body"><p>Loading responses…</p></div></article>`;
     return;
   }
   if (adminTab === "questions") {
@@ -3229,7 +3283,8 @@ function escapeHtml(value) {
   return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
-Promise.all([restoreAdminSession(), restoreOwnerSession()]).then(() => {
-  if (isOwnerSignedIn()) resumeAfterOwnerSignIn();
+Promise.all([restoreAdminSession(), restoreOwnerSession()]).then(async () => {
+  if (isOwnerSignedIn()) await resumeAfterOwnerSignIn();
   render();
+  if (isAdminSignedIn()) refreshAdminData();
 });
