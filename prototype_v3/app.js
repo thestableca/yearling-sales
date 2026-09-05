@@ -191,6 +191,7 @@ const emptyDraft = {
   unmatched: false,
   resumedExisting: false,
   identifyError: "",
+  authLinkSent: false,
   name: "",
   email: "",
   interest: "",
@@ -463,6 +464,14 @@ function welcomeCard() {
 }
 
 function identifyCard() {
+  if (draft.authLinkSent) {
+    return card(
+      "Step 1",
+      "Check your email",
+      `<p>We sent a one-time sign-in link to <strong>${escapeHtml(draft.email)}</strong>. Click the link in that email to continue — it may take a minute to arrive, and is worth a check in your spam folder.</p>
+       <div class="actions single"><button class="btn" type="button" id="useDifferentEmail">Use a different email</button></div>`
+    );
+  }
   return card(
     "Step 1",
     "Who is completing this intake?",
@@ -471,7 +480,7 @@ function identifyCard() {
        <input class="input" id="nameInput" value="${escapeHtml(draft.name)}" placeholder="Your name">
        <input class="input" id="emailInput" type="email" value="${escapeHtml(draft.email)}" placeholder="you@example.com">
      </div>
-     <div class="actions"><button class="btn" type="button" data-go="welcome">Back</button><button class="btn primary" type="button" data-identify>Continue</button></div>`
+     <div class="actions"><button class="btn" type="button" data-go="welcome">Back</button><button class="btn primary" type="button" data-identify id="identifyButton">Send me a sign-in link</button></div>`
   );
 }
 
@@ -765,6 +774,13 @@ function bindOwner() {
     render();
   }));
   document.querySelector("[data-identify]")?.addEventListener("click", identifyOwner);
+  document.querySelector("#useDifferentEmail")?.addEventListener("click", async () => {
+    await ownerSignOut();
+    draft.authLinkSent = false;
+    draft.identifyError = "";
+    saveDraft();
+    render();
+  });
   document.querySelector("[data-interest-next]")?.addEventListener("click", interestNext);
   document.querySelector("[data-start-defaults]")?.addEventListener("click", () => {
     draft.view = "defaults";
@@ -810,7 +826,7 @@ function bindOwner() {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function identifyOwner() {
+async function identifyOwner() {
   const name = document.querySelector("#nameInput").value.trim();
   const email = document.querySelector("#emailInput").value.trim().toLowerCase();
   // Keep whatever was typed even when validation fails below, so a typo in
@@ -828,15 +844,45 @@ function identifyOwner() {
     render();
     return;
   }
-  const owner = OWNERS.find((item) => item.email.toLowerCase() === email);
-  const existing = getResponses().find((response) => response.email.toLowerCase() === email);
-  draft.owner = owner || null;
-  draft.unmatched = !owner;
   draft.identifyError = "";
-  if (existing) draft = { ...normalizeDraft(existing), view: "interest", name, email, owner: owner || null, unmatched: !owner, resumedExisting: true };
-  else draft.view = "interest";
+  saveDraft();
+  const identifyButton = document.querySelector("#identifyButton");
+  if (identifyButton) {
+    identifyButton.disabled = true;
+    identifyButton.textContent = "Sending…";
+  }
+  const result = await requestOwnerMagicLink(email);
+  if (!result.ok) {
+    draft.identifyError = result.message;
+    render();
+    return;
+  }
+  draft.authLinkSent = true;
   saveDraft();
   render();
+}
+
+// Called once a magic-link redirect has produced a real owner session
+// (see restoreOwnerSession in supabase-client.js). Loads any existing
+// submission for this verified email and moves the draft into the intake
+// flow — this is the sign-in-verified equivalent of the old identifyOwner
+// owner-matching step.
+function resumeAfterOwnerSignIn() {
+  const email = ownerEmail();
+  if (!email) return;
+  const owner = OWNERS.find((item) => item.email.toLowerCase() === email.toLowerCase());
+  const existing = getResponses().find((response) => response.email.toLowerCase() === email.toLowerCase());
+  draft.email = email;
+  draft.name = draft.name || owner?.name || "";
+  draft.owner = owner || null;
+  draft.unmatched = !owner;
+  draft.authLinkSent = false;
+  if (existing) {
+    draft = { ...normalizeDraft(existing), view: "interest", name: draft.name, email, owner: owner || null, unmatched: !owner, resumedExisting: true };
+  } else if (draft.view === "welcome" || draft.view === "identify") {
+    draft.view = "interest";
+  }
+  saveDraft();
 }
 
 function interestNext() {
@@ -3183,4 +3229,7 @@ function escapeHtml(value) {
   return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
-restoreAdminSession().finally(render);
+Promise.all([restoreAdminSession(), restoreOwnerSession()]).then(() => {
+  if (isOwnerSignedIn()) resumeAfterOwnerSignIn();
+  render();
+});
