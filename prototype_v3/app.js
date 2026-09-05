@@ -238,7 +238,8 @@ let responsesLoading = false;
 async function refreshAdminData() {
   responsesLoading = true;
   render();
-  responsesCache = await fetchAllResponses();
+  const [responses] = await Promise.all([fetchAllResponses(), refreshAdminSettingsCache()]);
+  responsesCache = responses;
   responsesLoading = false;
   render();
 }
@@ -888,7 +889,7 @@ async function resumeAfterOwnerSignIn() {
   const email = ownerEmail();
   if (!email) return;
 
-  const { data: ownerRow } = await supabaseData
+  const { data: ownerRow } = await supabaseAsOwner()
     .from("owners")
     .select("id, name, email")
     .eq("email", email.toLowerCase())
@@ -899,7 +900,7 @@ async function resumeAfterOwnerSignIn() {
   // TheStable's roster," i.e. unmatched, until a real name is on file.
   const owner = ownerRow?.name ? ownerRow : null;
 
-  const { data: existingSubmission } = await supabaseData
+  const { data: existingSubmission } = await supabaseAsOwner()
     .from("submissions")
     .select("id")
     .eq("email", email.toLowerCase())
@@ -1645,7 +1646,11 @@ function restoreQuestionBlock(id) {
 function updateQuestionSet(mutator) {
   const questionSet = currentQuestionSet();
   mutator(questionSet);
-  saveQuestionSet("default", questionSet);
+  // saveQuestionSet updates the in-memory settings cache synchronously
+  // (before its internal await), so calling it before render() here means
+  // render() already sees the new value even though the database write
+  // itself is still in flight in the background.
+  saveQuestionSet("default", questionSet).catch((err) => console.error("Failed to save question set:", err));
   render();
 }
 
@@ -1819,7 +1824,7 @@ function bindQuestionsAdmin(questionSet) {
   const updateConfirmed = (mutator) => {
     const buckets = getConfirmedBuckets("default");
     mutator(buckets);
-    saveConfirmedBucketsFor("default", buckets);
+    saveConfirmedBucketsFor("default", buckets).catch((err) => console.error("Failed to save confirmed buckets:", err));
     render();
   };
   document.querySelectorAll("[data-cb-name]").forEach((el) => {
@@ -1877,7 +1882,7 @@ function bindQuestionsAdmin(questionSet) {
         rateInput.value = (1 / getExchangeRate()).toFixed(4);
         return;
       }
-      saveExchangeRate(1 / cadPerUsd);
+      saveExchangeRate(1 / cadPerUsd).catch((err) => console.error("Failed to save exchange rate:", err));
       render();
     });
   }
@@ -3283,7 +3288,7 @@ function escapeHtml(value) {
   return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
-Promise.all([restoreAdminSession(), restoreOwnerSession()]).then(async () => {
+Promise.all([restoreAdminSession(), restoreOwnerSession(), loadAdminSettingsCache()]).then(async () => {
   if (isOwnerSignedIn()) await resumeAfterOwnerSignIn();
   render();
   if (isAdminSignedIn()) refreshAdminData();

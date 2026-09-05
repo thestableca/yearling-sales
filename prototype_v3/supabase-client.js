@@ -20,10 +20,31 @@ const supabaseOwnerAuth = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHAB
   auth: { storageKey: "thestable-owner-auth", detectSessionInUrl: true },
 });
 
-// Plain data queries (reading sales/sale_years, etc.) don't need a signed-in
-// session at all — either authenticated client works identically for
-// public, RLS-open tables. Use the owner client for these by convention.
-const supabaseData = supabaseOwnerAuth;
+// Each call site says explicitly which identity it needs, rather than
+// guessing from whichever session happens to be active — using one fixed
+// client for everything was a real bug: admin actions (saving settings,
+// fetching all responses) were going through the owner-auth client, which
+// has no admin session, so is_admin() evaluated false and every admin
+// write was silently rejected by RLS. Being explicit also avoids a subtler
+// version of the same bug: Robert (or Anthony) testing both roles in the
+// same browser at once would otherwise get whichever session "won."
+//
+// supabaseAsAdmin() — admin-only reads/writes (is_admin() RLS checks).
+// supabaseAsOwner() — owner-scoped reads/writes (auth.jwt()->>'email' RLS checks).
+// supabasePublic() — reference data with no auth requirement (sales,
+//   sale_years, the publicly-readable question_sets row) — uses the owner
+//   client's connection since no session is actually required for these.
+function supabaseAsAdmin() {
+  return supabaseAdminAuth;
+}
+
+function supabaseAsOwner() {
+  return supabaseOwnerAuth;
+}
+
+function supabasePublic() {
+  return supabaseOwnerAuth;
+}
 
 // --- Admin auth --------------------------------------------------------
 // Replaces the old client-side ADMIN_PASSCODE_HASH/adminLoggedIn check.

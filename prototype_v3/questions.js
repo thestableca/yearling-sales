@@ -4,22 +4,44 @@
 // app.js keeps working exactly as before until it is wired to read from
 // this module in a later step.
 
-const QUESTION_SETS_KEY = "thestable_question_sets_v1";
-const CONFIRMED_BUCKETS_KEY = "thestable_confirmed_buckets_v1";
-const EXCHANGE_RATE_KEY = "thestable_usd_per_cad_v1";
 const DEFAULT_USD_PER_CAD = 1 / 1.4; // matches the rate the reference data was originally computed with
+
+// ----- Admin settings cache -----
+// Anthony's own configuration (exchange rate, confirmed buckets, question
+// sets) now lives in the admin_settings table (key/value + jsonb) instead
+// of localStorage — this is a robustness fix (survives a cleared cache or
+// a different device), not a security fix, since none of this is owner
+// personal data. Since these values are read synchronously throughout
+// app.js's render functions but Supabase reads are async, a small cache is
+// loaded once at startup (see loadAdminSettingsCache() in db.js) and these
+// getters read that cache directly, same shape as the old localStorage
+// reads. Setters write through to the database AND update the cache
+// immediately, so a render right after a save sees the new value without
+// waiting on the round trip.
+
+let adminSettingsCache = {};
+
+function getSetting(key, fallback) {
+  return key in adminSettingsCache ? adminSettingsCache[key] : fallback;
+}
+
+async function setSetting(key, value) {
+  adminSettingsCache[key] = value;
+  const { error } = await supabaseAsAdmin().from("admin_settings").upsert({ key, value, updated_at: new Date().toISOString() });
+  if (error) console.error(`setSetting(${key}) failed:`, error.message);
+}
 
 // ----- Exchange rate -----
 // The single source of truth for CAD -> USD conversion, used by both the
 // Sale History currency toggle and the Dashboard's capital figure. Stored
 // as USD-per-1-CAD (e.g. 0.7143) so every conversion is just cad * rate.
 function getExchangeRate() {
-  const stored = Number(localStorage.getItem(EXCHANGE_RATE_KEY));
+  const stored = Number(getSetting("exchange_rate", null));
   return Number.isFinite(stored) && stored > 0 ? stored : DEFAULT_USD_PER_CAD;
 }
 
-function saveExchangeRate(usdPerCad) {
-  localStorage.setItem(EXCHANGE_RATE_KEY, String(usdPerCad));
+async function saveExchangeRate(usdPerCad) {
+  await setSetting("exchange_rate", usdPerCad);
 }
 
 // ----- Confirmed buckets -----
@@ -29,16 +51,12 @@ function saveExchangeRate(usdPerCad) {
 // not feed back into what owners see in the intake form.
 
 function loadConfirmedBuckets() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(CONFIRMED_BUCKETS_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+  const stored = getSetting("confirmed_buckets", {});
+  return stored && typeof stored === "object" ? stored : {};
 }
 
-function saveConfirmedBuckets(bySaleYear) {
-  localStorage.setItem(CONFIRMED_BUCKETS_KEY, JSON.stringify(bySaleYear));
+async function saveConfirmedBuckets(bySaleYear) {
+  await setSetting("confirmed_buckets", bySaleYear);
 }
 
 function getConfirmedBuckets(saleYearId) {
@@ -46,10 +64,10 @@ function getConfirmedBuckets(saleYearId) {
   return all[saleYearId] || [];
 }
 
-function saveConfirmedBucketsFor(saleYearId, buckets) {
+async function saveConfirmedBucketsFor(saleYearId, buckets) {
   const all = loadConfirmedBuckets();
   all[saleYearId] = buckets;
-  saveConfirmedBuckets(all);
+  await saveConfirmedBuckets(all);
 }
 
 function newConfirmedBucket() {
@@ -198,16 +216,12 @@ function sameDependsOn(a, b) {
 // ----- Storage -----
 
 function loadQuestionSets() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(QUESTION_SETS_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+  const stored = getSetting("question_sets", {});
+  return stored && typeof stored === "object" ? stored : {};
 }
 
-function saveQuestionSets(sets) {
-  localStorage.setItem(QUESTION_SETS_KEY, JSON.stringify(sets));
+async function saveQuestionSets(sets) {
+  await setSetting("question_sets", sets);
 }
 
 function getQuestionSet(saleYearId) {
@@ -216,10 +230,10 @@ function getQuestionSet(saleYearId) {
   return defaultQuestionSet();
 }
 
-function saveQuestionSet(saleYearId, questionSet) {
+async function saveQuestionSet(saleYearId, questionSet) {
   const sets = loadQuestionSets();
   sets[saleYearId] = questionSet;
-  saveQuestionSets(sets);
+  await saveQuestionSets(sets);
 }
 
 // ----- Default preset: reproduces today's live question set exactly -----

@@ -19,7 +19,7 @@
 let saleYearIdToSaleId = new Map();
 
 async function loadSaleYears() {
-  const { data, error } = await supabaseData
+  const { data, error } = await supabasePublic()
     .from("sale_years")
     .select("id, sale_id, year, label, is_current")
     .order("sale_id");
@@ -38,7 +38,7 @@ async function loadSaleYears() {
 let saleIdToCurrentSaleYearId = new Map();
 
 async function loadCurrentSaleYearMap() {
-  const { data, error } = await supabaseData
+  const { data, error } = await supabasePublic()
     .from("sale_years")
     .select("id, sale_id")
     .eq("is_current", true);
@@ -80,7 +80,7 @@ function buildResponseFromRows(submission, responseRows, ownerEmailFallback) {
 // email's row simply gets nothing back, enforced server-side.
 async function fetchOwnSubmission(email) {
   await loadSaleYears();
-  const { data: submission, error: subError } = await supabaseData
+  const { data: submission, error: subError } = await supabaseAsOwner()
     .from("submissions")
     .select("*")
     .eq("email", email.toLowerCase())
@@ -90,7 +90,7 @@ async function fetchOwnSubmission(email) {
     if (subError) console.error("fetchOwnSubmission failed:", subError.message);
     return null;
   }
-  const { data: responseRows, error: respError } = await supabaseData
+  const { data: responseRows, error: respError } = await supabaseAsOwner()
     .from("responses")
     .select("*")
     .eq("submission_id", submission.id);
@@ -105,7 +105,7 @@ async function fetchOwnSubmission(email) {
 // (is_admin()) — callers on the owner-facing side never need the full list.
 async function fetchAllResponses() {
   await loadSaleYears();
-  const { data: submissions, error: subError } = await supabaseData
+  const { data: submissions, error: subError } = await supabaseAsAdmin()
     .from("submissions")
     .select("*")
     .order("submitted_at", { ascending: false });
@@ -113,7 +113,7 @@ async function fetchAllResponses() {
     console.error("fetchAllResponses (submissions) failed:", subError.message);
     return [];
   }
-  const { data: responseRows, error: respError } = await supabaseData
+  const { data: responseRows, error: respError } = await supabaseAsAdmin()
     .from("responses")
     .select("*");
   if (respError) {
@@ -145,7 +145,7 @@ async function persistSubmission(response) {
   // Find an existing submission for this email (this year) to update in
   // place, matching the old "resubmission replaces the previous one"
   // behavior — otherwise insert a new one.
-  const { data: existing } = await supabaseData
+  const { data: existing } = await supabaseAsOwner()
     .from("submissions")
     .select("id")
     .eq("email", response.email)
@@ -154,7 +154,7 @@ async function persistSubmission(response) {
 
   let submissionId = existing?.id;
   if (submissionId) {
-    const { error: updateError } = await supabaseData
+    const { error: updateError } = await supabaseAsOwner()
       .from("submissions")
       .update(submissionPayload)
       .eq("id", submissionId);
@@ -162,9 +162,9 @@ async function persistSubmission(response) {
     // Clear old per-sale responses before re-inserting current ones, so a
     // resubmission that drops a previously-selected sale doesn't leave a
     // stale row behind.
-    await supabaseData.from("responses").delete().eq("submission_id", submissionId);
+    await supabaseAsOwner().from("responses").delete().eq("submission_id", submissionId);
   } else {
-    const { data: inserted, error: insertError } = await supabaseData
+    const { data: inserted, error: insertError } = await supabaseAsOwner()
       .from("submissions")
       .insert(submissionPayload)
       .select("id")
@@ -187,9 +187,39 @@ async function persistSubmission(response) {
     .filter(Boolean);
 
   if (responseRows.length) {
-    const { error: responsesError } = await supabaseData.from("responses").insert(responseRows);
+    const { error: responsesError } = await supabaseAsOwner().from("responses").insert(responseRows);
     if (responsesError) return { ok: false, message: responsesError.message };
   }
 
   return { ok: true };
+}
+
+// Loads Anthony's admin settings (exchange rate, confirmed buckets,
+// question sets) into the in-memory cache that questions.js's getters
+// read synchronously — see adminSettingsCache in questions.js.
+//
+// Called at startup (before we know if this visitor will sign in as
+// admin), so it uses supabasePublic(): the "anyone can read question
+// sets" RLS policy means the question_sets key comes back either way
+// (needed so the intake form knows what to ask for a signed-out owner);
+// the other, admin-only keys (exchange_rate, confirmed_buckets) simply
+// don't come back for a non-admin caller. refreshAdminSettingsCache()
+// below re-loads with full admin access once an admin session exists, so
+// the admin UI still sees everything after logging in.
+async function loadAdminSettingsCache() {
+  const { data, error } = await supabasePublic().from("admin_settings").select("key, value");
+  if (error) {
+    console.error("loadAdminSettingsCache failed:", error.message);
+    return;
+  }
+  adminSettingsCache = Object.fromEntries(data.map((row) => [row.key, row.value]));
+}
+
+async function refreshAdminSettingsCache() {
+  const { data, error } = await supabaseAsAdmin().from("admin_settings").select("key, value");
+  if (error) {
+    console.error("refreshAdminSettingsCache failed:", error.message);
+    return;
+  }
+  adminSettingsCache = Object.fromEntries(data.map((row) => [row.key, row.value]));
 }
