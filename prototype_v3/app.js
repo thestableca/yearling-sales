@@ -207,7 +207,6 @@ const emptyDraft = {
 };
 
 let mode = "owner";
-let adminLoggedIn = false;
 let adminTab = "dashboard";
 let draft = loadDraft();
 // Preview mode shows the dashboard filled with fictional demo data so
@@ -224,15 +223,11 @@ let selectedCurrency = "cad";
 
 adminLink.addEventListener("click", () => {
   mode = "admin";
-  adminLink.classList.add("hidden");
-  ownerLink.classList.remove("hidden");
   render();
 });
 
 ownerLink.addEventListener("click", () => {
   mode = "owner";
-  ownerLink.classList.add("hidden");
-  adminLink.classList.remove("hidden");
   render();
 });
 
@@ -398,6 +393,8 @@ function progressPercent() {
 
 function render() {
   document.body.classList.toggle("admin-screen", mode === "admin");
+  adminLink.classList.toggle("hidden", mode === "admin");
+  ownerLink.classList.toggle("hidden", mode !== "admin");
   if (mode === "admin") renderAdmin();
   else renderOwner();
 }
@@ -1183,14 +1180,6 @@ function submitResponse() {
   render();
 }
 
-const ADMIN_PASSCODE_HASH = "0bab60e4cf58b621210d9fcf1605a3e61e38440672e241077e91e1cee2e1b5b6";
-
-async function sha256Hex(text) {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 function adminTabs() {
   const tabs = [
     ["dashboard", "Dashboard"],
@@ -1202,7 +1191,8 @@ function adminTabs() {
 }
 
 function backToSiteLink() {
-  return `<button class="back-to-site" type="button" id="backToSite">&larr; Back to site</button>`;
+  const logoutButton = isAdminSignedIn() ? `<button class="back-to-site" type="button" id="adminLogout">Log out</button>` : "";
+  return `${logoutButton}<button class="back-to-site" type="button" id="backToSite">&larr; Back to site</button>`;
 }
 
 // Shared navy masthead banner (logo + section label) shown at the top of
@@ -1269,6 +1259,11 @@ function bindAdminTabs() {
     });
   });
   document.querySelector("#backToSite")?.addEventListener("click", () => {
+    mode = "owner";
+    render();
+  });
+  document.querySelector("#adminLogout")?.addEventListener("click", async () => {
+    await adminSignOut();
     mode = "owner";
     render();
   });
@@ -2472,17 +2467,22 @@ function buildPreviewDataset() {
 }
 
 function renderAdmin() {
-  if (!adminLoggedIn) {
-    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><form id="loginForm"><div class="field-stack"><input class="input" id="passcode" type="password" placeholder="Passcode" autofocus></div><p class="notice hidden" id="loginError">Incorrect passcode.</p><div class="actions single"><button class="btn primary" type="submit" id="loginButton">Login</button></div></form></div></article>`;
+  if (!isAdminSignedIn()) {
+    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><form id="loginForm"><div class="field-stack"><input class="input" id="adminEmail" type="email" placeholder="Email" autocomplete="username" autofocus><input class="input" id="adminPassword" type="password" placeholder="Password" autocomplete="current-password"></div><p class="notice hidden" id="loginError">Incorrect email or password.</p><div class="actions single"><button class="btn primary" type="submit" id="loginButton">Login</button></div></form></div></article>`;
     document.querySelector("#loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const entered = document.querySelector("#passcode").value;
-      const enteredHash = await sha256Hex(entered);
-      if (enteredHash === ADMIN_PASSCODE_HASH) {
-        adminLoggedIn = true;
+      const email = document.querySelector("#adminEmail").value.trim();
+      const password = document.querySelector("#adminPassword").value;
+      const loginButton = document.querySelector("#loginButton");
+      loginButton.disabled = true;
+      loginButton.textContent = "Logging in…";
+      const result = await adminSignIn(email, password);
+      if (result.ok) {
         render();
       } else {
         document.querySelector("#loginError").classList.remove("hidden");
+        loginButton.disabled = false;
+        loginButton.textContent = "Login";
       }
     });
     return;
@@ -3183,4 +3183,4 @@ function escapeHtml(value) {
   return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
-render();
+restoreAdminSession().finally(render);
