@@ -1357,8 +1357,9 @@ function adminTabs() {
 }
 
 function backToSiteLink() {
+  const accountButton = isAdminSignedIn() ? `<button class="back-to-site" type="button" id="adminAccountLink">Account</button>` : "";
   const logoutButton = isAdminSignedIn() ? `<button class="back-to-site" type="button" id="adminLogout">Log out</button>` : "";
-  return `${logoutButton}<button class="back-to-site" type="button" id="backToSite">&larr; Back to site</button>`;
+  return `${accountButton}${logoutButton}<button class="back-to-site" type="button" id="backToSite">&larr; Back to site</button>`;
 }
 
 // Shared navy masthead banner (logo + section label) shown at the top of
@@ -1436,6 +1437,10 @@ function bindAdminTabs() {
   document.querySelector("#adminLogout")?.addEventListener("click", async () => {
     await adminSignOut();
     mode = "owner";
+    render();
+  });
+  document.querySelector("#adminAccountLink")?.addEventListener("click", () => {
+    adminTab = "account";
     render();
   });
   const resetButton = document.querySelector("#resetDemoData");
@@ -2458,6 +2463,81 @@ function vsBarsHtml(points, formatFn) {
   return `<div class="vs-bars">${bars}</div><div class="vsb-axis"><span>${points.length > 1 ? "Earliest" : ""}</span><span>Now</span></div>`;
 }
 
+function renderAdminAccount() {
+  app.innerHTML = `
+    <div class="refskin">
+    <div class="wrap">
+      <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${backToSiteLink()}</div></div>
+
+      ${adminMasthead("Account")}
+
+      <p class="dek">Signed in as ${escapeHtml(adminSession?.user?.email || "")}.</p>
+
+      <div class="ref-panel" style="margin-top: 22px; max-width: 480px;">
+        <div class="panel-head">
+          <div>
+            <div class="tag">Security</div>
+            <h2>Change password</h2>
+            <p>Each admin can set their own password here — there's no shared login to keep in sync.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <form id="changePasswordForm">
+            <div class="field-stack">
+              <input class="input" id="newPassword" type="password" placeholder="New password (at least 6 characters)" autocomplete="new-password">
+              <input class="input" id="confirmPassword" type="password" placeholder="Confirm new password" autocomplete="new-password">
+            </div>
+            <p class="notice hidden" id="changePasswordError"></p>
+            <p class="notice hidden" id="changePasswordSuccess"></p>
+            <div class="actions single" style="margin-top:12px;">
+              <button class="btn primary" type="submit" id="changePasswordButton">Update password</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    </div>`;
+
+  bindAdminTabs();
+  document.querySelector("#changePasswordForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const newPassword = document.querySelector("#newPassword").value;
+    const confirmPassword = document.querySelector("#confirmPassword").value;
+    const errorEl = document.querySelector("#changePasswordError");
+    const successEl = document.querySelector("#changePasswordSuccess");
+    errorEl.classList.add("hidden");
+    successEl.classList.add("hidden");
+
+    if (newPassword.length < 6) {
+      errorEl.textContent = "Password must be at least 6 characters.";
+      errorEl.classList.remove("hidden");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      errorEl.textContent = "Passwords don't match.";
+      errorEl.classList.remove("hidden");
+      return;
+    }
+
+    const button = document.querySelector("#changePasswordButton");
+    button.disabled = true;
+    button.textContent = "Updating…";
+    const { error } = await supabaseAsAdmin().auth.updateUser({ password: newPassword });
+    button.disabled = false;
+    button.textContent = "Update password";
+
+    if (error) {
+      errorEl.textContent = "Couldn't update your password: " + error.message;
+      errorEl.classList.remove("hidden");
+    } else {
+      document.querySelector("#newPassword").value = "";
+      document.querySelector("#confirmPassword").value = "";
+      successEl.textContent = "Password updated.";
+      successEl.classList.remove("hidden");
+    }
+  });
+}
+
 function renderOwnerRosterAdmin() {
   const roster = getOwnerRoster();
   const respondedEmails = new Set(getResponses().map((item) => (item.email || "").toLowerCase()));
@@ -2708,6 +2788,10 @@ function renderAdmin() {
     renderOwnerRosterAdmin();
     return;
   }
+  if (adminTab === "account") {
+    renderAdminAccount();
+    return;
+  }
 
   const preview = previewMode ? buildPreviewDataset() : null;
   const responses = preview ? preview.responses : getResponses();
@@ -2865,11 +2949,11 @@ function renderAdmin() {
       <div class="ref-panel" style="margin-top: 18px;">
         <div class="panel-head">
           <div>
-            <div class="tag">Recommendation</div>
-            <h2>Suggested buckets to offer</h2>
-            <p>Ranked by requested share, owner count, and jurisdiction fit. Not final bucket capacity.</p>
+            <div class="tag">Demand breakdown</div>
+            <h2>Where the demand is, within your current bucket types</h2>
+            <p>Breaks down the requests you've already received by gait, sex, and jurisdiction fit, within the bucket types owners could choose from (set in Questions Builder). This is not a proposal to approve — it's the input for you to use when you actually set the sale's final offer in the "Confirmed Buckets" panel below.</p>
           </div>
-          <span class="ref-info-dot" tabindex="0">i<span class="tip">Suggestions are ranked by how much of a sale's owners have expressed interest, how many owners that represents, and whether the top requested share size fits the sale's jurisdiction rules. This is not a final decision on which buckets to actually offer.</span></span>
+          <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked by how much of a sale's owners have expressed interest, how many owners that represents, and whether the top requested share size fits the sale's jurisdiction rules. It can only break down demand within the bucket types already offered in the intake form — it can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
         </div>
         <div class="panel-body" style="padding-top: 4px;">
           ${suggestions.length ? suggestions.map((row) => `
@@ -2883,7 +2967,7 @@ function renderAdmin() {
             <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
             <div class="stat-block"><div class="num">${row.shareSizes.length ? escapeHtml(row.shareSizes[0].label) : "No data"}${row.topShareDollarBand ? ` <span class="stat-sub">(~${escapeHtml(row.topShareDollarBand)})</span>` : ""}</div><div class="lbl">top share size</div></div>
             <div class="fill-meter"><div class="bar"><span style="width:${Math.max(4, Math.min(100, row.total))}%"></span></div><div class="pct">${row.fillSignal}</div></div>
-          </div>`).join("") : `<p class="quiet" style="padding:6px 4px;">No bucket suggestions yet. Suggestions will appear once owners submit pre-sale bucket responses.</p>`}
+          </div>`).join("") : `<p class="quiet" style="padding:6px 4px;">No demand data yet. This fills in once owners submit pre-sale bucket responses.</p>`}
         </div>
       </div>
 
