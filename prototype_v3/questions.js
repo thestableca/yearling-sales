@@ -130,7 +130,7 @@ function conditionSatisfied(condition, answers) {
 function blockAnswered(block, answers) {
   const value = answers[block.id];
   if (block.type === "multi_select") return Array.isArray(value) && value.length > 0;
-  if (block.type === "bucket_matrix") return Boolean(value && value.ready);
+  if (block.type === "bucket_matrix" || block.type === "price_tier_matrix") return Boolean(value && value.ready);
   return value !== undefined && value !== null && value !== "";
 }
 
@@ -274,9 +274,9 @@ function defaultQuestionSet() {
       {
         id: "gait",
         type: "single_select",
-        label: "Which gait should TheStable consider for you?",
+        label: "For after-sale individual shares, which gait should TheStable consider for you?",
         sortOrder: 20,
-        dependsOn: { blockId: "participation", op: "notEmpty" },
+        dependsOn: { blockId: "participation", op: "in", value: ["specific", "both"] },
         required: true,
         options: [
           { value: "trotter", label: "Trotters", help: "" },
@@ -287,9 +287,9 @@ function defaultQuestionSet() {
       {
         id: "sex",
         type: "single_select",
-        label: "Which colt / filly preference should TheStable consider for you?",
+        label: "For after-sale individual shares, which colt / filly preference should TheStable consider for you?",
         sortOrder: 30,
-        dependsOn: { blockId: "gait", op: "in", value: ["trotter", "pacer"] },
+        dependsOn: [{ blockId: "participation", op: "in", value: ["specific", "both"] }, { blockId: "gait", op: "in", value: ["trotter", "pacer"] }],
         required: true,
         options: [
           { value: "colt", label: "Colts", help: "" },
@@ -300,9 +300,9 @@ function defaultQuestionSet() {
       {
         id: "sexTrotter",
         type: "single_select",
-        label: "For trotters, which colt / filly preference should TheStable consider for you?",
+        label: "For after-sale trotters, which colt / filly preference should TheStable consider for you?",
         sortOrder: 31,
-        dependsOn: { blockId: "gait", op: "equals", value: "both" },
+        dependsOn: [{ blockId: "participation", op: "in", value: ["specific", "both"] }, { blockId: "gait", op: "equals", value: "both" }],
         required: true,
         options: [
           { value: "colt", label: "Colts", help: "" },
@@ -313,9 +313,9 @@ function defaultQuestionSet() {
       {
         id: "sexPacer",
         type: "single_select",
-        label: "For pacers, which colt / filly preference should TheStable consider for you?",
+        label: "For after-sale pacers, which colt / filly preference should TheStable consider for you?",
         sortOrder: 32,
-        dependsOn: { blockId: "gait", op: "equals", value: "both" },
+        dependsOn: [{ blockId: "participation", op: "in", value: ["specific", "both"] }, { blockId: "gait", op: "equals", value: "both" }],
         required: true,
         options: [
           { value: "colt", label: "Colts", help: "" },
@@ -324,77 +324,12 @@ function defaultQuestionSet() {
         ],
       },
       {
-        id: "bucketDetailMode",
-        type: "single_select",
-        label: "Should your bucket preferences be the same for every gait and bucket type?",
-        helpText: "You can change this later, but switching between these two options will clear the bucket answers you gave under the option you're switching away from.",
+        id: "priceTierMatrix",
+        type: "price_tier_matrix",
+        label: "What would you like TheStable to consider for your pre-sale bucket at this sale?",
+        helpText: "You aren't choosing a bucket that already exists — pick the price ranges that interest you at THIS sale, along with gait/sex preference and how much you'd want to invest at each. TheStable builds the actual bucket for this sale afterward, based on demand like yours plus historical sale data.",
         sortOrder: 40,
         dependsOn: { blockId: "participation", op: "in", value: ["bucket", "both"] },
-        required: true,
-        options: [
-          { value: "simple", label: "Yes, keep one bucket preference for everything", help: "Fastest option. One percentage applies to every bucket type you pick." },
-          { value: "detailed", label: "No, set preferences by gait and bucket type", help: "Use this if premium trotters and value pacers should have different percentages, e.g. 2% for one and 10% for another." },
-        ],
-      },
-      {
-        id: "bucketTypes",
-        type: "multi_select",
-        label: "Which bucket types would you consider?",
-        helpText: "Select all that apply.",
-        sortOrder: 50,
-        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "simple" },
-        required: true,
-        gatesProgress: false,
-        options: [
-          { value: "premium", label: "Premium yearling bucket", help: "Focus on higher-quality yearlings." },
-          { value: "balanced", label: "Balanced bucket", help: "A mix of quality and value." },
-          { value: "value", label: "Value buys / sale bargains bucket", help: "Look for value opportunities at the sale." },
-        ],
-      },
-      {
-        id: "maxYearlings",
-        type: "single_select",
-        label: "Do you have a maximum number of yearlings you prefer in a bucket?",
-        sortOrder: 51,
-        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "simple" },
-        required: true,
-        gatesProgress: false,
-        options: [
-          { value: "no_preference", label: "No preference", help: "TheStable can decide" },
-          { value: "1", label: "One yearling only", help: "" },
-          { value: "2", label: "Up to 2 yearlings", help: "" },
-          { value: "3", label: "Up to 3 yearlings", help: "" },
-          { value: "4", label: "Up to 4 yearlings", help: "" },
-          { value: "5plus", label: "5 or more is OK", help: "" },
-        ],
-      },
-      {
-        id: "bucketLevel",
-        type: "single_select",
-        label: "What share percentage would you consider in each selected bucket?",
-        helpText: "This percentage will apply to every bucket type you selected on the previous step. For example, if you selected Premium and Value and choose 5% here, that means 5% interest in Premium AND 5% interest in Value, not 5% split between them.",
-        sortOrder: 52,
-        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "simple" },
-        required: true,
-        gatesProgress: false,
-        allowCustomOther: true,
-        options: [
-          { value: "1", label: "1%", help: "Small" },
-          { value: "2", label: "2%", help: "Starter" },
-          { value: "5", label: "5%", help: "Medium" },
-          { value: "10", label: "10%", help: "Strong" },
-          { value: "20", label: "20%", help: "Large" },
-          { value: "30", label: "30%", help: "Very large" },
-          { value: "other", label: "Other %", help: "Custom" },
-        ],
-      },
-      {
-        id: "bucketMatrix",
-        type: "bucket_matrix",
-        label: "Which bucket ideas fit your interest?",
-        helpText: "Select the bucket ideas that fit you, then set your intended share percentage. Maximum yearlings is optional guidance.",
-        sortOrder: 53,
-        dependsOn: { blockId: "bucketDetailMode", op: "equals", value: "detailed" },
         required: true,
         gatesProgress: false,
       },

@@ -656,6 +656,28 @@ textarea.input {
   min-height: 38px;
 }
 
+/* priceTierMatrixHtml() has one more column than the older gait×bucket
+   bucketMatrixHtml() grid (toggle, gait, colt/filly, share%), so it needs
+   its own column widths — reusing .matrix-row's 3-column grid squeezed the
+   "Colt / filly" dropdown into a 92px column sized for a shorter field. */
+.price-tier-row {
+  grid-template-columns: minmax(200px, 1.2fr) 120px 130px 140px;
+}
+
+.price-tier-custom {
+  grid-column: 2 / 5;
+}
+
+@media (max-width: 640px) {
+  .price-tier-row {
+    grid-template-columns: 1fr;
+  }
+
+  .price-tier-custom {
+    grid-column: auto;
+  }
+}
+
 .actions {
   display: grid;
   grid-template-columns: 110px 1fr;

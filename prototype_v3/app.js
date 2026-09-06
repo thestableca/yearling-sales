@@ -132,6 +132,18 @@ const BUCKET_TYPES = [
   ["value", "Value buys / sale bargains bucket", "Look for value opportunities at the sale."],
 ];
 
+// Price-tier preference, asked per sale instead of a fixed bucket name —
+// an owner isn't choosing a bucket TheStable already built (that would
+// require it to already exist before anyone has said what they want);
+// they're saying what price range interests them at THIS sale, and
+// Anthony builds the actual bucket for that sale afterward using this
+// demand plus the Sale History analysis. See salePriceTierCard() below.
+const PRICE_TIERS = [
+  ["budget", "Budget", "Lower price range, value-focused"],
+  ["mid", "Mid-range", "Balance of price and quality"],
+  ["premium", "Premium", "Higher price range, quality-focused"],
+];
+
 const BUCKET_LEVELS = [
   ["1", "1%", "Small"],
   ["2", "2%", "Starter"],
@@ -164,6 +176,16 @@ function blankBucketRows() {
   return Object.fromEntries(BUCKET_TYPES.map(([id]) => [id, { enabled: false, level: "", amount: "", maxYearlings: "" }]));
 }
 
+// One row per price tier (budget/mid/premium) — this is the per-SALE
+// replacement for choosing a fixed bucket name. Each row carries its own
+// gait + sex preference and budget percentage, so "budget pacers, premium
+// trotters" within the same sale is representable (unlike bucketMatrix's
+// gait-as-outer-dimension shape, price tier is the outer dimension here
+// since gait/sex is what can vary BY tier, not the other way around).
+function blankPriceTierMatrix() {
+  return Object.fromEntries(PRICE_TIERS.map(([id]) => [id, { enabled: false, level: "", amount: "", gait: "", sex: "" }]));
+}
+
 const app = document.querySelector("#app");
 const adminLink = document.querySelector("#adminLink");
 const ownerLink = document.querySelector("#ownerLink");
@@ -180,6 +202,7 @@ const emptyPrefs = {
   bucketLevel: "",
   bucketAmount: "",
   bucketMatrix: blankBucketMatrix(),
+  priceTierMatrix: blankPriceTierMatrix(),
   specificHorseCount: "",
   specificShareSize: "",
   note: "",
@@ -298,6 +321,7 @@ function normalizePrefs(value = {}) {
     ...value,
     bucketTypes: Array.isArray(value.bucketTypes) ? value.bucketTypes : [],
     bucketMatrix: normalizeBucketMatrix(value.bucketMatrix),
+    priceTierMatrix: normalizePriceTierMatrix(value.priceTierMatrix),
   };
 }
 
@@ -310,6 +334,14 @@ function normalizeBucketMatrix(matrix = {}) {
         ...(matrix?.[gait]?.[bucketType] || {}),
       };
     });
+  });
+  return blank;
+}
+
+function normalizePriceTierMatrix(matrix = {}) {
+  const blank = blankPriceTierMatrix();
+  Object.keys(blank).forEach((tier) => {
+    blank[tier] = { ...blank[tier], ...(matrix?.[tier] || {}) };
   });
   return blank;
 }
@@ -365,6 +397,22 @@ function bucketMatrixReady(prefs) {
   }));
 }
 
+// Ready once at least one price tier is enabled with a percentage AND a
+// gait choice — sex is optional (an owner may genuinely have no
+// preference), matching how the flat bucketLevel flow already treats sex
+// as optional while requiring gait.
+function priceTierMatrixReady(prefs) {
+  return PRICE_TIERS.some(([tier]) => {
+    const row = prefs.priceTierMatrix?.[tier];
+    return row?.enabled && row.gait && row.level && (row.level !== "other" || row.amount);
+  });
+}
+
+function priceTierMatrixHasAnyEntry(matrix) {
+  if (!matrix) return false;
+  return Object.values(matrix).some((row) => row?.enabled);
+}
+
 // Question order/branching now comes from the active question set's
 // blocks (see questions.js). currentQuestionSet() returns the set for
 // the sale year currently being planned (falls back to the default
@@ -401,9 +449,9 @@ function currentSaleResponse() {
 }
 
 function progressPercent() {
-  const order = ["welcome", "identify", "interest", "sales", "eligibility", "defaults", "saleAmounts", "customChoice", "saleDetail", "review", "done"];
+  const order = ["welcome", "identify", "interest", "sales", "eligibility", "defaults", "customChoice", "saleDetail", "review", "done"];
   if (draft.view === "defaults") return Math.min(80, 35 + draft.defaultIndex * 6);
-  if (draft.view === "saleAmounts" || draft.view === "customChoice" || draft.view === "saleDetail") return Math.min(92, 78 + draft.saleIndex * 4 + draft.questionIndex);
+  if (draft.view === "customChoice" || draft.view === "saleDetail") return Math.min(92, 78 + draft.saleIndex * 4 + draft.questionIndex);
   if (draft.view === "review") return 96;
   if (draft.view === "done") return 100;
   return Math.max(5, (order.indexOf(draft.view) + 1) * 6);
@@ -446,7 +494,6 @@ function screenForView() {
   if (draft.view === "sales") return salesCard();
   if (draft.view === "eligibility") return eligibilityCard();
   if (draft.view === "defaults") return defaultCard();
-  if (draft.view === "saleAmounts") return saleAmountCard();
   if (draft.view === "customChoice") return customChoiceCard();
   if (draft.view === "saleDetail") return saleDetailCard();
   if (draft.view === "review") return reviewCard();
@@ -582,6 +629,10 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
     return card(meta, block.label, `${block.helpText ? `<p class="prompt">${block.helpText}</p>` : ""}${bucketMatrixHtml(prefs)}${actionsFn(bucketMatrixReady(prefs))}`, blockTag);
   }
 
+  if (block.type === "price_tier_matrix") {
+    return card(meta, block.label, `${block.helpText ? `<p class="prompt">${block.helpText}</p>` : ""}${priceTierMatrixHtml(prefs)}${actionsFn(priceTierMatrixReady(prefs))}`, blockTag);
+  }
+
   if (block.type === "text" || block.type === "number") {
     const value = prefs[block.id] || "";
     const inputType = block.type === "number" ? "number" : "text";
@@ -639,10 +690,10 @@ function helpText(block) {
 }
 
 function applyModeOptions(prefs) {
-  const options = [["all", "Yes, use these preferences for all selected sales", ""]];
-  if (hasBucket(prefs)) options.push(["amounts", "Yes, but let me adjust bucket percentages per sale", ""]);
-  options.push(["custom", "No, I want to customize each selected sale", ""]);
-  return options;
+  return [
+    ["all", "Yes, use these preferences for all selected sales", ""],
+    ["custom", "No, I want to customize each selected sale", ""],
+  ];
 }
 
 function defaultActions(canContinue) {
@@ -651,29 +702,6 @@ function defaultActions(canContinue) {
 
 function saleActions(canContinue) {
   return `<div class="actions"><button class="btn" type="button" data-sale-back>Back</button><button class="btn primary" type="button" data-sale-next ${!canContinue ? "disabled" : ""}>Continue</button></div>`;
-}
-
-function saleAmountCard() {
-  const label = currentSaleLabel();
-  const response = currentSaleResponse();
-  if (usesDetailedBuckets(response)) {
-    return card(
-      `${label} - Bucket percentages`,
-      `Adjust bucket combinations for ${label}`,
-      `<p class="prompt">Your default matrix is already filled in. Change only what should be different for this sale.</p>${bucketMatrixHtml(response)}${saleActions(bucketMatrixReady(response))}`,
-      "Per sale"
-    );
-  }
-
-  return card(
-    `${label} - Bucket percentage`,
-    `What bucket share percentage should TheStable plan for you at the ${label}?`,
-    `<p class="prompt">Leave the same as your default, or choose another percentage for this sale.</p>
-     ${choiceOptions("bucketLevel", response.bucketLevel, BUCKET_LEVELS, response)}
-    ${response.bucketLevel === "other" ? `<div class="field-stack"><input class="input" id="bucketAmount" inputmode="decimal" value="${escapeHtml(response.bucketAmount)}" placeholder="Custom percentage, e.g. 12.5"></div>` : ""}
-    ${saleActions(Boolean(response.bucketLevel && (response.bucketLevel !== "other" || response.bucketAmount)))}`,
-    "Per sale"
-  );
 }
 
 function customChoiceCard() {
@@ -789,6 +817,53 @@ function bucketMatrixHtml(prefs) {
   `).join("")}</div>`;
 }
 
+// Renders the per-sale price-tier matrix: one row per tier (budget/mid/
+// premium), each with its own enable toggle, gait, sex, and share %. This
+// replaces choosing a fixed bucket name — an owner says what price range
+// and gait/sex they want, at what share, and Anthony builds the actual
+// bucket for this specific sale afterward from the combined demand.
+function priceTierMatrixHtml(prefs) {
+  const matrix = prefs.priceTierMatrix || blankPriceTierMatrix();
+  const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
+  return `<div class="bucket-matrix"><div class="matrix-rows price-tier-rows">${PRICE_TIERS.map(([tier, label, help]) => {
+    const row = matrix[tier] || { enabled: false, level: "", amount: "", gait: "", sex: "" };
+    return `
+      <div class="matrix-row price-tier-row ${row.enabled ? "selected" : ""}">
+        <button class="matrix-toggle" type="button" data-tier-toggle="${tier}" data-target="${targetName}">
+          <span class="mark check"></span>
+          <span><strong>${label}</strong><small>${help}</small></span>
+        </button>
+        <label>
+          Gait
+          <select class="input matrix-input" data-tier-gait="${tier}" data-target="${targetName}" ${!row.enabled ? "disabled" : ""}>
+            <option value="">Choose</option>
+            <option value="trotter" ${row.gait === "trotter" ? "selected" : ""}>Trotters</option>
+            <option value="pacer" ${row.gait === "pacer" ? "selected" : ""}>Pacers</option>
+            <option value="both" ${row.gait === "both" ? "selected" : ""}>Both</option>
+          </select>
+        </label>
+        <label>
+          Colt / filly
+          <select class="input matrix-input" data-tier-sex="${tier}" data-target="${targetName}" ${!row.enabled ? "disabled" : ""}>
+            <option value="">No preference</option>
+            <option value="colt" ${row.sex === "colt" ? "selected" : ""}>Colts</option>
+            <option value="filly" ${row.sex === "filly" ? "selected" : ""}>Fillies</option>
+            <option value="both" ${row.sex === "both" ? "selected" : ""}>Both</option>
+          </select>
+        </label>
+        <label>
+          Share %
+          <select class="input matrix-input" data-tier-level="${tier}" data-target="${targetName}" ${!row.enabled ? "disabled" : ""}>
+            <option value="">Choose</option>
+            ${BUCKET_LEVELS.map(([value, pct, amount]) => `<option value="${value}" ${row.level === value ? "selected" : ""}>${pct} - ${amount}</option>`).join("")}
+          </select>
+        </label>
+        ${row.enabled && row.level === "other" ? `<input class="input matrix-custom price-tier-custom" data-tier-amount="${tier}" data-target="${targetName}" inputmode="decimal" value="${escapeHtml(row.amount)}" placeholder="Custom percentage, e.g. 12.5">` : ""}
+      </div>
+    `;
+  }).join("")}</div></div>`;
+}
+
 function bindOwner() {
   document.querySelectorAll("[data-go]").forEach((button) => button.addEventListener("click", () => {
     saveInputs();
@@ -834,6 +909,11 @@ function bindOwner() {
   document.querySelectorAll("[data-matrix-level]").forEach((select) => select.addEventListener("change", () => setMatrixValue(select.dataset.gait, select.dataset.matrixLevel, "level", select.value, select.dataset.target)));
   document.querySelectorAll("[data-matrix-max]").forEach((select) => select.addEventListener("change", () => setMatrixValue(select.dataset.gait, select.dataset.matrixMax, "maxYearlings", select.value, select.dataset.target)));
   document.querySelectorAll("[data-matrix-amount]").forEach((input) => input.addEventListener("input", () => setMatrixValue(input.dataset.gait, input.dataset.matrixAmount, "amount", cleanPercent(input.value), input.dataset.target, false)));
+  document.querySelectorAll("[data-tier-toggle]").forEach((button) => button.addEventListener("click", () => toggleTierRow(button.dataset.tierToggle, button.dataset.target)));
+  document.querySelectorAll("[data-tier-gait]").forEach((select) => select.addEventListener("change", () => setTierValue(select.dataset.tierGait, "gait", select.value, select.dataset.target)));
+  document.querySelectorAll("[data-tier-sex]").forEach((select) => select.addEventListener("change", () => setTierValue(select.dataset.tierSex, "sex", select.value, select.dataset.target)));
+  document.querySelectorAll("[data-tier-level]").forEach((select) => select.addEventListener("change", () => setTierValue(select.dataset.tierLevel, "level", select.value, select.dataset.target)));
+  document.querySelectorAll("[data-tier-amount]").forEach((input) => input.addEventListener("input", () => setTierValue(input.dataset.tierAmount, "amount", cleanPercent(input.value), input.dataset.target, false)));
   document.querySelector("#bucketAmount")?.addEventListener("input", () => {
     saveInputs();
     updateContinueState(getActivePrefs());
@@ -1074,6 +1154,29 @@ function setMatrixValue(gait, bucketType, field, value, targetName, shouldRender
   else updateContinueState(target);
 }
 
+function toggleTierRow(tier, targetName) {
+  const target = getTarget(targetName);
+  const row = target.priceTierMatrix[tier];
+  row.enabled = !row.enabled;
+  if (!row.enabled) {
+    row.level = "";
+    row.amount = "";
+    row.gait = "";
+    row.sex = "";
+  }
+  saveDraft();
+  render();
+}
+
+function setTierValue(tier, field, value, targetName, shouldRender = true) {
+  const target = getTarget(targetName);
+  target.priceTierMatrix[tier][field] = value;
+  if (field === "level" && value !== "other") target.priceTierMatrix[tier].amount = "";
+  saveDraft();
+  if (shouldRender) render();
+  else updateContinueState(target);
+}
+
 function getActivePrefs() {
   return draft.view === "defaults" ? draft.defaultPrefs : currentSaleResponse();
 }
@@ -1091,7 +1194,6 @@ function defaultNext() {
   if (questions[draft.defaultIndex] === "applyMode") {
     applyDefaultsToSales();
     if (draft.applyMode === "all") draft.view = "review";
-    else if (draft.applyMode === "amounts" && hasBucket(draft.defaultPrefs)) draft.view = "saleAmounts";
     else draft.view = "customChoice";
     draft.saleIndex = 0;
     draft.questionIndex = 0;
@@ -1112,10 +1214,7 @@ function defaultBack() {
 
 function saleNext() {
   saveInputs();
-  if (draft.view === "saleAmounts") {
-    if (draft.saleIndex < draft.selectedSales.length - 1) draft.saleIndex += 1;
-    else draft.view = "review";
-  } else if (draft.view === "customChoice") {
+  if (draft.view === "customChoice") {
     if (currentSaleResponse().customChoice === "edit") {
       draft.view = "saleDetail";
       draft.questionIndex = 0;
@@ -1134,10 +1233,7 @@ function saleNext() {
 
 function saleBack() {
   saveInputs();
-  if (draft.view === "saleAmounts") {
-    if (draft.saleIndex > 0) draft.saleIndex -= 1;
-    else draft.view = "defaults";
-  } else if (draft.view === "customChoice") {
+  if (draft.view === "customChoice") {
     if (draft.saleIndex > 0) draft.saleIndex -= 1;
     else draft.view = "defaults";
   } else if (draft.view === "saleDetail") {
@@ -1162,7 +1258,7 @@ function reviewBack() {
 }
 
 function reviewEdit(index) {
-  draft.view = draft.applyMode === "custom" ? "customChoice" : draft.applyMode === "amounts" ? "saleAmounts" : "defaults";
+  draft.view = draft.applyMode === "custom" ? "customChoice" : "defaults";
   draft.saleIndex = Math.max(0, Math.min(index, draft.selectedSales.length - 1));
   draft.questionIndex = 0;
   saveDraft();
@@ -1240,30 +1336,43 @@ function saveInputs() {
 // shown back to them on the review screen before they submit.
 const KNOWN_SUMMARY_BLOCK_IDS = new Set([
   "participation", "gait", "sex", "sexTrotter", "sexPacer",
-  "bucketDetailMode", "bucketMatrix", "bucketTypes", "maxYearlings", "bucketLevel",
+  "priceTierMatrix",
   "specificHorseCount", "specificShareSize",
 ]);
 
 function summarizeSale(response) {
   const parts = [
     labelFor("participation", response.participation),
-    labelFor("gait", response.gait),
-    sexSummary(response),
-    draft.eligibilityPreferences.map((item) => labelFor("eligibility", item)).join(", "),
   ];
+  if (hasSpecific(response)) {
+    parts.push(labelFor("gait", response.gait), sexSummary(response));
+  }
+  parts.push(draft.eligibilityPreferences.map((item) => labelFor("eligibility", item)).join(", "));
   if (hasBucket(response)) {
-    if (usesDetailedBuckets(response)) {
-      parts.push(summarizeBucketMatrix(response));
-    } else {
-      const amount = response.bucketLevel === "other" ? response.bucketAmount : response.bucketLevel;
-      parts.push(response.bucketTypes.map((item) => labelFor("bucketTypes", item)).join(", "), labelFor("maxYearlings", response.maxYearlings), amount ? percent(amount) : "");
-    }
+    parts.push(summarizePriceTierMatrix(response));
   }
   if (hasSpecific(response)) {
     parts.push(labelFor("specificHorseCount", response.specificHorseCount), labelFor("specificShareSize", response.specificShareSize));
   }
   parts.push(...customAnswerSummaries(response));
   return parts.filter(Boolean).join(" | ");
+}
+
+function summarizePriceTierMatrix(response) {
+  return selectedPriceTierRows(response).map((row) => {
+    const gaitLabel = row.gait ? labelFor("gait", row.gait) : "any gait";
+    const sexLabel = row.sex ? labelFor("sex", row.sex) : "any sex";
+    return `${labelFor("priceTiers", row.tier)}: ${gaitLabel}, ${sexLabel}, ${percent(row.amount)}`;
+  }).join("; ");
+}
+
+function selectedPriceTierRows(response) {
+  return PRICE_TIERS.flatMap(([tier]) => {
+    const row = response.priceTierMatrix?.[tier];
+    if (!row?.enabled) return [];
+    const amount = row.level === "other" ? row.amount : row.level;
+    return [{ tier, gait: row.gait, sex: row.sex, amount: Number(amount || 0) }];
+  });
 }
 
 function customAnswerSummaries(response) {
@@ -2705,9 +2814,9 @@ function buildPreviewDataset() {
   const firstNames = ["Jane", "Mark", "Susan", "David", "Linda", "Michael", "Karen", "Robert", "Patricia", "James", "Nancy", "Thomas", "Sandra", "Daniel", "Betty", "Paul", "Carol", "Steven", "Ruth", "Kevin"];
   const lastNames = ["Smith", "Doe", "Miller", "Taylor", "Anderson", "Reed", "Clark", "Kessler", "Owens", "Foster", "Bennett", "Hayes", "Coleman", "Pierce", "Sutton", "Marsh", "Doyle", "Grant", "Wells", "Barrett"];
   const salesPool = REAL_SALES.map((s) => s.id);
-  const bucketPool = [["premium"], ["balanced"], ["value"], ["premium", "balanced"], ["value"], ["balanced"]];
+  const tierPool = [["premium"], ["mid"], ["budget"], ["premium", "mid"], ["budget"], ["mid"]];
   const gaits = ["trotter", "pacer", "both"];
-  const sexes = ["colt", "filly", "either"];
+  const sexes = ["colt", "filly", "both"];
   const eligibilityPool = ["kentucky", "ohio", "ontario", "pennsylvania", "new_york"];
   const horseCounts = ["one", "two", "three_plus"];
   const shareSizes = ["1", "2_5", "5_10", "10plus", "depends"];
@@ -2720,6 +2829,12 @@ function buildPreviewDataset() {
     // (participation "both"), so that panel has real preview data too —
     // matches how a real owner can want both a bucket and after-sale shares.
     const alsoAfterSale = i % 4 === 0;
+    const levels = ["1", "2", "5", "10"];
+    const tiers = tierPool[i % tierPool.length];
+    const priceTierMatrix = blankPriceTierMatrix();
+    tiers.forEach((tier, idx) => {
+      priceTierMatrix[tier] = { enabled: true, level: levels[(i + idx) % levels.length], amount: "", gait, sex: sexes[i % sexes.length] };
+    });
     responses.push({
       id: "preview_" + i,
       ownerId: null,
@@ -2730,16 +2845,11 @@ function buildPreviewDataset() {
       saleResponses: {
         [sale]: {
           participation: alsoAfterSale ? "both" : "bucket",
-          gait,
-          sex: sexes[i % sexes.length],
+          gait: alsoAfterSale ? gait : "",
+          sex: alsoAfterSale ? sexes[i % sexes.length] : "",
           sexTrotter: "",
           sexPacer: "",
-          bucketDetailMode: "simple",
-          bucketTypes: bucketPool[i % bucketPool.length],
-          maxYearlings: "no_preference",
-          bucketLevel: ["1", "2", "3", "5"][i % 4],
-          bucketAmount: "",
-          bucketMatrix: blankBucketMatrix(),
+          priceTierMatrix,
           specificHorseCount: alsoAfterSale ? horseCounts[i % horseCounts.length] : "",
           specificShareSize: alsoAfterSale ? shareSizes[i % shareSizes.length] : "",
           note: "",
@@ -2754,7 +2864,7 @@ function buildPreviewDataset() {
     roster.push({ name: `${firstNames[(i + 7) % firstNames.length]} ${lastNames[(i + 11) % lastNames.length]}`, email: `preview_noresponse${i}@example.com` });
   }
 
-  const prices = { premium: 15000, balanced: 8000, value: 3000 };
+  const prices = { budget: 3000, mid: 8000, premium: 15000 };
   const confirmedBuckets = [
     { id: "cb_preview_1", name: "Premium Trotter Colts", price: 15000, gait: "trotter", sex: "colt", note: "" },
     { id: "cb_preview_2", name: "Balanced — Any gait, Fillies", price: 8000, gait: "any", sex: "filly", note: "" },
@@ -2844,7 +2954,7 @@ function renderAdmin() {
     const current = saleCapital.get(row.saleLabel) || 0;
     saleCapital.set(row.saleLabel, current + (Number(row.amount || 0) / 100) * price);
   });
-  const bucketDemand = groupDemand(bucketRows, (row) => labelFor("bucketTypes", row.bucketTypes[0]));
+  const bucketDemand = groupDemand(bucketRows, (row) => labelFor("priceTiers", row.bucketTypes[0]));
   const gaitDemand = groupDemand(bucketRows, (row) => labelFor("gait", row.gait));
   const sexDemand = groupDemand(bucketRows, (row) => labelFor("sex", row.sex));
   const shareSizeDemand = groupDemand(bucketRows, bucketShareBand);
@@ -3407,45 +3517,25 @@ function buildPlanningRows(rows) {
 function flattenResponses(responses) {
   return responses.flatMap((response) => response.selectedSales.flatMap((saleId) => {
     const saleResponse = response.saleResponses[saleId] || {};
-    if (usesDetailedBuckets(saleResponse)) {
-      return selectedBucketRows(saleResponse).map((bucketRow) => ({
+    if (hasBucket(saleResponse) && priceTierMatrixHasAnyEntry(saleResponse.priceTierMatrix)) {
+      return selectedPriceTierRows(saleResponse).map((tierRow) => ({
         name: response.name,
         email: response.email,
         sale: saleId,
         saleLabel: saleById(saleId)?.label || saleId,
         eligibility: response.eligibilityPreferences || [],
-        amount: bucketRow.amount,
-        bucketTypes: [bucketRow.bucketType],
-        maxYearlings: bucketRow.maxYearlings,
-        gait: bucketRow.gait,
-        sex: bucketRow.sex,
+        amount: tierRow.amount,
+        priceTier: tierRow.tier,
+        bucketTypes: [tierRow.tier],
+        gait: tierRow.gait,
+        sex: tierRow.sex,
         participation: saleResponse.participation,
         _rawResponse: saleResponse,
       }));
     }
 
-    if (hasBucket(saleResponse) && saleResponse.bucketTypes?.length) {
-      const amount = saleResponse.bucketLevel === "other" ? saleResponse.bucketAmount : saleResponse.bucketLevel;
-      return activeGaits(saleResponse).flatMap((gait) => saleResponse.bucketTypes.map((bucketType) => ({
-          name: response.name,
-          email: response.email,
-          sale: saleId,
-          saleLabel: saleById(saleId)?.label || saleId,
-          eligibility: response.eligibilityPreferences || [],
-          amount: Number(amount || 0),
-          bucketTypes: [bucketType],
-          maxYearlings: saleResponse.maxYearlings,
-          gait,
-          sex: bucketSexValue(saleResponse, gait),
-          participation: saleResponse.participation,
-          specificHorseCount: saleResponse.specificHorseCount,
-          specificShareSize: saleResponse.specificShareSize,
-          _rawResponse: saleResponse,
-        })));
-    }
-
-    const amount = saleResponse.bucketLevel === "other" ? saleResponse.bucketAmount : saleResponse.bucketLevel;
-    return { name: response.name, email: response.email, sale: saleId, saleLabel: saleById(saleId)?.label || saleId, eligibility: response.eligibilityPreferences || [], amount: Number(amount || 0), ...saleResponse, _rawResponse: saleResponse };
+    const amount = 0;
+    return { name: response.name, email: response.email, sale: saleId, saleLabel: saleById(saleId)?.label || saleId, eligibility: response.eligibilityPreferences || [], amount, ...saleResponse, _rawResponse: saleResponse };
   }));
 }
 
@@ -3461,17 +3551,16 @@ function exportCsv(rows) {
   const customBlocks = currentQuestionSet().blocks.filter(
     (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
   );
-  const header = ["name", "email", "sale", "participation", "bucket_percent", "bucket_types", "max_yearlings", "gait", "sex", "eligibility", ...customBlocks.map((b) => b.label)];
+  const header = ["name", "email", "sale", "participation", "bucket_percent", "price_tier", "gait", "sex", "eligibility", ...customBlocks.map((b) => b.label)];
   const csv = [header.join(","), ...rows.map((row) => [
     row.name,
     row.email,
     row.saleLabel,
     labelFor("participation", row.participation),
     row.amount,
-    row.bucketTypes.map((item) => labelFor("bucketTypes", item)).join("; "),
-    labelFor("maxYearlings", row.maxYearlings),
+    (row.bucketTypes || []).map((item) => labelFor("priceTiers", item)).join("; "),
     labelFor("gait", row.gait),
-    sexSummary(row),
+    labelFor("sex", row.sex),
     row.eligibility.map((item) => labelFor("eligibility", item)).join("; "),
     ...customBlocks.map((block) => {
       const value = row._rawResponse?.[block.id];
@@ -3498,6 +3587,7 @@ function exportCsv(rows) {
 const FALLBACK_LABELS = {
   eligibility: { ohio: "Ohio eligible", kentucky: "Kentucky eligible", new_jersey: "New Jersey eligible", pennsylvania: "Pennsylvania eligible", ontario: "Ontario eligible", new_york: "New York eligible", indiana: "Indiana eligible", no_preference: "No strong preference" },
   bucketTypes: { premium: "Premium", value: "Value Buy", balanced: "Balanced" },
+  priceTiers: Object.fromEntries(PRICE_TIERS.map(([id, label]) => [id, label])),
 };
 
 // bucket_config is the single source of truth for bucket names — see
