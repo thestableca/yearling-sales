@@ -724,12 +724,16 @@ function doneCard() {
 }
 
 function radioOptions(field, value, options, target = null) {
-  return `<div class="options">${options.map(([id, label, help]) => `
-    <button class="option ${value === id ? "selected" : ""}" data-radio="${field}" data-value="${id}" data-target="${target === draft.defaultPrefs ? "default" : target ? "sale" : "draft"}" type="button">
+  const targetName = target === draft.defaultPrefs ? "default" : target ? "sale" : "draft";
+  return `<div class="options">${options.map(([id, label, help]) => {
+    const isArmed = armedBranchChange === `${field}:${id}:${targetName}`;
+    return `
+    <button class="option ${value === id ? "selected" : ""} ${isArmed ? "armed-confirm" : ""}" data-radio="${field}" data-value="${id}" data-target="${targetName}" type="button">
       <span class="mark radio"></span>
-      <span><strong>${label}</strong>${help ? `<small>${help}</small>` : ""}</span>
+      <span><strong>${label}</strong>${isArmed ? `<small class="confirm-hint">This will clear your answers below — click again to confirm</small>` : help ? `<small>${help}</small>` : ""}</span>
     </button>
-  `).join("")}</div>`;
+  `;
+  }).join("")}</div>`;
 }
 
 function checkOptions(field, selected, options, target = null) {
@@ -790,6 +794,8 @@ function bindOwner() {
     saveInputs();
     draft.view = button.dataset.go;
     saveDraft();
+    armedBranchChange = null;
+    clearTimeout(armedBranchChangeTimer);
     render();
   }));
   document.querySelector("[data-identify]")?.addEventListener("click", identifyOwner);
@@ -945,8 +951,68 @@ function getTarget(targetName) {
   return draft;
 }
 
+// Fields whose value change wipes other, already-answered fields further
+// down the flow (see resetBranchAnswers/resetSexAnswers/resetBucketDetails
+// below) — changing your mind on one of these after already answering
+// later questions (e.g. going back and switching participation from
+// "bucket" to "specific" after already filling in bucket percentages)
+// silently discarded that later work with no warning. Only actually
+// destructive when (a) the value is really changing, not just re-clicking
+// the option already selected, and (b) something downstream was actually
+// answered yet to lose — re-clicking the same value, or changing a field
+// before anything downstream has been touched, needs no confirmation at all.
+const BRANCH_FIELDS_WITH_DEPENDENTS = new Set(["participation", "gait", "bucketDetailMode"]);
+
+function hasDownstreamAnswers(field, target) {
+  if (field === "participation") {
+    return Boolean(
+      target.bucketDetailMode || target.bucketTypes?.length || target.bucketLevel || target.bucketAmount ||
+      target.specificHorseCount || target.specificShareSize || bucketMatrixHasAnyEntry(target.bucketMatrix)
+    );
+  }
+  if (field === "gait") {
+    return Boolean(target.sex || target.sexTrotter || target.sexPacer);
+  }
+  if (field === "bucketDetailMode") {
+    return Boolean(target.bucketTypes?.length || target.bucketLevel || target.bucketAmount || bucketMatrixHasAnyEntry(target.bucketMatrix));
+  }
+  return false;
+}
+
+function bucketMatrixHasAnyEntry(matrix) {
+  if (!matrix) return false;
+  return Object.values(matrix).some((byGait) => Object.values(byGait || {}).some((row) => row?.enabled));
+}
+
+// Tracks which specific radio option is "armed" (clicked once, awaiting a
+// second confirming click) when switching it would wipe downstream
+// answers — keyed by `${field}:${value}` so switching to a DIFFERENT
+// option resets the arming rather than confirming the wrong choice.
+// Mirrors armDestructiveButton's click-again-to-confirm pattern (used
+// elsewhere in the admin UI) rather than window.confirm(), which is a
+// blocking native popup that doesn't fit a plain choice button and (per
+// armDestructiveButton's own comment) is silently blocked entirely inside
+// a sandboxed iframe context.
+let armedBranchChange = null;
+let armedBranchChangeTimer = null;
+
 function setValue(field, value, targetName) {
   const target = getTarget(targetName);
+  if (target[field] === value) return; // re-clicking the already-selected option changes nothing — must not wipe anything either
+
+  const armKey = `${field}:${value}:${targetName}`;
+  if (BRANCH_FIELDS_WITH_DEPENDENTS.has(field) && hasDownstreamAnswers(field, target)) {
+    if (armedBranchChange !== armKey) {
+      armedBranchChange = armKey;
+      clearTimeout(armedBranchChangeTimer);
+      armedBranchChangeTimer = setTimeout(() => { armedBranchChange = null; render(); }, 4000);
+      render();
+      return;
+    }
+    armedBranchChange = null;
+    clearTimeout(armedBranchChangeTimer);
+  }
+
   target[field] = value;
   if (field === "participation") {
     resetBranchAnswers(target);
@@ -2717,10 +2783,24 @@ function renderAdmin() {
             <div class="verdict-label">${bucketRows.length ? `Total requested bucket interest across ${saleDemand.length} sale${saleDemand.length === 1 ? "" : "s"} currently in the intake. Non-binding, for planning only.${hasCapitalEstimate ? "" : " Set bucket prices in Questions Builder to also see a dollar figure here."}` : "No pre-sale bucket responses yet. This figure will fill in as owners submit the intake."}</div>
           </div>
           <div class="response-ring">
-            <div class="ring" style="--pct:${responseRatePct ?? 0}">${responseRatePct == null ? `<div class="ring-empty">No data</div>` : `<div>${responseRatePct}%</div>`}</div>
+            <div class="ring" style="--pct:${responseRatePct ?? 0}">${responseRatePct == null ? `<div class="ring-empty">${ownerCount ? ownerCount : "No data"}</div>` : `<div>${responseRatePct}%</div>`}</div>
             <div class="response-copy">
-              <div class="n">${responseRatePct == null ? `No owners responded yet` : `${ownerCount} of ${invitedCount} owners responded`}</div>
-              <div class="d">${ownerCount ? `${bucketInterestPct}% of respondents want a bucket &middot; ${afterSaleOwnerCount} also interested in after-sale shares` : "No responses yet"}</div>
+              <!-- invitedCount is 0 until Anthony imports an owner roster —
+                   without it there's no "responded out of how many invited"
+                   percentage to show, but the response COUNT itself is
+                   always known from real submissions, so it must not be
+                   hidden behind "No data"/"No owners responded yet" just
+                   because no roster exists. Distinguishing "0 responses so
+                   far" from "N owners have responded, denominator unknown"
+                   is the whole point of this line. -->
+              <div class="n">${
+                responseRatePct != null
+                  ? `${ownerCount} of ${invitedCount} owners responded`
+                  : ownerCount
+                    ? `${ownerCount} owner${ownerCount === 1 ? "" : "s"} responded so far`
+                    : "No owners have responded yet"
+              }</div>
+              <div class="d">${ownerCount ? `${bucketInterestPct}% of respondents want a bucket &middot; ${afterSaleOwnerCount} also interested in after-sale shares` : (invitedCount ? "No responses yet" : "Import an owner roster to see response rate as a % of invited owners")}</div>
             </div>
           </div>
         </div>

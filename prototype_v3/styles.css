@@ -470,6 +470,17 @@ textarea.input {
   box-shadow: inset 0 0 0 2px rgba(0, 59, 134, 0.08);
 }
 
+.option.armed-confirm {
+  border-color: #b3261e;
+  background: #fdecea;
+  box-shadow: inset 0 0 0 2px rgba(179, 38, 30, 0.15);
+}
+
+.confirm-hint {
+  color: #b3261e !important;
+  font-weight: 600;
+}
+
 .mark {
   width: 16px;
   height: 16px;
