@@ -2235,22 +2235,26 @@ function renderSaleHistory() {
         <h2 class="section-title">Does this pattern hold at every sale, or does it differ by venue?</h2>
         <p class="section-lead">Lexington, Harrisburg, and Ohio are three different sales with different buyers and different horses. This checks whether the price pattern above holds true at each one individually, or whether one sale behaves differently.</p>
         <div class="ref-panel">
-          <table>
-            <thead><tr><th>Sale</th><th>Under ${shMoney(28000, 20000)}</th><th>${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</th><th>${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</th><th>${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</th><th>${shMoney(210000, 150000, "k", "+")}</th></tr></thead>
-            <tbody>
-              <tr><td class="venue-name">Lexington Selected</td><td>1.2%</td><td>3.1%</td><td>6.3%</td><td>6.6%</td><td>8.4%</td></tr>
-              <tr><td class="venue-name">Harrisburg Book 1</td><td>0.9%</td><td>2.3%</td><td>4.3%</td><td>6.6%</td><td>10.4%</td></tr>
-              <tr><td class="venue-name">Ohio Jug</td><td>1.1%</td><td>3.1%</td><td>7.4%</td><td>2.5%</td><td>9.1%</td></tr>
-            </tbody>
-          </table>
-          <table style="margin-top:20px;">
-            <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th></tr></thead>
-            <tbody>
-              <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">4.3%</td><td>3.0%</td><td>3.7%</td><td>3.8%</td></tr>
-              <tr><td class="venue-name">Harrisburg Book 1</td><td class="win-cell">2.5%</td><td>2.1%</td><td>2.5%</td><td>2.4%</td></tr>
-              <tr><td class="venue-name">Ohio Jug</td><td class="win-cell">2.4%</td><td>2.1%</td><td class="win-cell">2.8%</td><td>1.8%</td></tr>
-            </tbody>
-          </table>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Sale</th><th>Under ${shMoney(28000, 20000)}</th><th>${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</th><th>${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</th><th>${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</th><th>${shMoney(210000, 150000, "k", "+")}</th></tr></thead>
+              <tbody>
+                <tr><td class="venue-name">Lexington Selected</td><td>1.2%</td><td>3.1%</td><td>6.3%</td><td>6.6%</td><td>8.4%</td></tr>
+                <tr><td class="venue-name">Harrisburg Book 1</td><td>0.9%</td><td>2.3%</td><td>4.3%</td><td>6.6%</td><td>10.4%</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td>1.1%</td><td>3.1%</td><td>7.4%</td><td>2.5%</td><td>9.1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="margin-top:20px;">
+              <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th></tr></thead>
+              <tbody>
+                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">4.3%</td><td>3.0%</td><td>3.7%</td><td>3.8%</td></tr>
+                <tr><td class="venue-name">Harrisburg Book 1</td><td class="win-cell">2.5%</td><td>2.1%</td><td>2.5%</td><td>2.4%</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td class="win-cell">2.4%</td><td>2.1%</td><td class="win-cell">2.8%</td><td>1.8%</td></tr>
+              </tbody>
+            </table>
+          </div>
           <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Colts beat fillies at every sale, without exception. Trotters vs. pacers is close at Lexington and Harrisburg, but Ohio clearly favors trotters. Ohio's two highest price bands only have a handful of horses in them, so treat those two numbers as a weak signal rather than a solid one.</p>
         </div>
       </section>
