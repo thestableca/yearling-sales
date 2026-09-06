@@ -1352,6 +1352,7 @@ function adminTabs() {
     ["salehistory", "Sale History"],
     ["questions", "Questions Builder"],
     ["owners", "Owner Roster"],
+    ["settings", "Settings"],
   ];
   return `<div class="admin-tabs">${tabs.map(([id, label]) => `<button class="admin-tab ${adminTab === id ? "active" : ""}" type="button" data-admin-tab="${id}">${label}</button>`).join("")}</div>`;
 }
@@ -1580,13 +1581,29 @@ function renderQuestionsAdmin() {
           ${confirmedBucketsEditor(getConfirmedBuckets("default"))}
         </div>
       </div>
+    </div>
+    </div>`;
 
-      <div class="ref-panel" style="margin-top: 18px;">
+  bindAdminTabs();
+  bindQuestionsAdmin(questionSet);
+}
+
+function renderAdminSettings() {
+  app.innerHTML = `
+    <div class="refskin">
+    <div class="wrap">
+      <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${backToSiteLink()}</div></div>
+
+      ${adminMasthead("Settings")}
+
+      <p class="dek">System-wide settings that aren't tied to one specific sale year's questions — currently just the CAD/USD conversion rate.</p>
+
+      <div class="ref-panel" style="margin-top: 22px; max-width: 480px;">
         <div class="panel-head">
           <div>
             <div class="tag">Exchange rate</div>
             <h2>CAD / USD conversion rate</h2>
-            <p>Used by the CAD/USD switch on the Sale History and Dashboard pages. Not live — update it here whenever the actual rate has moved and you want the USD figures to reflect that.</p>
+            <p>Used by the CAD/USD switch on the Dashboard page (the Sale History page's historical figures use each sale year's own real rate instead — see that page for details). Not live — update it here whenever the actual current rate has moved and you want the Dashboard's USD figures to reflect that.</p>
           </div>
         </div>
         <div class="panel-body">
@@ -1602,7 +1619,18 @@ function renderQuestionsAdmin() {
     </div>`;
 
   bindAdminTabs();
-  bindQuestionsAdmin(questionSet);
+  const rateInput = document.querySelector("#exchangeRateInput");
+  if (rateInput) {
+    rateInput.addEventListener("change", () => {
+      const cadPerUsd = Number(rateInput.value);
+      if (!Number.isFinite(cadPerUsd) || cadPerUsd <= 0) {
+        rateInput.value = (1 / getExchangeRate()).toFixed(4);
+        return;
+      }
+      saveExchangeRate(1 / cadPerUsd).catch((err) => console.error("Failed to save exchange rate:", err));
+      render();
+    });
+  }
 }
 
 function questionBlockRow(block, index, total) {
@@ -1955,19 +1983,6 @@ function bindQuestionsAdmin(questionSet) {
   if (addConfirmedButton) {
     addConfirmedButton.addEventListener("click", () => {
       updateConfirmed((buckets) => { buckets.push(newConfirmedBucket()); });
-    });
-  }
-
-  const rateInput = document.querySelector("#exchangeRateInput");
-  if (rateInput) {
-    rateInput.addEventListener("change", () => {
-      const cadPerUsd = Number(rateInput.value);
-      if (!Number.isFinite(cadPerUsd) || cadPerUsd <= 0) {
-        rateInput.value = (1 / getExchangeRate()).toFixed(4);
-        return;
-      }
-      saveExchangeRate(1 / cadPerUsd).catch((err) => console.error("Failed to save exchange rate:", err));
-      render();
     });
   }
 }
@@ -2803,6 +2818,10 @@ function renderAdmin() {
   }
   if (adminTab === "account") {
     renderAdminAccount();
+    return;
+  }
+  if (adminTab === "settings") {
+    renderAdminSettings();
     return;
   }
 
