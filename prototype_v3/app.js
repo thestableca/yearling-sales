@@ -1973,11 +1973,18 @@ function bindQuestionsAdmin(questionSet) {
 }
 
 // ===== Sale History & Bucket Strategy admin tab =====
-// Ported from the standalone "Sale History & Bucket Strategy" artifact: a
-// historical look at every yearling sold at Lexington Selected, Harrisburg
-// Book 1, and Ohio Jug between 2008 and 2025, checked against which of them
-// went on to become a top performer. All figures below are the real
-// analysis output from that artifact, not sample/placeholder data.
+// A historical look at every yearling sold at Lexington Selected,
+// Harrisburg Book 1&2, and Ohio Jug from 2014 through 2023 (2014 is the
+// first year Ohio Jug has any data at all; 2024/2025 are excluded because
+// their horses' 2yo/3yo seasons aren't over yet), checked against which
+// of them went on to become a top performer. All figures below are
+// computed directly from the real JUVENIQ database
+// (sale_results/top_performers tables) using the methodology in that
+// project's JUVENIQ_REGELS_EN_PLAN.md — not sample/placeholder data, and
+// not the earlier 2008-2025 version of this page, which silently gave
+// Lexington/Harrisburg years of data Ohio could never have and matched
+// horse names to top-performer appearances without checking the season
+// was actually the right one for that horse's age.
 // Client-side currency toggle, ported verbatim from the reference artifact's
 // own applyCurrency()/fmtK()/fmtFull() JS (see bindCurrencyToggle() below):
 // every money figure renders once, in CAD, carrying data-cad/data-usd/
@@ -1985,8 +1992,7 @@ function bindQuestionsAdmin(questionSet) {
 // the DOM and rewrites .money/.money-range text in place - no server-side
 // re-render on toggle, exactly like the reference.
 function saleHistoryFxNote() {
-  const cadPerUsd = 1 / getExchangeRate();
-  return `using a fixed rate of $1 USD = $${cadPerUsd.toFixed(2)} CAD, set in Questions Builder`;
+  return `using each sale year's actual historical annual-average exchange rate (Bank of Canada), not a single fixed rate`;
 }
 
 function shMoney(cad, usd, style = "k", suffix = "") {
@@ -2036,9 +2042,10 @@ function renderSaleHistory() {
         <div class="as-of">Analysis run <strong>Sep 3, 2026</strong></div>
       </div>
       <div class="intro-block">
-        <p class="dek">A look back at every yearling sold at Lexington Selected, Harrisburg Book 1, and Ohio Jug between 2008 and 2025, checked against which of them went on to become top performers. The goal: give TheStable.ca a fact-based way to decide how many horses to put in a bucket, at what price range, for the best odds, instead of relying only on gut feel. The same indicators also apply to after-sale horses offered individually in a similar price range.</p>
-        <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that showed up anywhere on a season top-earner leaderboard, at 2, 3, or 4-plus years old, at least once, in a season after it was sold as a yearling. It's a simple yes/no flag: it doesn't matter how much a top performer earned or at what age it first got there, and it says nothing about any specific 2026 yearling. It only shows how often horses at a given price went on to become one.</div>
-        <p class="currency-note">Prices on this page are shown in ${shCcyLabel()}. Use the CAD / USD switch at the top of the page to convert every figure, ${saleHistoryFxNote()}. This rate is not live and won't update on its own. If it has moved significantly by the time you use this, update it before relying on the USD figures.</p>
+        <p class="dek">A look back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, checked against which of them went on to become top performers. The goal: give TheStable.ca a fact-based way to decide how many horses to put in a bucket, at what price range, for the best odds, instead of relying only on gut feel. The same indicators also apply to after-sale horses offered individually in a similar price range.</p>
+        <div class="definition-card"><b>Why 2014-2023, not further back:</b> Ohio Jug has no yearling sale data before 2014, so an analysis starting earlier would silently give Lexington and Harrisburg years of extra data Ohio could never have — comparing the three sales unfairly. 2024 and 2025 are excluded for a different reason: judging whether a yearling "became a top performer" requires its 2-year-old AND 3-year-old racing seasons to be over, and those seasons haven't finished yet for horses sold that recently.</div>
+        <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that showed up on a season top-earner leaderboard as a 2- or 3-year-old, at least once, in the correct season after it was sold as a yearling (not "ever," which would risk matching a different horse that happens to share the same name years later — confirmed this happens: 1,858 horse names in this dataset are reused by an unrelated horse sold in a different year). It's a simple yes/no flag: it doesn't matter how much a top performer earned or at what age it first got there, and it says nothing about any specific 2026 yearling. It only shows how often horses at a given price went on to become one.</div>
+        <p class="currency-note">Original sale prices were recorded in USD. CAD figures on this page use the actual historical annual-average USD/CAD exchange rate for each sale's real year (Bank of Canada), not today's rate applied uniformly — a $100,000 USD horse sold in 2014 converts to a meaningfully different CAD figure than one sold in 2023, since the rate moved from about 1.10 to about 1.35 over that period. Use the CAD / USD switch above to see figures either way.</p>
       </div>
 
       <div class="dash-panel">
@@ -2048,90 +2055,90 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Odds of becoming a top performer, by price</div>
             <div class="curve-row">
-              <div class="curve-bar-wrap"><div class="curve-bar-val">0.6</div><div class="curve-bar" style="height:6%"></div><div class="curve-bar-price">&lt;${shMoney(14000, 10000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">1.3</div><div class="curve-bar" style="height:13%"></div><div class="curve-bar-price">${shMoneyRange(14000, 28000, 10000, 20000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">2.2</div><div class="curve-bar" style="height:22%"></div><div class="curve-bar-price">${shMoneyRange(28000, 50000, 20000, 35714)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">3.2</div><div class="curve-bar" style="height:32%"></div><div class="curve-bar-price">${shMoneyRange(50000, 85000, 35714, 60714)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">5.4</div><div class="curve-bar" style="height:55%"></div><div class="curve-bar-price">${shMoneyRange(85000, 140000, 60714, 100000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">6.5</div><div class="curve-bar" style="height:66%"></div><div class="curve-bar-price">${shMoneyRange(140000, 210000, 100000, 150000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">8.3</div><div class="curve-bar" style="height:85%"></div><div class="curve-bar-price">${shMoneyRange(210000, 280000, 150000, 200000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">9.8</div><div class="curve-bar last" style="height:100%"></div><div class="curve-bar-price">${shMoney(280000, 200000, "k", "+")}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">0.6</div><div class="curve-bar" style="height:5%"></div><div class="curve-bar-price">&lt;${shMoney(17970, 14000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">1.5</div><div class="curve-bar" style="height:14%"></div><div class="curve-bar-price">${shMoneyRange(17970, 36009, 14000, 28000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">2.5</div><div class="curve-bar" style="height:22%"></div><div class="curve-bar-price">${shMoneyRange(36009, 64360, 28000, 50000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">4.6</div><div class="curve-bar" style="height:42%"></div><div class="curve-bar-price">${shMoneyRange(64360, 109661, 50000, 85000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">6.1</div><div class="curve-bar" style="height:56%"></div><div class="curve-bar-price">${shMoneyRange(109661, 181451, 85000, 140000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">9.0</div><div class="curve-bar" style="height:82%"></div><div class="curve-bar-price">${shMoneyRange(181451, 273252, 140000, 210000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">9.5</div><div class="curve-bar" style="height:87%"></div><div class="curve-bar-price">${shMoneyRange(273252, 365523, 210000, 280000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">10.9</div><div class="curve-bar last" style="height:100%"></div><div class="curve-bar-price">${shMoney(365523, 280000, "k", "+")}</div></div>
             </div>
-            <div class="curve-foot">All top figures are %. Cheapest horses: <b>0.6%</b> became a top performer. Priciest: <b>9.8%</b> did.</div>
+            <div class="curve-foot">All top figures are %. Cheapest horses: <b>0.6%</b> became a top performer. Priciest: <b>10.9%</b> did.</div>
           </div>
 
           <div class="dash-card">
             <div class="dc-label">Colt vs. filly: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 58.9%, #45557a 58.9% 100%)"><div><strong>58.9%</strong><span>colt share</span></div></div>
+              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 56.0%, #45557a 56.0% 100%)"><div><strong>56.0%</strong><span>colt share</span></div></div>
               <div class="ring-legend">
-                <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Colt <b>58.9%</b></div>
-                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Filly <b>41.1%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Colt <b>56.0%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Filly <b>44.0%</b></div>
               </div>
             </div>
-            <div class="curve-foot" style="margin-top:16px;">Out of every 100 top performers, close to 59 were colts and 41 were fillies. That's because colts also have better odds individually: 3.2% of colts sold became a top performer, vs. 2.4% of fillies, at every sale and every price level, with no exceptions.</div>
+            <div class="curve-foot" style="margin-top:16px;">Out of every 100 top performers, 56 were colts and 44 were fillies. That's because colts also have better odds individually: 3.3% of colts sold became a top performer, vs. 2.3% of fillies, across all three sales combined — see the sale-by-sale table below for whether that holds at every individual venue.</div>
           </div>
 
           <div class="dash-card">
             <div class="dc-label">Trotter vs. pacer: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 50.4%, #45557a 50.4% 100%)"><div><strong>50.4%</strong><span>pacer share</span></div></div>
+              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 52.5%, #45557a 52.5% 100%)"><div><strong>52.5%</strong><span>trotter share</span></div></div>
               <div class="ring-legend">
-                <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Pacer <b>50.4%</b></div>
-                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Trotter <b>49.6%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Trotter <b>52.5%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Pacer <b>47.5%</b></div>
               </div>
             </div>
-            <div class="curve-foot" style="margin-top:16px;">Roughly an even split between pacers and trotters among top performers, across all 3 sales combined. Individually, trotters have a very slightly better per-horse chance (3.0% vs. 2.8% for pacers), but it isn't consistent at every venue. See the sale-by-sale table below.</div>
+            <div class="curve-foot" style="margin-top:16px;">Roughly an even split between trotters and pacers among top performers, across all 3 sales combined. Individually, trotters have a slightly better per-horse chance (2.9% vs. 2.7% for pacers), but it isn't consistent at every venue — see the sale-by-sale table below.</div>
           </div>
 
           <div class="dash-card">
             <div class="dc-label">Best bucket shape found</div>
-            <div class="verdict-num">5 horses</div>
-            <div class="verdict-sub">A ${shMoney(170000, 121428.57, "full")} ${shCcyLabel()} bucket split into 5 horses around ${shMoney(35000, 25000)} each hit <b style="color:#fff">12.5%</b> odds of landing at least one top performer.</div>
-            <div class="verdict-compare"><span>vs. 1 horse at ${shMoney(170000, 121428.57)}</span><b>8.1%</b></div>
+            <div class="verdict-num">3 horses</div>
+            <div class="verdict-sub">A ${shMoney(194410, 150000, "full")} ${shCcyLabel()} bucket split into 3 horses around ${shMoney(64360, 50000)} each hit <b style="color:#fff">13.1%</b> odds of landing at least one top performer.</div>
+            <div class="verdict-compare"><span>vs. 1 horse at ${shMoney(194410, 150000)}</span><b>9.0%</b></div>
           </div>
 
           <div class="dash-card">
-            <div class="dc-label">Same budget, more horses wins</div>
+            <div class="dc-label">Same budget, more horses often wins</div>
             <div class="mini-bars">
-              <div class="mini-bar-wrap"><div class="mini-bar-val">5.3%</div><div class="mini-bar" style="height:41%; background:#45557a"></div><div class="mini-bar-name">1 horse</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">5.1%</div><div class="mini-bar" style="height:39%; background:#45557a"></div><div class="mini-bar-name">2 horses</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">8.0%</div><div class="mini-bar" style="height:62%; background:var(--gold)"></div><div class="mini-bar-name">3 horses</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">8.1%</div><div class="mini-bar" style="height:63%; background:var(--gold-light)"></div><div class="mini-bar-name">4 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">9.0%</div><div class="mini-bar" style="height:69%; background:#45557a"></div><div class="mini-bar-name">1 horse</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">8.9%</div><div class="mini-bar" style="height:68%; background:#45557a"></div><div class="mini-bar-name">2 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">13.1%</div><div class="mini-bar" style="height:100%; background:var(--gold)"></div><div class="mini-bar-name">3 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">9.4%</div><div class="mini-bar" style="height:72%; background:var(--gold-light)"></div><div class="mini-bar-name">4 horses</div></div>
             </div>
-            <div class="curve-foot" style="margin-top:0;">Same ${shMoney(85000, 60714.29)} budget, split 4 different ways. 3 or 4 horses clearly beats 1 or 2. The full breakdown, at 3 different budget sizes, is in "One horse or several: building a bucket" below.</div>
+            <div class="curve-foot" style="margin-top:0;">Same ${shMoney(194410, 150000)} budget, split 4 different ways. 3 horses came out ahead here, though the full breakdown below shows the best split isn't the same at every budget size — see "One horse or several: building a bucket."</div>
           </div>
 
           <div class="dash-card">
             <div class="dc-label">Where top performers actually came from</div>
-            <div class="verdict-num">392</div>
-            <div class="verdict-sub">The <b style="color:#fff">${shMoney(49000, 35000)}&ndash;${shMoney(140000, 100000)}</b> range (the two biggest bands combined: 192 + 200) accounts for over 4 in 10 top performers, out of 931 found across all price levels.</div>
-            <div class="verdict-compare"><span>share of all 931 top performers</span><b>42.1%</b></div>
+            <div class="verdict-num">278</div>
+            <div class="verdict-sub">The <b style="color:#fff">${shMoney(63080, 49000)}&ndash;${shMoney(181451, 140000)}</b> range (the two biggest bands combined: 165 + 113) accounts for over 4 in 10 top performers, out of 658 found across all price levels.</div>
+            <div class="verdict-compare"><span>share of all 658 top performers</span><b>42.2%</b></div>
           </div>
 
         </div>
       </div>
 
       <div class="meta-strip">
-        <div class="meta-tile"><div class="n">2008&ndash;2025</div><div class="l">Years of sale data used</div></div>
-        <div class="meta-tile"><div class="n">32,964</div><div class="l">Yearlings sold across the 3 sales in this study</div></div>
-        <div class="meta-tile"><div class="n">931</div><div class="l">Of those went on to become a top earner</div></div>
-        <div class="meta-tile"><div class="n">1 in 35</div><div class="l">Overall odds a yearling becomes a top performer</div></div>
+        <div class="meta-tile"><div class="n">2014&ndash;2023</div><div class="l">Years of sale data used (all 3 sales, same period)</div></div>
+        <div class="meta-tile"><div class="n">24,676</div><div class="l">Yearlings sold across the 3 sales in this study</div></div>
+        <div class="meta-tile"><div class="n">658</div><div class="l">Of those went on to become a top earner</div></div>
+        <div class="meta-tile"><div class="n">1 in 37</div><div class="l">Overall odds a yearling becomes a top performer</div></div>
       </div>
 
       <section class="block">
         <h2 class="section-title">How much does price matter?</h2>
-        <p class="section-lead">Every yearling sold either did or didn't go on to become a top earner later in its racing career. This splits all of them into price groups and shows what share of each group actually made it. Read the ${shMoney(210000, 150000)}&ndash;${shMoney(280000, 200000)} bar as: 1 in about 12 horses bought in that price range went on to become a top performer.</p>
+        <p class="section-lead">Every yearling sold either did or didn't go on to become a top earner later in its racing career. This splits all of them into price groups and shows what share of each group actually made it. Read the ${shMoney(273252, 210000)}&ndash;${shMoney(365523, 280000)} bar as: about 1 in 11 horses bought in that price range went on to become a top performer.</p>
         <div class="ref-panel">
           <div class="band-chart">
-            <div class="band-row"><div class="label">Under ${shMoney(14000, 10000)}</div><div class="band-track"><span style="width:6%; background:var(--band-1)"></span></div><div class="figs"><div class="pct">0.6%</div><div class="cnt">27 of 4,903</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(14000, 10000)} &ndash; ${shMoney(28000, 20000)}</div><div class="band-track"><span style="width:13%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">1.3%</div><div class="cnt">98 of 7,461</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(28000, 20000)} &ndash; ${shMoney(50000, 35714.29)}</div><div class="band-track"><span style="width:23%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">2.2%</div><div class="cnt">172 of 7,712</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(50000, 35714.29)} &ndash; ${shMoney(85000, 60714.29)}</div><div class="band-track"><span style="width:32%; background:var(--band-4)"></span></div><div class="figs"><div class="pct">3.2%</div><div class="cnt">192 of 6,061</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(85000, 60714.29)} &ndash; ${shMoney(140000, 100000)}</div><div class="band-track"><span style="width:56%; background:var(--band-5)"></span></div><div class="figs"><div class="pct">5.4%</div><div class="cnt">200 of 3,682</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(140000, 100000)} &ndash; ${shMoney(210000, 150000)}</div><div class="band-track"><span style="width:67%; background:var(--band-6)"></span></div><div class="figs"><div class="pct">6.5%</div><div class="cnt">111 of 1,704</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(210000, 150000)} &ndash; ${shMoney(280000, 200000)}</div><div class="band-track"><span style="width:85%; background:var(--band-7)"></span></div><div class="figs"><div class="pct">8.3%</div><div class="cnt">55 of 664</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(280000, 200000, "k", "+")}</div><div class="band-track"><span style="width:100%; background:var(--band-8)"></span></div><div class="figs"><div class="pct">9.8%</div><div class="cnt">76 of 777</div></div></div>
+            <div class="band-row"><div class="label">Under ${shMoney(17970, 14000)}</div><div class="band-track"><span style="width:5%; background:var(--band-1)"></span></div><div class="figs"><div class="pct">0.6%</div><div class="cnt">34 of 6,063</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(17970, 14000)} &ndash; ${shMoney(36009, 28000)}</div><div class="band-track"><span style="width:14%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">1.5%</div><div class="cnt">106 of 6,981</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(36009, 28000)} &ndash; ${shMoney(64360, 50000)}</div><div class="band-track"><span style="width:22%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">2.5%</div><div class="cnt">120 of 4,896</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(64360, 50000)} &ndash; ${shMoney(109661, 85000)}</div><div class="band-track"><span style="width:42%; background:var(--band-4)"></span></div><div class="figs"><div class="pct">4.6%</div><div class="cnt">165 of 3,622</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(109661, 85000)} &ndash; ${shMoney(181451, 140000)}</div><div class="band-track"><span style="width:56%; background:var(--band-5)"></span></div><div class="figs"><div class="pct">6.1%</div><div class="cnt">113 of 1,843</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(181451, 140000)} &ndash; ${shMoney(273252, 210000)}</div><div class="band-track"><span style="width:82%; background:var(--band-6)"></span></div><div class="figs"><div class="pct">9.0%</div><div class="cnt">69 of 771</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(273252, 210000)} &ndash; ${shMoney(365523, 280000)}</div><div class="band-track"><span style="width:87%; background:var(--band-7)"></span></div><div class="figs"><div class="pct">9.5%</div><div class="cnt">24 of 253</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(365523, 280000, "k", "+")}</div><div class="band-track"><span style="width:100%; background:var(--band-8)"></span></div><div class="figs"><div class="pct">10.9%</div><div class="cnt">27 of 247</div></div></div>
           </div>
         </div>
       </section>
@@ -2144,109 +2151,110 @@ function renderSaleHistory() {
             <div class="totals-card">
               <div class="ttl">Colt vs. Filly: share of top performers</div>
               <div class="versus-row">
-                <div class="versus-side"><div class="pct win">58.9%</div><div class="name">Colt</div><div class="n">3.2% odds per horse sold</div></div>
+                <div class="versus-side"><div class="pct win">56.0%</div><div class="name">Colt</div><div class="n">3.3% odds per horse sold</div></div>
                 <div class="versus-vs">VS</div>
-                <div class="versus-side"><div class="pct">41.1%</div><div class="name">Filly</div><div class="n">2.4% odds per horse sold</div></div>
+                <div class="versus-side"><div class="pct">44.0%</div><div class="name">Filly</div><div class="n">2.3% odds per horse sold</div></div>
               </div>
             </div>
             <div class="totals-card">
               <div class="ttl">Trotter vs. Pacer: share of top performers</div>
               <div class="versus-row">
-                <div class="versus-side"><div class="pct win">50.4%</div><div class="name">Pacer</div><div class="n">2.8% odds per horse sold</div></div>
+                <div class="versus-side"><div class="pct win">52.5%</div><div class="name">Trotter</div><div class="n">2.9% odds per horse sold</div></div>
                 <div class="versus-vs">VS</div>
-                <div class="versus-side"><div class="pct">49.6%</div><div class="name">Trotter</div><div class="n">3.0% odds per horse sold</div></div>
+                <div class="versus-side"><div class="pct">47.5%</div><div class="name">Pacer</div><div class="n">2.7% odds per horse sold</div></div>
               </div>
             </div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Colts make up close to 59% of top performers, fillies the other 41%. That's partly because colts were sold in slightly bigger numbers to begin with, and partly because an individual colt has better odds (3.2% vs. 2.4% for fillies), at every sale and every price level, with no exceptions. Pacer vs. trotter is close to an even split, and (as the sale-by-sale table further down shows) which one edges ahead isn't consistent at every venue.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Colts make up 56% of top performers, fillies the other 44%. That's partly because colts were sold in slightly bigger numbers to begin with, and partly because an individual colt has better odds (3.3% vs. 2.3% for fillies) across the combined data. Trotter vs. pacer is close to an even split, and (as the sale-by-sale table further down shows) which one edges ahead isn't consistent at every venue.</p>
         </div>
       </section>
 
       <section class="block">
         <h2 class="section-title">Does the colt/filly or trotter/pacer pattern hold at every price?</h2>
-        <p class="section-lead">The table below combines price with sex and gait. Each cell shows what share of horses in that exact group (say, "pacer colts priced ${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}") became a top performer. Green numbers are the strongest cell in that price column.</p>
+        <p class="section-lead">The table below combines price with sex and gait. Each cell shows what share of horses in that exact group (say, "pacer colts priced ${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)}") became a top performer. Green numbers are the strongest cell in that price column.</p>
         <div class="ref-panel">
           <div class="matrix-grid" style="grid-template-columns: 118px repeat(6, 1fr);">
             <div class="hdr" style="background:transparent"></div>
-            <div class="hdr">Under ${shMoney(28000, 20000)}</div>
-            <div class="hdr">${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</div>
-            <div class="hdr">${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</div>
-            <div class="hdr">${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</div>
-            <div class="hdr">${shMoney(210000, 150000)}&ndash;${shMoney(280000, 200000)}</div>
-            <div class="hdr">${shMoney(280000, 200000, "k", "+")}</div>
+            <div class="hdr">Under ${shMoney(36009, 28000)}</div>
+            <div class="hdr">${shMoney(36009, 28000)}&ndash;${shMoney(109661, 85000)}</div>
+            <div class="hdr">${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)}</div>
+            <div class="hdr">${shMoney(181451, 140000)}&ndash;${shMoney(273252, 210000)}</div>
+            <div class="hdr">${shMoney(273252, 210000)}&ndash;${shMoney(365523, 280000)}</div>
+            <div class="hdr">${shMoney(365523, 280000, "k", "+")}</div>
           </div>
           <div class="matrix-grid" style="margin-top:2px; grid-template-columns: 118px repeat(6, 1fr);">
             <div class="row-hdr">Trotter colt</div>
-            <div class="cell"><div class="pct">1.2%</div><div class="n">2,863</div></div>
-            <div class="cell"><div class="pct">3.1%</div><div class="n">3,309</div></div>
-            <div class="cell"><div class="pct">5.5%</div><div class="n">901</div></div>
-            <div class="cell hi"><div class="pct">8.2%</div><div class="n">464</div></div>
-            <div class="cell"><div class="pct">7.7%</div><div class="n">195</div></div>
-            <div class="cell hi"><div class="pct">11.6%</div><div class="n">258</div></div>
+            <div class="cell"><div class="pct">1.4%</div><div class="n">2,874</div></div>
+            <div class="cell"><div class="pct">3.9%</div><div class="n">1,849</div></div>
+            <div class="cell hi"><div class="pct">7.4%</div><div class="n">461</div></div>
+            <div class="cell hi"><div class="pct">11.8%</div><div class="n">204</div></div>
+            <div class="cell hi"><div class="pct">13.5%</div><div class="n">74</div></div>
+            <div class="cell hi"><div class="pct">12.9%</div><div class="n">70</div></div>
 
             <div class="row-hdr">Trotter filly</div>
-            <div class="cell"><div class="pct">1.1%</div><div class="n">2,537</div></div>
-            <div class="cell"><div class="pct">2.3%</div><div class="n">3,154</div></div>
-            <div class="cell"><div class="pct">3.9%</div><div class="n">788</div></div>
-            <div class="cell"><div class="pct">5.0%</div><div class="n">381</div></div>
-            <div class="cell"><div class="pct">7.4%</div><div class="n">189</div></div>
-            <div class="cell"><div class="pct">10.3%</div><div class="n">263</div></div>
+            <div class="cell"><div class="pct">1.0%</div><div class="n">3,095</div></div>
+            <div class="cell"><div class="pct">3.1%</div><div class="n">2,104</div></div>
+            <div class="cell"><div class="pct">4.5%</div><div class="n">441</div></div>
+            <div class="cell"><div class="pct">6.4%</div><div class="n">234</div></div>
+            <div class="cell"><div class="pct">11.2%</div><div class="n">89</div></div>
+            <div class="cell"><div class="pct">11.9%</div><div class="n">101</div></div>
 
             <div class="row-hdr">Pacer colt</div>
-            <div class="cell hi"><div class="pct">1.4%</div><div class="n">2,884</div></div>
-            <div class="cell hi"><div class="pct">2.7%</div><div class="n">3,794</div></div>
-            <div class="cell hi"><div class="pct">6.3%</div><div class="n">1,160</div></div>
-            <div class="cell"><div class="pct">5.9%</div><div class="n">544</div></div>
-            <div class="cell hi"><div class="pct">11.3%</div><div class="n">168</div></div>
-            <div class="cell"><div class="pct">8.1%</div><div class="n">148</div></div>
+            <div class="cell hi"><div class="pct">1.7%</div><div class="n">2,422</div></div>
+            <div class="cell hi"><div class="pct">3.8%</div><div class="n">2,054</div></div>
+            <div class="cell"><div class="pct">7.2%</div><div class="n">512</div></div>
+            <div class="cell"><div class="pct">11.6%</div><div class="n">181</div></div>
+            <div class="cell"><div class="pct">7.9%</div><div class="n">38</div></div>
+            <div class="cell"><div class="pct">5.7%</div><div class="n">35</div></div>
 
             <div class="row-hdr">Pacer filly</div>
-            <div class="cell"><div class="pct">0.7%</div><div class="n">3,425</div></div>
-            <div class="cell"><div class="pct">2.7%</div><div class="n">3,192</div></div>
-            <div class="cell"><div class="pct">5.7%</div><div class="n">804</div></div>
-            <div class="cell hi"><div class="pct">7.3%</div><div class="n">302</div></div>
-            <div class="cell"><div class="pct">6.6%</div><div class="n">106</div></div>
-            <div class="cell"><div class="pct">6.6%</div><div class="n">106</div></div>
+            <div class="cell"><div class="pct">0.8%</div><div class="n">3,446</div></div>
+            <div class="cell"><div class="pct">3.3%</div><div class="n">2,083</div></div>
+            <div class="cell"><div class="pct">5.8%</div><div class="n">381</div></div>
+            <div class="cell"><div class="pct">6.5%</div><div class="n">138</div></div>
+            <div class="cell"><div class="pct">2.0%</div><div class="n">51</div></div>
+            <div class="cell"><div class="pct">11.4%</div><div class="n">35</div></div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Trotter colts are the strongest combination once price climbs above ${shMoney(280000, 200000)}. At the cheap end, pacer colts hold a small edge. The columns on the far right (above ${shMoney(150000, 107142.86)}) are built on fewer horses (100 to 300), so treat those specific numbers as a rough signal rather than a precise one.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Trotter colts hold the edge across most of the price range, and clearly so once price climbs above ${shMoney(109661, 85000)}. At the cheap end, pacer colts hold a small edge over trotter colts. <b>The two right-hand columns (above ${shMoney(273252, 210000)}) are each built on 35-101 horses per cell</b> — small enough that a single unusual result can swing the percentage a lot (see pacer filly jumping from 2.0% to 11.4% between the two highest bands); read those two columns as a weak signal, not a precise one.</p>
         </div>
       </section>
 
       <section class="block">
         <h2 class="section-title">How old was the horse when it became a top performer?</h2>
-        <p class="section-lead">A horse can show up on the leaderboard as a 2-year-old, a 3-year-old, or older ("aged," 4 and up). All three count as "top performer" everywhere else on this page. Split apart, the percentages below show how often each price group produced a top performer at that specific age. The odds drop a lot the longer it takes.</p>
+        <p class="section-lead">A horse can show up on the leaderboard as a 2-year-old, a 3-year-old, or older ("aged," 4 and up). All three count as "top performer" everywhere else on this page. Split apart, the percentages below show how often each price group produced a top performer at that specific age. The odds drop the longer it takes.</p>
+        <p class="currency-note">This section only uses sale years 2014-2022, not 2014-2023 like the rest of the page — confirming "became a top performer at 4+" needs that horse's age-4 season to be over, which for a 2023 yearling won't happen until 2027. 2023 sales are excluded here so every figure reflects a fully-closed outcome, not a still-pending one.</p>
         <div class="ref-panel">
           <div class="matrix-grid" style="grid-template-columns: 150px repeat(5, 1fr);">
             <div class="hdr" style="background:transparent"></div>
-            <div class="hdr">Under ${shMoney(28000, 20000)}</div>
-            <div class="hdr">${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</div>
-            <div class="hdr">${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</div>
-            <div class="hdr">${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</div>
-            <div class="hdr">${shMoney(210000, 150000, "k", "+")}</div>
+            <div class="hdr">Under ${shMoney(36009, 28000)}</div>
+            <div class="hdr">${shMoney(36009, 28000)}&ndash;${shMoney(109661, 85000)}</div>
+            <div class="hdr">${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)}</div>
+            <div class="hdr">${shMoney(181451, 140000)}&ndash;${shMoney(273252, 210000)}</div>
+            <div class="hdr">${shMoney(273252, 210000, "k", "+")}</div>
           </div>
           <div class="matrix-grid" style="margin-top:2px; grid-template-columns: 150px repeat(5, 1fr);">
             <div class="row-hdr">Top performer at 2</div>
-            <div class="cell"><div class="pct">0.5%</div></div>
-            <div class="cell"><div class="pct">1.4%</div></div>
-            <div class="cell"><div class="pct">3.2%</div></div>
-            <div class="cell"><div class="pct">4.1%</div></div>
-            <div class="cell hi"><div class="pct">5.6%</div></div>
+            <div class="cell"><div class="pct">0.7%</div></div>
+            <div class="cell"><div class="pct">2.1%</div></div>
+            <div class="cell"><div class="pct">4.4%</div></div>
+            <div class="cell"><div class="pct">5.9%</div></div>
+            <div class="cell hi"><div class="pct">7.5%</div></div>
 
             <div class="row-hdr">Top performer at 3</div>
-            <div class="cell"><div class="pct">0.4%</div></div>
-            <div class="cell"><div class="pct">1.3%</div></div>
-            <div class="cell"><div class="pct">2.6%</div></div>
-            <div class="cell"><div class="pct">3.2%</div></div>
-            <div class="cell hi"><div class="pct">5.8%</div></div>
+            <div class="cell"><div class="pct">0.7%</div></div>
+            <div class="cell"><div class="pct">2.0%</div></div>
+            <div class="cell"><div class="pct">4.0%</div></div>
+            <div class="cell hi"><div class="pct">6.7%</div></div>
+            <div class="cell hi"><div class="pct">8.0%</div></div>
 
             <div class="row-hdr">Top performer at 4+</div>
-            <div class="cell"><div class="pct">0.3%</div></div>
-            <div class="cell"><div class="pct">0.7%</div></div>
-            <div class="cell"><div class="pct">1.2%</div></div>
-            <div class="cell hi"><div class="pct">1.8%</div></div>
-            <div class="cell"><div class="pct">1.7%</div></div>
+            <div class="cell"><div class="pct">0.2%</div></div>
+            <div class="cell"><div class="pct">0.5%</div></div>
+            <div class="cell"><div class="pct">1.3%</div></div>
+            <div class="cell hi"><div class="pct">2.0%</div></div>
+            <div class="cell"><div class="pct">1.5%</div></div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">A horse is roughly twice as likely to become a top performer at 2 or 3 as it is to first become one at 4 or older, at every price level. Worth keeping in mind: a horse that only becomes a top performer at 4+ has had two or three extra years of training and keep costs before that happened, on top of the purchase price. That cost isn't in this data, but the direction is real.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Becoming a top performer at 2 or 3 is 3-4x as likely as first becoming one at 4 or older, at every price level. Worth keeping in mind: a horse that only becomes a top performer at 4+ has had two or three extra years of training and keep costs before that happened, on top of the purchase price. That cost isn't in this data, but the direction is real.</p>
         </div>
       </section>
 
@@ -2254,32 +2262,32 @@ function renderSaleHistory() {
         <h2 class="section-title">One horse or several: building a bucket</h2>
         <p class="section-lead">Everything above is about one horse at one price. A bucket usually buys several horses. This section answers: for a fixed amount of money, is it better to buy one expensive horse, or split it across two, three, four, or five cheaper ones?</p>
         <div class="ref-panel">
-          <p style="font-size:13.5px; line-height:1.6; margin:0 0 18px;">To compare fairly, each horse in a split is scored using the real odds for its own price, not an average across a wide range. So "2 horses at ${shMoney(85000, 60714.29)}" is scored using the actual ${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)} odds, not blended with ${shMoney(280000, 200000, "k", "+")} horses.</p>
+          <p style="font-size:13.5px; line-height:1.6; margin:0 0 18px;">To compare fairly, each horse in a split is scored using the real odds for its own price band, not an average across a wide range, and assumes each horse's outcome is independent of the others. So "2 horses at ${shMoney(78176, 60714)}" is scored using the actual ${shMoney(64360, 50000)}&ndash;${shMoney(109661, 85000)} odds, not blended with ${shMoney(365523, 280000, "k", "+")} horses.</p>
           <div class="bucket-grid">
             <div class="bucket-card">
-              <div class="ttl">${shMoney(85000, 60714.29, "full")} bucket</div>
-              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(85000, 60714.29)}</span></div><div class="val">5.3%</div></div>
-              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(40000, 28571.43)} each</span></div><div class="val">5.1%</div></div>
-              <div class="split-row"><div class="lbl">3 horses<span class="spend">around ${shMoney(30000, 21428.57)} each</span></div><div class="val">8.0%</div></div>
-              <div class="split-row win"><div class="lbl">4 horses<span class="spend">around ${shMoney(21000, 15000)} each</span></div><div class="val">8.1%</div></div>
+              <div class="ttl">${shMoney(78176, 60714, "full")} bucket</div>
+              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(78176, 60714)}</span></div><div class="val">4.6%</div></div>
+              <div class="split-row win"><div class="lbl">2 horses<span class="spend">around ${shMoney(39060, 30357)} each</span></div><div class="val">4.8%</div></div>
+              <div class="split-row"><div class="lbl">3 horses<span class="spend">around ${shMoney(25987, 20238)} each</span></div><div class="val">4.5%</div></div>
+              <div class="split-row"><div class="lbl">4 horses<span class="spend">around ${shMoney(19485, 15178)} each</span></div><div class="val">5.9%</div></div>
             </div>
             <div class="bucket-card">
-              <div class="ttl">${shMoney(170000, 121428.57, "full")} bucket</div>
-              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(170000, 121428.57)}</span></div><div class="val">8.1%</div></div>
-              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(85000, 60714.29)} each</span></div><div class="val">10.3%</div></div>
-              <div class="split-row"><div class="lbl">4 horses<span class="spend">around ${shMoney(40000, 28571.43)} each</span></div><div class="val">9.9%</div></div>
-              <div class="split-row win"><div class="lbl">5 horses<span class="spend">around ${shMoney(35000, 25000)} each</span></div><div class="val">12.5%</div></div>
+              <div class="ttl">${shMoney(156964, 121429, "full")} bucket</div>
+              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(156964, 121429)}</span></div><div class="val">6.1%</div></div>
+              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(78176, 60714)} each</span></div><div class="val">8.9%</div></div>
+              <div class="split-row"><div class="lbl">3 horses<span class="spend">around ${shMoney(52087, 40476)} each</span></div><div class="val">7.2%</div></div>
+              <div class="split-row win"><div class="lbl">4 horses<span class="spend">around ${shMoney(39060, 30357)} each</span></div><div class="val">9.4%</div></div>
             </div>
             <div class="bucket-card">
-              <div class="ttl">${shMoney(210000, 150000, "full")} bucket</div>
-              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(210000, 150000)}</span></div><div class="val">9.7%</div></div>
-              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(105000, 75000)} each</span></div><div class="val">11.6%</div></div>
-              <div class="split-row win"><div class="lbl">3 horses<span class="spend">around ${shMoney(70000, 50000)} each</span></div><div class="val">15.1%</div></div>
-              <div class="split-row"><div class="lbl">5 horses<span class="spend">around ${shMoney(40000, 28571.43)} each</span></div><div class="val">12.2%</div></div>
+              <div class="ttl">${shMoney(194410, 150000, "full")} bucket</div>
+              <div class="split-row"><div class="lbl">1 horse<span class="spend">around ${shMoney(194410, 150000)}</span></div><div class="val">9.0%</div></div>
+              <div class="split-row"><div class="lbl">2 horses<span class="spend">around ${shMoney(96636, 75000)} each</span></div><div class="val">8.9%</div></div>
+              <div class="split-row win"><div class="lbl">3 horses<span class="spend">around ${shMoney(64360, 50000)} each</span></div><div class="val">13.1%</div></div>
+              <div class="split-row"><div class="lbl">5 horses<span class="spend">around ${shMoney(38601, 30000)} each</span></div><div class="val">11.7%</div></div>
             </div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">In every bucket size tested, splitting the money across several horses beat spending it all on one horse. There isn't one single "best number of horses" across every budget, but one expensive horse was the weakest option every time.</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><strong>Why doesn't this match the "${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)} has the most top performers" chart above?</strong> Those are two different questions. That chart counts total top performers found across the entire market at that price (a headcount across roughly 2,400 horses). This section asks something narrower: for one fixed budget, is it better to buy one horse or split it into several? A single ${shMoney(35000, 25000)} horse has lower odds (about 2.6%) than a single ${shMoney(100000, 71428.57)} horse (about 5.6%). But splitting ${shMoney(170000, 121428.57)} into 5 cheaper horses means 5 separate chances at a top performer instead of 1, and those chances add up faster than the odds fall. That's why 5 horses at ${shMoney(35000, 25000)} (12.5%) beats 2 horses at ${shMoney(85000, 60714.29)} (10.3%) for the same total spend, even though the ${shMoney(85000, 60714.29)} price point has better odds per horse.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Splitting the money across several horses usually beat spending it all on one horse, though not in every single case tested (2 horses edged out 1 only slightly in the smallest budget here, and 2 horses actually trailed 1 slightly in the largest). There isn't one single "best number of horses" across every budget — the band boundaries a split happens to land in/near matter, not just "more is always better."</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><strong>Why doesn't this match the "${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)} has the most top performers" chart above?</strong> Those are two different questions. That chart counts total top performers found across the entire market at that price (a headcount across roughly 1,800 horses). This section asks something narrower: for one fixed budget, is it better to buy one horse or split it into several? A single ${shMoney(38601, 30000)} horse has lower odds (about 2.5%) than a single ${shMoney(129360, 100000)} horse (about 6.1%). But splitting a budget into several cheaper horses means several separate chances at a top performer instead of one, and those chances can add up faster than the odds fall per horse — though as the numbers above show, that isn't guaranteed at every split size.</p>
         </div>
       </section>
 
@@ -2287,17 +2295,17 @@ function renderSaleHistory() {
         <h2 class="section-title">Where did most top performers actually come from?</h2>
         <p class="section-lead">Every price band has a different number of horses in it, so this counts, in plain numbers, how many top performers each band actually produced.</p>
         <div class="ref-panel">
-          <p style="font-size:13.5px; line-height:1.6; margin:0 0 14px;"><strong>Most top performers, in plain numbers, came from horses priced ${shMoney(49000, 35000)} to ${shMoney(140000, 100000)}.</strong> The ${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)} band produced the single most (200), and the cheaper ${shMoney(49000, 35000)}&ndash;${shMoney(85000, 60714.29)} band is right behind it at 192, and those horses cost less to buy. Combined, these two neighboring bands account for 392 of the 931 top performers on this page, 42.1%, more than 4 in 10. That's simply where a large number of horses were bought at a decent price, so it's also where a large number of top performers turned up.</p>
+          <p style="font-size:13.5px; line-height:1.6; margin:0 0 14px;"><strong>Most top performers, in plain numbers, came from horses priced ${shMoney(63080, 49000)} to ${shMoney(181451, 140000)}.</strong> The ${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)} band produced the single most (113), and the cheaper ${shMoney(63080, 49000)}&ndash;${shMoney(109661, 85000)} band is right behind it at 165, and those horses cost less to buy. Combined, these two neighboring bands account for 278 of the 658 top performers on this page, 42.2%, more than 4 in 10. That's simply where a large number of horses were bought at a decent price, so it's also where a large number of top performers turned up.</p>
           <div class="band-chart">
-            <div class="band-row"><div class="label">Under ${shMoney(21000, 15000)}</div><div class="band-track"><span style="width:36%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">72</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(21000, 15000)}&ndash;${shMoney(28000, 20000)}</div><div class="band-track"><span style="width:26%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">53</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(28000, 20000)}&ndash;${shMoney(35000, 25000)}</div><div class="band-track"><span style="width:32%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">64</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(35000, 25000)}&ndash;${shMoney(42000, 30000)}</div><div class="band-track"><span style="width:24%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">49</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(42000, 30000)}&ndash;${shMoney(49000, 35000)}</div><div class="band-track"><span style="width:30%; background:var(--band-4)"></span></div><div class="figs"><div class="pct">59</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(49000, 35000)}&ndash;${shMoney(85000, 60714.29)}</div><div class="band-track"><span style="width:96%; background:var(--gold)"></span></div><div class="figs"><div class="pct">192</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}<span style="display:block;font-size:10.5px;font-weight:500;color:var(--muted)">most top performers</span></div><div class="band-track"><span style="width:100%; background:var(--gold)"></span></div><div class="figs"><div class="pct">200</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</div><div class="band-track"><span style="width:56%; background:var(--band-6)"></span></div><div class="figs"><div class="pct">111</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(210000, 150000, "k", "+")}</div><div class="band-track"><span style="width:66%; background:var(--band-7)"></span></div><div class="figs"><div class="pct">131</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">Under ${shMoney(26966, 21000)}</div><div class="band-track"><span style="width:54%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">89</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(26966, 21000)}&ndash;${shMoney(36009, 28000)}</div><div class="band-track"><span style="width:31%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">51</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(36009, 28000)}&ndash;${shMoney(45049, 35000)}</div><div class="band-track"><span style="width:25%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">42</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(45049, 35000)}&ndash;${shMoney(54038, 42000)}</div><div class="band-track"><span style="width:28%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">46</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(54038, 42000)}&ndash;${shMoney(63080, 49000)}</div><div class="band-track"><span style="width:19%; background:var(--band-4)"></span></div><div class="figs"><div class="pct">32</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(63080, 49000)}&ndash;${shMoney(109661, 85000)}<span style="display:block;font-size:10.5px;font-weight:500;color:var(--muted)">most top performers</span></div><div class="band-track"><span style="width:100%; background:var(--gold)"></span></div><div class="figs"><div class="pct">165</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)}</div><div class="band-track"><span style="width:68%; background:var(--gold)"></span></div><div class="figs"><div class="pct">113</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(181451, 140000)}&ndash;${shMoney(273252, 210000)}</div><div class="band-track"><span style="width:42%; background:var(--band-6)"></span></div><div class="figs"><div class="pct">69</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(273252, 210000, "k", "+")}</div><div class="band-track"><span style="width:31%; background:var(--band-7)"></span></div><div class="figs"><div class="pct">51</div><div class="cnt">top performers here</div></div></div>
           </div>
         </div>
       </section>
@@ -2308,11 +2316,11 @@ function renderSaleHistory() {
         <div class="ref-panel">
           <div style="overflow-x:auto;">
             <table>
-              <thead><tr><th>Sale</th><th>Under ${shMoney(28000, 20000)}</th><th>${shMoney(28000, 20000)}&ndash;${shMoney(85000, 60714.29)}</th><th>${shMoney(85000, 60714.29)}&ndash;${shMoney(140000, 100000)}</th><th>${shMoney(140000, 100000)}&ndash;${shMoney(210000, 150000)}</th><th>${shMoney(210000, 150000, "k", "+")}</th></tr></thead>
+              <thead><tr><th>Sale</th><th>Under ${shMoney(36009, 28000)}</th><th>${shMoney(36009, 28000)}&ndash;${shMoney(109661, 85000)}</th><th>${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)}</th><th>${shMoney(181451, 140000)}&ndash;${shMoney(273252, 210000)}</th><th>${shMoney(273252, 210000, "k", "+")}</th></tr></thead>
               <tbody>
-                <tr><td class="venue-name">Lexington Selected</td><td>1.2%</td><td>3.1%</td><td>6.3%</td><td>6.6%</td><td>8.4%</td></tr>
-                <tr><td class="venue-name">Harrisburg Book 1</td><td>0.9%</td><td>2.3%</td><td>4.3%</td><td>6.6%</td><td>10.4%</td></tr>
-                <tr><td class="venue-name">Ohio Jug</td><td>1.1%</td><td>3.1%</td><td>7.4%</td><td>2.5%</td><td>9.1%</td></tr>
+                <tr><td class="venue-name">Lexington Selected</td><td>1.7%</td><td>4.7%</td><td>7.5%</td><td>10.4%</td><td>10.8%</td></tr>
+                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td>0.7%</td><td>2.4%</td><td>4.9%</td><td>7.1%</td><td>9.6%</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td>1.6%</td><td>4.3%</td><td>7.5%</td><td>10.0%</td><td>n/a (1 horse)</td></tr>
               </tbody>
             </table>
           </div>
@@ -2320,18 +2328,18 @@ function renderSaleHistory() {
             <table style="margin-top:20px;">
               <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th></tr></thead>
               <tbody>
-                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">4.3%</td><td>3.0%</td><td>3.7%</td><td>3.8%</td></tr>
-                <tr><td class="venue-name">Harrisburg Book 1</td><td class="win-cell">2.5%</td><td>2.1%</td><td>2.5%</td><td>2.4%</td></tr>
-                <tr><td class="venue-name">Ohio Jug</td><td class="win-cell">2.4%</td><td>2.1%</td><td class="win-cell">2.8%</td><td>1.8%</td></tr>
+                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">5.1%</td><td>3.7%</td><td class="win-cell">4.5%</td><td>4.4%</td></tr>
+                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td class="win-cell">2.4%</td><td>1.6%</td><td class="win-cell">1.9%</td><td>2.0%</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td class="win-cell">2.5%</td><td>2.3%</td><td class="win-cell">2.7%</td><td>2.1%</td></tr>
               </tbody>
             </table>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Colts beat fillies at every sale, without exception. Trotters vs. pacers is close at Lexington and Harrisburg, but Ohio clearly favors trotters. Ohio's two highest price bands only have a handful of horses in them, so treat those two numbers as a weak signal rather than a solid one.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Colts beat fillies at every sale, without exception, and trotters beat pacers at every sale too, though narrowly at Ohio and Lexington. Ohio's highest price band has just 1 horse in this period (shown as "n/a"), too few to say anything meaningful — treat Ohio's $140k+ figures generally as a weaker signal than Lexington's or Harrisburg's, which have far more horses to draw on.</p>
         </div>
       </section>
 
       <div class="footer-note">
-        This looks at every yearling sold at Lexington Selected, Harrisburg Book 1, and Ohio Jug from 2008 through 2025, checked against season top-earner rankings through 2025 (the 2026 racing season is still in progress and was excluded, since an unfinished season understates what a horse will eventually earn). "Top performer" means the horse appeared anywhere on a season top-earner leaderboard, at 2, 3, or 4-plus years old, at least once. Horses were matched between the sale records and the earnings leaderboards by name, which can occasionally miss a spelling variation or mix up two horses with the same name. This is a backward-looking pattern in past results, not a prediction about any specific 2026 yearling. It only shows how often horses in a given price range have become top performers, nothing more. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${saleHistoryFxNote()}.
+This looks at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023 (Ohio Jug has no yearling sale data before 2014, so all three sales use this same, fair period — an earlier version of this page ran Lexington/Harrisburg back to 2008, silently giving them years of data Ohio could never have). 2024 and 2025 sales are excluded because judging "did it become a top performer" needs that horse's 2- and 3-year-old seasons to be over, which hasn't happened yet for horses sold that recently. "Top performer" means the horse appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after its sale (not "ever" — 1,858 horse names in this dataset are reused by an unrelated horse sold in a different year, so an unscoped match would have counted some wrong horses). This is a backward-looking pattern in past results, not a prediction about any specific 2026 yearling. It only shows how often horses in a given price range have become top performers, nothing more. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${saleHistoryFxNote()}. CAD figures use each sale's actual historical annual exchange rate (Bank of Canada), not one rate applied to every year.
       </div>
     </div>
     </div>`;
@@ -2363,22 +2371,27 @@ function bindCurrencyToggle() {
 
 function applyCurrency(ccy) {
   const rate = getExchangeRate();
-  const toCcy = (cad) => (ccy === "usd" ? cad * rate : cad);
+  // Sale History's figures are historical (2014-2023 sale prices) and
+  // already carry a correctly pre-computed data-usd (each sale year's
+  // real Bank of Canada annual rate applied to the actual USD sale
+  // price) — those must never be re-derived from the live, editable
+  // Questions Builder rate, which is today's rate and would silently
+  // replace a historically-accurate USD figure with a wrong one for
+  // every year except whichever one the current rate happens to match.
+  // Only elements WITHOUT a pre-computed data-usd (e.g. the Dashboard's
+  // live, current-year figures) use the editable rate.
   document.querySelectorAll(".money").forEach((el) => {
-    // Always convert live from the CAD figure using the current stored
-    // rate, rather than trusting a pre-computed data-usd value — that way
-    // editing the rate in Questions Builder retroactively updates every
-    // figure on this page instead of requiring 50+ hardcoded numbers to
-    // be recalculated by hand.
     const cad = parseFloat(el.dataset.cad);
-    const raw = toCcy(cad);
+    const hasFixedUsd = el.dataset.usd !== undefined && el.dataset.usd !== "";
+    const raw = ccy === "usd" ? (hasFixedUsd ? parseFloat(el.dataset.usd) : cad * rate) : cad;
     const suffix = el.textContent.trim().endsWith("+") ? "+" : "";
     const text = el.dataset.style === "full" ? refFmtFull(raw) : refFmtK(raw);
     el.textContent = text + suffix;
   });
   document.querySelectorAll(".money-range").forEach((el) => {
-    const lo = toCcy(parseFloat(el.dataset.cadLo));
-    const hi = toCcy(parseFloat(el.dataset.cadHi));
+    const hasFixedUsd = el.dataset.usdLo !== undefined && el.dataset.usdLo !== "";
+    const lo = ccy === "usd" ? (hasFixedUsd ? parseFloat(el.dataset.usdLo) : parseFloat(el.dataset.cadLo) * rate) : parseFloat(el.dataset.cadLo);
+    const hi = ccy === "usd" ? (hasFixedUsd ? parseFloat(el.dataset.usdHi) : parseFloat(el.dataset.cadHi) * rate) : parseFloat(el.dataset.cadHi);
     const loK = Math.round(lo / 1000);
     const hiK = Math.round(hi / 1000);
     el.textContent = `$${loK}-${hiK}k`;
