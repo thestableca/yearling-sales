@@ -2526,7 +2526,19 @@ function renderOwnerRosterAdmin() {
   const mergeIntoRoster = (parsed) => {
     const existing = getOwnerRoster();
     const existingEmails = new Set(existing.map((o) => o.email));
-    const merged = [...existing, ...parsed.filter((o) => !existingEmails.has(o.email))];
+    // Dedupe WITHIN the newly parsed batch too, not just against what's
+    // already saved — a real ~900-row spreadsheet plausibly has the same
+    // owner listed twice (e.g. appearing on two different source sheets
+    // that got combined). Without this, two identical rows in one upload
+    // both passed the "not already in the roster" check and both got
+    // added, since neither one was "existing" yet at filter time.
+    const newOwnersByEmail = new Map();
+    parsed.forEach((owner) => {
+      if (!existingEmails.has(owner.email) && !newOwnersByEmail.has(owner.email)) {
+        newOwnersByEmail.set(owner.email, owner);
+      }
+    });
+    const merged = [...existing, ...newOwnersByEmail.values()];
     saveOwnerRoster(merged).catch((err) => console.error("Failed to save owner roster:", err));
     return merged.length - existing.length;
   };
