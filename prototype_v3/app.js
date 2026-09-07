@@ -520,8 +520,8 @@ function card(meta, title, body, tag = "Question") {
 function welcomeCard() {
   return card(
     "Welcome",
-    "Let's plan your 2026 buckets",
-    `<p class="prompt">Use the email address you use with TheStable.ca. You can review your answers before submitting.</p>
+    "Tell us what you're looking for in 2026",
+    `<p class="prompt">Share your preferences for the 2026 yearling sales. TheStable uses this together with sale history to put together the actual buckets on offer. Use the email address you use with TheStable.ca. You can review your answers before submitting.</p>
      <div class="actions single"><button class="btn primary" type="button" data-go="identify">Let's Get Started</button></div>`,
     "Welcome"
   );

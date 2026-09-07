@@ -676,6 +676,28 @@ textarea.input {
   .price-tier-custom {
     grid-column: auto;
   }
+
+  /* Found via mobile testing: on a small phone screen the full-size hero
+     (padding + clamp(30px,...) heading + subtitle) pushed the intake
+     form's action buttons below the fold before any scrolling — a real
+     user couldn't see (and easily missed) "Send me a sign-in link" on
+     first load, worse once the on-screen keyboard opens after typing.
+     Shrinking the hero on the owner-facing flow (not the admin dashboard,
+     which isn't a single-hand-scrollable form) keeps the actual question
+     and its buttons closer to always-visible. */
+  body:not(.admin-screen) .hero {
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+
+  body:not(.admin-screen) .hero h1 {
+    font-size: 22px;
+  }
+
+  body:not(.admin-screen) .hero p {
+    font-size: 14px;
+    margin-top: 6px;
+  }
 }
 
 .actions {

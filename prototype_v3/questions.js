@@ -326,7 +326,7 @@ function defaultQuestionSet() {
         id: "priceTierMatrix",
         type: "price_tier_matrix",
         label: "What would you like TheStable to consider for your pre-sale bucket at this sale?",
-        helpText: "You aren't choosing a bucket that already exists — pick the price ranges that interest you at THIS sale, along with gait/sex preference and how much you'd want to invest at each. TheStable builds the actual bucket for this sale afterward, based on demand like yours plus historical sale data.",
+        helpText: "You aren't choosing a bucket that already exists. Pick the price ranges that interest you at this sale, along with your gait and sex preference and how much you'd want to invest at each. TheStable builds the actual bucket for this sale afterward, based on demand like yours plus historical sale data.",
         sortOrder: 40,
         dependsOn: { blockId: "participation", op: "in", value: ["bucket", "both"] },
         required: true,
