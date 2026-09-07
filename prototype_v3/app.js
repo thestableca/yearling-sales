@@ -1047,7 +1047,8 @@ function hasDownstreamAnswers(field, target) {
   if (field === "participation") {
     return Boolean(
       target.bucketDetailMode || target.bucketTypes?.length || target.bucketLevel || target.bucketAmount ||
-      target.specificHorseCount || target.specificShareSize || bucketMatrixHasAnyEntry(target.bucketMatrix)
+      target.specificHorseCount || target.specificShareSize || bucketMatrixHasAnyEntry(target.bucketMatrix) ||
+      priceTierMatrixHasAnyEntry(target.priceTierMatrix)
     );
   }
   if (field === "gait") {
@@ -1302,6 +1303,7 @@ function resetBranchAnswers(target) {
   target.bucketLevel = "";
   target.bucketAmount = "";
   target.bucketMatrix = blankBucketMatrix();
+  target.priceTierMatrix = blankPriceTierMatrix();
   target.specificHorseCount = "";
   target.specificShareSize = "";
 }
@@ -1839,8 +1841,7 @@ const CORE_QUESTION_DASHBOARD_IMPACT = {
   participation: "the \"Suggested buckets to offer\" panel and the pre-sale/after-sale split",
   gait: "the \"Trotter vs. Pacer\" panel and the Gait column in Owner detail",
   sex: "the \"Colt / Filly\" panel and the Colt/Filly column in Owner detail",
-  bucketTypes: "the \"Bucket type mix\" panel and \"Suggested buckets to offer\"",
-  maxYearlings: "bucket suggestion sizing on the Dashboard",
+  priceTierMatrix: "the \"Price tier mix\" panel, \"Suggested buckets to offer\", and estimated capital figures",
   specificHorseCount: "the \"After-sale individual shares\" panel",
   specificShareSize: "the \"Share size\" and \"After-sale individual shares\" panels",
   eligibility: "the \"Requested jurisdictions\" panel",
@@ -3092,17 +3093,17 @@ function renderAdmin() {
         <div class="panel-head">
           <div>
             <div class="tag">Demand breakdown</div>
-            <h2>Where the demand is, within your current bucket types</h2>
-            <p>Breaks down the requests you've already received by gait, sex, and jurisdiction fit, within the bucket types owners could choose from (set in Questions Builder). This is not a proposal to approve — it's the input for you to use when you actually set the sale's final offer in the "Confirmed Buckets" panel below.</p>
+            <h2>Where the demand is, by price tier</h2>
+            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit — owners pick a price tier (budget/mid/premium) per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Use it when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
           </div>
-          <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked by how much of a sale's owners have expressed interest, how many owners that represents, and whether the top requested share size fits the sale's jurisdiction rules. It can only break down demand within the bucket types already offered in the intake form — it can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
+          <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked by how much of a sale's owners have expressed interest, how many owners that represents, and whether the top requested share size fits the sale's jurisdiction rules. It can only break down demand within the price tiers owners were asked about — it can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
         </div>
         <div class="panel-body" style="padding-top: 4px;">
           ${suggestions.length ? suggestions.map((row) => `
           <div class="sugg-row">
             <div>
               <span class="status ${row.status.toLowerCase()}">${suggIcon(row.status)}${row.status}</span>
-              <div class="sugg-title">${escapeHtml(row.saleLabel)} &middot; ${escapeHtml(labelFor("bucketTypes", row.bucketType))} &middot; ${escapeHtml(labelFor("gait", row.gait))} &middot; ${escapeHtml(labelFor("sex", row.sex))}</div>
+              <div class="sugg-title">${escapeHtml(row.saleLabel)} &middot; ${escapeHtml(labelFor("priceTiers", row.bucketType))} &middot; ${escapeHtml(labelFor("gait", row.gait))} &middot; ${escapeHtml(labelFor("sex", row.sex))}</div>
               <div class="sugg-sub">${row.eligibility.length ? row.eligibility.map((item) => escapeHtml(item.label)).join(", ") : "No jurisdiction preference captured"}</div>
             </div>
             <div class="stat-block"><div class="num">${percent(row.total)}</div><div class="lbl">requested share</div></div>
@@ -3126,8 +3127,8 @@ function renderAdmin() {
         </div>
         <div class="ref-panel">
           <div class="panel-head">
-            <h2>Bucket type mix</h2>
-            <span class="ref-info-dot" tabindex="0">i<span class="tip">Share of total requested percentage that falls into each bucket type (Premium, Balanced, Value buys), based on what owners selected in their response.</span></span>
+            <h2>Price tier mix</h2>
+            <span class="ref-info-dot" tabindex="0">i<span class="tip">Share of total requested percentage that falls into each price tier (Budget, Mid-range, Premium), based on what owners selected in their response.</span></span>
           </div>
           <div class="panel-body">
             ${refDonut(bucketDemand)}
@@ -3378,8 +3379,17 @@ function money(value) {
   return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
+// Rows coming through flattenResponses() now carry a price-tier id
+// (budget/mid/premium) in this same field, not a bucket_config key —
+// those are two different vocabularies that happen to share the string
+// "premium". There's no admin-configured price per price tier yet (that's
+// Confirmed Buckets work, a later step), so a price-tier row has no price
+// source to look up — returning null here (rather than falling through to
+// bucket_config and risking a coincidental name match) is what keeps it
+// excluded from capital estimates instead of silently mispriced.
 function bucketPriceFor(bucketType, previewPrices = null) {
   if (previewPrices) return previewPrices[bucketType] ?? null;
+  if (PRICE_TIERS.some(([id]) => id === bucketType)) return null;
   const bucketConfig = currentQuestionSet().blocks.find((b) => b.type === "bucket_config");
   const bucket = bucketConfig?.buckets.find((b) => b.key === bucketType);
   const price = Number(bucket?.price);

@@ -89,12 +89,11 @@ function newConfirmedBucket() {
 // }
 //
 // gatesProgress: most blocks must be answered before anything later can
-// appear (the walk stops and waits). A few blocks are shown together as
-// one page and don't individually block progress to what comes after —
-// e.g. bucketTypes/maxYearlings/bucketLevel are revealed as a group once
-// bucketDetailMode is answered, and the flow is allowed to move on (e.g.
-// reveal applyMode) even if one of those three is still blank. Set
-// gatesProgress: false on a block to opt out of blocking the walk.
+// appear (the walk stops and waits). A few blocks don't individually block
+// progress to what comes after — e.g. priceTierMatrix is optional-feeling
+// (an owner can leave every tier row unfilled and still continue), so the
+// flow is allowed to move on (e.g. reveal applyMode) even while it's blank.
+// Set gatesProgress: false on a block to opt out of blocking the walk.
 
 // A block's dependsOn is either a single { blockId, op, value } condition,
 // or an array of them (all must be satisfied) — used when a block only
