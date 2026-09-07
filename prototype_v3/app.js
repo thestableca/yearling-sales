@@ -176,14 +176,21 @@ function blankBucketRows() {
   return Object.fromEntries(BUCKET_TYPES.map(([id]) => [id, { enabled: false, level: "", amount: "", maxYearlings: "" }]));
 }
 
-// One row per price tier (budget/mid/premium) — this is the per-SALE
-// replacement for choosing a fixed bucket name. Each row carries its own
-// gait + sex preference and budget percentage, so "budget pacers, premium
-// trotters" within the same sale is representable (unlike bucketMatrix's
-// gait-as-outer-dimension shape, price tier is the outer dimension here
-// since gait/sex is what can vary BY tier, not the other way around).
+// A list of price-tier preferences for THIS sale, not a fixed bucket name
+// or a percentage — an owner is saying which price ranges interest them
+// (Anthony builds the actual bucket afterward from this demand plus Sale
+// History; a percentage would be meaningless before that bucket, and how
+// many horses it holds, actually exists). An array rather than one row
+// per tier, since an owner can want more than one combination within the
+// same tier (e.g. Premium trotter colts AND, separately, Premium pacer
+// fillies) — those are two distinct preferences, not one row that would
+// have to pick between them.
 function blankPriceTierMatrix() {
-  return Object.fromEntries(PRICE_TIERS.map(([id]) => [id, { enabled: false, level: "", amount: "", gait: "", sex: "" }]));
+  return [];
+}
+
+function newPriceTierRow() {
+  return { tier: "", gait: "", sex: "" };
 }
 
 const app = document.querySelector("#app");
@@ -338,12 +345,22 @@ function normalizeBucketMatrix(matrix = {}) {
   return blank;
 }
 
-function normalizePriceTierMatrix(matrix = {}) {
-  const blank = blankPriceTierMatrix();
-  Object.keys(blank).forEach((tier) => {
-    blank[tier] = { ...blank[tier], ...(matrix?.[tier] || {}) };
-  });
-  return blank;
+// Accepts the current array-of-rows shape, but also tolerates the older
+// one-row-per-tier object shape a draft already sitting in someone's
+// browser localStorage might still have (from before this rebuild) —
+// converts it into rows instead of dropping that in-progress answer.
+function normalizePriceTierMatrix(matrix) {
+  if (Array.isArray(matrix)) {
+    return matrix
+      .filter((row) => row && typeof row === "object")
+      .map((row) => ({ ...newPriceTierRow(), ...row }));
+  }
+  if (matrix && typeof matrix === "object") {
+    return Object.entries(matrix)
+      .filter(([, row]) => row?.enabled)
+      .map(([tier, row]) => ({ tier, gait: row.gait || "", sex: row.sex || "" }));
+  }
+  return [];
 }
 
 function percent(value) {
@@ -397,20 +414,16 @@ function bucketMatrixReady(prefs) {
   }));
 }
 
-// Ready once at least one price tier is enabled with a percentage AND a
+// Ready once at least one preference row has both a price tier and a
 // gait choice — sex is optional (an owner may genuinely have no
-// preference), matching how the flat bucketLevel flow already treats sex
-// as optional while requiring gait.
+// preference). No percentage is asked here; see blankPriceTierMatrix()
+// for why.
 function priceTierMatrixReady(prefs) {
-  return PRICE_TIERS.some(([tier]) => {
-    const row = prefs.priceTierMatrix?.[tier];
-    return row?.enabled && row.gait && row.level && (row.level !== "other" || row.amount);
-  });
+  return (prefs.priceTierMatrix || []).some((row) => row?.tier && row?.gait);
 }
 
 function priceTierMatrixHasAnyEntry(matrix) {
-  if (!matrix) return false;
-  return Object.values(matrix).some((row) => row?.enabled);
+  return Array.isArray(matrix) && matrix.length > 0;
 }
 
 // Question order/branching now comes from the active question set's
@@ -817,25 +830,28 @@ function bucketMatrixHtml(prefs) {
   `).join("")}</div>`;
 }
 
-// Renders the per-sale price-tier matrix: one row per tier (budget/mid/
-// premium), each with its own enable toggle, gait, sex, and share %. This
-// replaces choosing a fixed bucket name — an owner says what price range
-// and gait/sex they want, at what share, and Anthony builds the actual
-// bucket for this specific sale afterward from the combined demand.
+// Renders the owner's list of price-tier preferences for this sale: each
+// row is its own price tier + gait + sex combination, with an "Add
+// another preference" affordance so e.g. "Premium trotter colts" and
+// "Premium pacer fillies" can both be recorded as separate rows instead
+// of one row per tier forcing a single combination. No percentage/amount
+// is asked here — see blankPriceTierMatrix() for why.
 function priceTierMatrixHtml(prefs) {
-  const matrix = prefs.priceTierMatrix || blankPriceTierMatrix();
+  const rows = prefs.priceTierMatrix || [];
   const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
-  return `<div class="bucket-matrix"><div class="matrix-rows price-tier-rows">${PRICE_TIERS.map(([tier, label, help]) => {
-    const row = matrix[tier] || { enabled: false, level: "", amount: "", gait: "", sex: "" };
-    return `
-      <div class="matrix-row price-tier-row ${row.enabled ? "selected" : ""}">
-        <button class="matrix-toggle" type="button" data-tier-toggle="${tier}" data-target="${targetName}">
-          <span class="mark check"></span>
-          <span><strong>${label}</strong><small>${help}</small></span>
-        </button>
+  const rowHtml = rows.length
+    ? rows.map((row, index) => `
+      <div class="matrix-row price-tier-row">
+        <label>
+          Price tier
+          <select class="input matrix-input" data-tier-row-field="tier" data-tier-row-index="${index}" data-target="${targetName}">
+            <option value="">Choose</option>
+            ${PRICE_TIERS.map(([id, label]) => `<option value="${id}" ${row.tier === id ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
         <label>
           Gait
-          <select class="input matrix-input" data-tier-gait="${tier}" data-target="${targetName}" ${!row.enabled ? "disabled" : ""}>
+          <select class="input matrix-input" data-tier-row-field="gait" data-tier-row-index="${index}" data-target="${targetName}">
             <option value="">Choose</option>
             <option value="trotter" ${row.gait === "trotter" ? "selected" : ""}>Trotters</option>
             <option value="pacer" ${row.gait === "pacer" ? "selected" : ""}>Pacers</option>
@@ -844,24 +860,18 @@ function priceTierMatrixHtml(prefs) {
         </label>
         <label>
           Colt / filly
-          <select class="input matrix-input" data-tier-sex="${tier}" data-target="${targetName}" ${!row.enabled ? "disabled" : ""}>
+          <select class="input matrix-input" data-tier-row-field="sex" data-tier-row-index="${index}" data-target="${targetName}">
             <option value="">No preference</option>
             <option value="colt" ${row.sex === "colt" ? "selected" : ""}>Colts</option>
             <option value="filly" ${row.sex === "filly" ? "selected" : ""}>Fillies</option>
             <option value="both" ${row.sex === "both" ? "selected" : ""}>Both</option>
           </select>
         </label>
-        <label>
-          Share %
-          <select class="input matrix-input" data-tier-level="${tier}" data-target="${targetName}" ${!row.enabled ? "disabled" : ""}>
-            <option value="">Choose</option>
-            ${BUCKET_LEVELS.map(([value, pct, amount]) => `<option value="${value}" ${row.level === value ? "selected" : ""}>${pct} - ${amount}</option>`).join("")}
-          </select>
-        </label>
-        ${row.enabled && row.level === "other" ? `<input class="input matrix-custom price-tier-custom" data-tier-amount="${tier}" data-target="${targetName}" inputmode="decimal" value="${escapeHtml(row.amount)}" placeholder="Custom percentage, e.g. 12.5">` : ""}
+        <button class="btn" type="button" data-remove-tier-row="${index}" data-target="${targetName}" aria-label="Remove this preference">Remove</button>
       </div>
-    `;
-  }).join("")}</div></div>`;
+    `).join("")
+    : `<p class="notice">No preferences added yet.</p>`;
+  return `<div class="bucket-matrix"><div class="matrix-rows price-tier-rows">${rowHtml}</div><button class="btn" type="button" data-add-tier-row data-target="${targetName}">Add another preference</button></div>`;
 }
 
 function bindOwner() {
@@ -909,11 +919,9 @@ function bindOwner() {
   document.querySelectorAll("[data-matrix-level]").forEach((select) => select.addEventListener("change", () => setMatrixValue(select.dataset.gait, select.dataset.matrixLevel, "level", select.value, select.dataset.target)));
   document.querySelectorAll("[data-matrix-max]").forEach((select) => select.addEventListener("change", () => setMatrixValue(select.dataset.gait, select.dataset.matrixMax, "maxYearlings", select.value, select.dataset.target)));
   document.querySelectorAll("[data-matrix-amount]").forEach((input) => input.addEventListener("input", () => setMatrixValue(input.dataset.gait, input.dataset.matrixAmount, "amount", cleanPercent(input.value), input.dataset.target, false)));
-  document.querySelectorAll("[data-tier-toggle]").forEach((button) => button.addEventListener("click", () => toggleTierRow(button.dataset.tierToggle, button.dataset.target)));
-  document.querySelectorAll("[data-tier-gait]").forEach((select) => select.addEventListener("change", () => setTierValue(select.dataset.tierGait, "gait", select.value, select.dataset.target)));
-  document.querySelectorAll("[data-tier-sex]").forEach((select) => select.addEventListener("change", () => setTierValue(select.dataset.tierSex, "sex", select.value, select.dataset.target)));
-  document.querySelectorAll("[data-tier-level]").forEach((select) => select.addEventListener("change", () => setTierValue(select.dataset.tierLevel, "level", select.value, select.dataset.target)));
-  document.querySelectorAll("[data-tier-amount]").forEach((input) => input.addEventListener("input", () => setTierValue(input.dataset.tierAmount, "amount", cleanPercent(input.value), input.dataset.target, false)));
+  document.querySelectorAll("[data-add-tier-row]").forEach((button) => button.addEventListener("click", () => addPriceTierRow(button.dataset.target)));
+  document.querySelectorAll("[data-remove-tier-row]").forEach((button) => button.addEventListener("click", () => removePriceTierRow(Number(button.dataset.removeTierRow), button.dataset.target)));
+  document.querySelectorAll("[data-tier-row-field]").forEach((select) => select.addEventListener("change", () => setPriceTierRowValue(Number(select.dataset.tierRowIndex), select.dataset.tierRowField, select.value, select.dataset.target)));
   document.querySelector("#bucketAmount")?.addEventListener("input", () => {
     saveInputs();
     updateContinueState(getActivePrefs());
@@ -1155,27 +1163,27 @@ function setMatrixValue(gait, bucketType, field, value, targetName, shouldRender
   else updateContinueState(target);
 }
 
-function toggleTierRow(tier, targetName) {
+function addPriceTierRow(targetName) {
   const target = getTarget(targetName);
-  const row = target.priceTierMatrix[tier];
-  row.enabled = !row.enabled;
-  if (!row.enabled) {
-    row.level = "";
-    row.amount = "";
-    row.gait = "";
-    row.sex = "";
-  }
+  target.priceTierMatrix.push(newPriceTierRow());
   saveDraft();
   render();
 }
 
-function setTierValue(tier, field, value, targetName, shouldRender = true) {
+function removePriceTierRow(index, targetName) {
   const target = getTarget(targetName);
-  target.priceTierMatrix[tier][field] = value;
-  if (field === "level" && value !== "other") target.priceTierMatrix[tier].amount = "";
+  target.priceTierMatrix.splice(index, 1);
   saveDraft();
-  if (shouldRender) render();
-  else updateContinueState(target);
+  render();
+}
+
+function setPriceTierRowValue(index, field, value, targetName) {
+  const target = getTarget(targetName);
+  const row = target.priceTierMatrix[index];
+  if (!row) return;
+  row[field] = value;
+  saveDraft();
+  updateContinueState(target);
 }
 
 function getActivePrefs() {
@@ -1187,6 +1195,7 @@ function updateContinueState(prefs) {
   if (!button) return;
   if (usesDetailedBuckets(prefs)) button.disabled = !bucketMatrixReady(prefs);
   else if (prefs.bucketLevel === "other") button.disabled = !prefs.bucketAmount;
+  else if (Array.isArray(prefs.priceTierMatrix)) button.disabled = !priceTierMatrixReady(prefs);
 }
 
 function defaultNext() {
@@ -1364,17 +1373,12 @@ function summarizePriceTierMatrix(response) {
   return selectedPriceTierRows(response).map((row) => {
     const gaitLabel = row.gait ? labelFor("gait", row.gait) : "any gait";
     const sexLabel = row.sex ? labelFor("sex", row.sex) : "any sex";
-    return `${labelFor("priceTiers", row.tier)}: ${gaitLabel}, ${sexLabel}, ${percent(row.amount)}`;
+    return `${labelFor("priceTiers", row.tier)}: ${gaitLabel}, ${sexLabel}`;
   }).join("; ");
 }
 
 function selectedPriceTierRows(response) {
-  return PRICE_TIERS.flatMap(([tier]) => {
-    const row = response.priceTierMatrix?.[tier];
-    if (!row?.enabled) return [];
-    const amount = row.level === "other" ? row.amount : row.level;
-    return [{ tier, gait: row.gait, sex: row.sex, amount: Number(amount || 0) }];
-  });
+  return (response.priceTierMatrix || []).filter((row) => row?.tier && row?.gait);
 }
 
 function customAnswerSummaries(response) {
