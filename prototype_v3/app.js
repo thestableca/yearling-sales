@@ -2171,10 +2171,10 @@ function renderSaleHistory() {
         <div class="as-of">Analysis run <strong>Sep 3, 2026</strong></div>
       </div>
       <div class="intro-block">
-        <p class="dek">A look back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, checked against which of them went on to become top performers. The goal: give TheStable.ca a fact-based way to decide how many horses to put in a bucket, at what price range, for the best odds, instead of relying only on gut feel. The same indicators also apply to after-sale horses offered individually in a similar price range.</p>
-        <div class="definition-card"><b>Why 2014-2023, not further back:</b> Ohio Jug has no yearling sale data before 2014, so an analysis starting earlier would silently give Lexington and Harrisburg years of extra data Ohio could never have — comparing the three sales unfairly. 2024 and 2025 are excluded for a different reason: judging whether a yearling "became a top performer" requires its 2-year-old AND 3-year-old racing seasons to be over, and those seasons haven't finished yet for horses sold that recently.</div>
-        <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that showed up on a season top-earner leaderboard as a 2- or 3-year-old, at least once, in the correct season after it was sold as a yearling (not "ever," which would risk matching a different horse that happens to share the same name years later — confirmed this happens: 1,858 horse names in this dataset are reused by an unrelated horse sold in a different year). It's a simple yes/no flag: it doesn't matter how much a top performer earned or at what age it first got there, and it says nothing about any specific 2026 yearling. It only shows how often horses at a given price went on to become one.</div>
-        <p class="currency-note">Original sale prices were recorded in USD. CAD figures on this page use the actual historical annual-average USD/CAD exchange rate for each sale's real year (Bank of Canada), not today's rate applied uniformly — a $100,000 USD horse sold in 2014 converts to a meaningfully different CAD figure than one sold in 2023, since the rate moved from about 1.10 to about 1.35 over that period. Use the CAD / USD switch above to see figures either way.</p>
+        <p class="dek">This page looks back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, and checks which of them later became a top performer. The goal: help TheStable.ca decide how many horses to put in a bucket, and at what price range, based on real past results instead of gut feel alone. The same numbers apply to after-sale horses sold individually at a similar price. Important: this shows patterns in the past. It is not a prediction about any specific 2026 yearling.</p>
+        <div class="definition-card"><b>Why 2014-2023, not further back:</b> Ohio Jug has no sale data before 2014. Starting earlier would give Lexington and Harrisburg extra years of data Ohio never had, making the three sales impossible to compare fairly. 2024 and 2025 are left out for a different reason: to count as a "top performer," a horse needs its 2-year-old and 3-year-old racing seasons to be finished — and for horses sold that recently, those seasons haven't happened yet.</div>
+        <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after it was sold. Nothing more, nothing less — it doesn't matter how much that horse earned or how old it was when it first got there. A yes/no flag, checked carefully so a horse with the same name sold in a different year is never counted by mistake (this dataset has 1,858 reused horse names, so that check matters).</div>
+        <p class="currency-note">Original sale prices were recorded in USD. CAD figures on this page use the real Bank of Canada exchange rate for each horse's actual sale year, not one rate applied everywhere — the rate moved from about 1.10 to about 1.35 between 2014 and 2023, so using a single rate would distort older years. Use the CAD / USD switch above to see figures either way.</p>
       </div>
 
       <div class="dash-panel">
@@ -2221,28 +2221,28 @@ function renderSaleHistory() {
           </div>
 
           <div class="dash-card">
-            <div class="dc-label">Best bucket shape found</div>
+            <div class="dc-label">Example: splitting one budget 3 ways</div>
             <div class="verdict-num">3 horses</div>
-            <div class="verdict-sub">A ${shMoney(194410, 150000, "full")} ${shCcyLabel()} bucket split into 3 horses around ${shMoney(64360, 50000)} each hit <b style="color:#fff">13.1%</b> odds of landing at least one top performer.</div>
+            <div class="verdict-sub">For a ${shMoney(194410, 150000, "full")} ${shCcyLabel()} budget specifically, splitting it into 3 horses around ${shMoney(64360, 50000)} each gives <b style="color:#fff">13.1%</b> odds of landing at least one top performer. This is one example, not a general rule — see the card to the right for why the best split size changes with the budget.</div>
             <div class="verdict-compare"><span>vs. 1 horse at ${shMoney(194410, 150000)}</span><b>9.0%</b></div>
           </div>
 
           <div class="dash-card">
-            <div class="dc-label">Same budget, more horses often wins</div>
+            <div class="dc-label">Splitting a budget doesn't always help the same amount</div>
             <div class="mini-bars">
               <div class="mini-bar-wrap"><div class="mini-bar-val">9.0%</div><div class="mini-bar" style="height:69%; background:#45557a"></div><div class="mini-bar-name">1 horse</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">8.9%</div><div class="mini-bar" style="height:68%; background:#45557a"></div><div class="mini-bar-name">2 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">13.1%</div><div class="mini-bar" style="height:100%; background:var(--gold)"></div><div class="mini-bar-name">3 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">9.4%</div><div class="mini-bar" style="height:72%; background:var(--gold-light)"></div><div class="mini-bar-name">4 horses</div></div>
             </div>
-            <div class="curve-foot" style="margin-top:0;">Same ${shMoney(194410, 150000)} budget, split 4 different ways. 3 horses came out ahead here, though the full breakdown below shows the best split isn't the same at every budget size — see "One horse or several: building a bucket."</div>
+            <div class="curve-foot" style="margin-top:0;">Same ${shMoney(194410, 150000)} budget, split 4 different ways, for this one example. 3 horses did best here — but as the full breakdown further down shows, the best split size is different for other budgets, so this isn't a rule to copy for every bucket. See "One horse or several: building a bucket."</div>
           </div>
 
           <div class="dash-card">
-            <div class="dc-label">Where top performers actually came from</div>
+            <div class="dc-label">Where most horses were bought (not the best odds)</div>
             <div class="verdict-num">278</div>
-            <div class="verdict-sub">The <b style="color:#fff">${shMoney(63080, 49000)}&ndash;${shMoney(181451, 140000)}</b> range (the two biggest bands combined: 165 + 113) accounts for over 4 in 10 top performers, out of 658 found across all price levels.</div>
-            <div class="verdict-compare"><span>share of all 658 top performers</span><b>42.2%</b></div>
+            <div class="verdict-sub">The <b style="color:#fff">${shMoney(63080, 49000)}&ndash;${shMoney(181451, 140000)}</b> range simply had the most horses sold in it (5,465 of them), so it also produced the most top performers in raw count. Its per-horse odds (4.6%-6.1%) are middling, not the best on this page — see the odds chart above for that.</div>
+            <div class="verdict-compare"><span>top performers found here, out of 658 total</span><b>278</b></div>
           </div>
 
         </div>
@@ -2314,7 +2314,7 @@ function renderSaleHistory() {
           <div class="matrix-grid" style="margin-top:2px; grid-template-columns: 118px repeat(6, 1fr);">
             <div class="row-hdr">Trotter colt</div>
             <div class="cell"><div class="pct">1.4%</div><div class="n">2,874</div></div>
-            <div class="cell"><div class="pct">3.9%</div><div class="n">1,849</div></div>
+            <div class="cell hi"><div class="pct">3.9%</div><div class="n">1,849</div></div>
             <div class="cell hi"><div class="pct">7.4%</div><div class="n">461</div></div>
             <div class="cell hi"><div class="pct">11.8%</div><div class="n">204</div></div>
             <div class="cell hi"><div class="pct">13.5%</div><div class="n">74</div></div>
@@ -2330,7 +2330,7 @@ function renderSaleHistory() {
 
             <div class="row-hdr">Pacer colt</div>
             <div class="cell hi"><div class="pct">1.7%</div><div class="n">2,422</div></div>
-            <div class="cell hi"><div class="pct">3.8%</div><div class="n">2,054</div></div>
+            <div class="cell"><div class="pct">3.8%</div><div class="n">2,054</div></div>
             <div class="cell"><div class="pct">7.2%</div><div class="n">512</div></div>
             <div class="cell"><div class="pct">11.6%</div><div class="n">181</div></div>
             <div class="cell"><div class="pct">7.9%</div><div class="n">38</div></div>
@@ -2391,7 +2391,7 @@ function renderSaleHistory() {
         <h2 class="section-title">One horse or several: building a bucket</h2>
         <p class="section-lead">Everything above is about one horse at one price. A bucket usually buys several horses. This section answers: for a fixed amount of money, is it better to buy one expensive horse, or split it across two, three, four, or five cheaper ones?</p>
         <div class="ref-panel">
-          <p style="font-size:13.5px; line-height:1.6; margin:0 0 18px;">To compare fairly, each horse in a split is scored using the real odds for its own price band, not an average across a wide range, and assumes each horse's outcome is independent of the others. So "2 horses at ${shMoney(78176, 60714)}" is scored using the actual ${shMoney(64360, 50000)}&ndash;${shMoney(109661, 85000)} odds, not blended with ${shMoney(365523, 280000, "k", "+")} horses.</p>
+          <p style="font-size:13.5px; line-height:1.6; margin:0 0 18px;">Each horse in a split uses the real odds for its own actual price, not an average across a wide range — a horse bought at ${shMoney(39060, 30357)} is scored with the ${shMoney(36009, 28000)}&ndash;${shMoney(64360, 50000)} odds, never blended with much pricier horses. Every horse's chance is also treated as independent of the others, the way flipping several coins is.</p>
           <div class="bucket-grid">
             <div class="bucket-card">
               <div class="ttl">${shMoney(78176, 60714, "full")} bucket</div>
@@ -2415,23 +2415,23 @@ function renderSaleHistory() {
               <div class="split-row"><div class="lbl">5 horses<span class="spend">around ${shMoney(38601, 30000)} each</span></div><div class="val">11.7%</div></div>
             </div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Splitting the money across several horses usually beat spending it all on one horse, though not in every single case tested (2 horses edged out 1 only slightly in the smallest budget here, and 2 horses actually trailed 1 slightly in the largest). There isn't one single "best number of horses" across every budget — the band boundaries a split happens to land in/near matter, not just "more is always better."</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><strong>Why doesn't this match the "${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)} has the most top performers" chart above?</strong> Those are two different questions. That chart counts total top performers found across the entire market at that price (a headcount across roughly 1,800 horses). This section asks something narrower: for one fixed budget, is it better to buy one horse or split it into several? A single ${shMoney(38601, 30000)} horse has lower odds (about 2.5%) than a single ${shMoney(129360, 100000)} horse (about 6.1%). But splitting a budget into several cheaper horses means several separate chances at a top performer instead of one, and those chances can add up faster than the odds fall per horse — though as the numbers above show, that isn't guaranteed at every split size.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Splitting the money across several horses usually beats spending it all on one, but not always — in the smallest budget here 2 horses barely edged out 1, and in the largest, 2 horses actually did slightly worse than 1. There is no single "best number of horses" that works for every budget. Which split size wins depends on exactly where the price boundaries fall for that budget.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;">This is a different question from the "most top performers" chart above that one. That chart counts total top performers across the whole market at a given price — a headcount. This section asks: for one fixed amount of money, is it better to buy one horse or split it into several? Those are not the same question, so it's normal that they point to different price ranges.</p>
         </div>
       </section>
 
       <section class="block">
         <h2 class="section-title">Where did most top performers actually come from?</h2>
-        <p class="section-lead">Every price band has a different number of horses in it, so this counts, in plain numbers, how many top performers each band actually produced.</p>
+        <p class="section-lead">This is a headcount, not an odds chart — every price band has a very different number of horses in it, so a band can produce a lot of top performers just because a lot of horses were bought there. For the per-horse odds (the number that actually matters for a buying decision), use the "Odds of becoming a top performer, by price" chart near the top of this page instead.</p>
         <div class="ref-panel">
-          <p style="font-size:13.5px; line-height:1.6; margin:0 0 14px;"><strong>Most top performers, in plain numbers, came from horses priced ${shMoney(63080, 49000)} to ${shMoney(181451, 140000)}.</strong> The ${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)} band produced the single most (113), and the cheaper ${shMoney(63080, 49000)}&ndash;${shMoney(109661, 85000)} band is right behind it at 165, and those horses cost less to buy. Combined, these two neighboring bands account for 278 of the 658 top performers on this page, 42.2%, more than 4 in 10. That's simply where a large number of horses were bought at a decent price, so it's also where a large number of top performers turned up.</p>
+          <p style="font-size:13.5px; line-height:1.6; margin:0 0 14px;"><strong>In raw headcount, most top performers came from horses priced ${shMoney(63080, 49000)} to ${shMoney(181451, 140000)}</strong> — 278 of the 658 found on this page, or 42.2%. That's not because this price range is a specially good bet: at 4.6%-6.1%, its per-horse odds are only middling (compare the 9.0%-10.9% odds in the priciest bands). It ranks first here mainly because 5,465 horses were bought in this range, more than any other band — with that many chances, even middling per-horse odds add up to the largest headcount.</p>
           <div class="band-chart">
             <div class="band-row"><div class="label">Under ${shMoney(26966, 21000)}</div><div class="band-track"><span style="width:54%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">89</div><div class="cnt">top performers here</div></div></div>
             <div class="band-row"><div class="label">${shMoney(26966, 21000)}&ndash;${shMoney(36009, 28000)}</div><div class="band-track"><span style="width:31%; background:var(--band-2)"></span></div><div class="figs"><div class="pct">51</div><div class="cnt">top performers here</div></div></div>
             <div class="band-row"><div class="label">${shMoney(36009, 28000)}&ndash;${shMoney(45049, 35000)}</div><div class="band-track"><span style="width:25%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">42</div><div class="cnt">top performers here</div></div></div>
             <div class="band-row"><div class="label">${shMoney(45049, 35000)}&ndash;${shMoney(54038, 42000)}</div><div class="band-track"><span style="width:28%; background:var(--band-3)"></span></div><div class="figs"><div class="pct">46</div><div class="cnt">top performers here</div></div></div>
             <div class="band-row"><div class="label">${shMoney(54038, 42000)}&ndash;${shMoney(63080, 49000)}</div><div class="band-track"><span style="width:19%; background:var(--band-4)"></span></div><div class="figs"><div class="pct">32</div><div class="cnt">top performers here</div></div></div>
-            <div class="band-row"><div class="label">${shMoney(63080, 49000)}&ndash;${shMoney(109661, 85000)}<span style="display:block;font-size:10.5px;font-weight:500;color:var(--muted)">most top performers</span></div><div class="band-track"><span style="width:100%; background:var(--gold)"></span></div><div class="figs"><div class="pct">165</div><div class="cnt">top performers here</div></div></div>
+            <div class="band-row"><div class="label">${shMoney(63080, 49000)}&ndash;${shMoney(109661, 85000)}<span style="display:block;font-size:10.5px;font-weight:500;color:var(--muted)">highest headcount, not highest odds</span></div><div class="band-track"><span style="width:100%; background:var(--gold)"></span></div><div class="figs"><div class="pct">165</div><div class="cnt">top performers here</div></div></div>
             <div class="band-row"><div class="label">${shMoney(109661, 85000)}&ndash;${shMoney(181451, 140000)}</div><div class="band-track"><span style="width:68%; background:var(--gold)"></span></div><div class="figs"><div class="pct">113</div><div class="cnt">top performers here</div></div></div>
             <div class="band-row"><div class="label">${shMoney(181451, 140000)}&ndash;${shMoney(273252, 210000)}</div><div class="band-track"><span style="width:42%; background:var(--band-6)"></span></div><div class="figs"><div class="pct">69</div><div class="cnt">top performers here</div></div></div>
             <div class="band-row"><div class="label">${shMoney(273252, 210000, "k", "+")}</div><div class="band-track"><span style="width:31%; background:var(--band-7)"></span></div><div class="figs"><div class="pct">51</div><div class="cnt">top performers here</div></div></div>
@@ -2468,7 +2468,7 @@ function renderSaleHistory() {
       </section>
 
       <div class="footer-note">
-This looks at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023 (Ohio Jug has no yearling sale data before 2014, so all three sales use this same, fair period — an earlier version of this page ran Lexington/Harrisburg back to 2008, silently giving them years of data Ohio could never have). 2024 and 2025 sales are excluded because judging "did it become a top performer" needs that horse's 2- and 3-year-old seasons to be over, which hasn't happened yet for horses sold that recently. "Top performer" means the horse appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after its sale (not "ever" — 1,858 horse names in this dataset are reused by an unrelated horse sold in a different year, so an unscoped match would have counted some wrong horses). This is a backward-looking pattern in past results, not a prediction about any specific 2026 yearling. It only shows how often horses in a given price range have become top performers, nothing more. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${saleHistoryFxNote()}. CAD figures use each sale's actual historical annual exchange rate (Bank of Canada), not one rate applied to every year.
+Covers Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug, 2014-2023, using the same rules explained at the top of this page. This is a pattern in past results — it is not a prediction about any specific 2026 yearling. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${saleHistoryFxNote()}.
       </div>
     </div>
     </div>`;
