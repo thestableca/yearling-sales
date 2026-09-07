@@ -1845,7 +1845,7 @@ const CORE_QUESTION_DASHBOARD_IMPACT = {
   participation: "the \"Suggested buckets to offer\" panel and the pre-sale/after-sale split",
   gait: "the \"Trotter vs. Pacer\" panel and the Gait column in Owner detail",
   sex: "the \"Colt / Filly\" panel and the Colt/Filly column in Owner detail",
-  priceTierMatrix: "the \"Price tier mix\" panel, \"Suggested buckets to offer\", and estimated capital figures",
+  priceTierMatrix: "the \"Price tier mix\" panel and \"Suggested buckets to offer\"",
   specificHorseCount: "the \"After-sale individual shares\" panel",
   specificShareSize: "the \"Share size\" and \"After-sale individual shares\" panels",
   eligibility: "the \"Requested jurisdictions\" panel",
@@ -2551,8 +2551,8 @@ function buildPreviewMetricsHistory(todayMetrics) {
       date: dt.toISOString().slice(0, 10),
       bucketOwnerCount: Math.round(todayMetrics.bucketOwnerCount * rampUp),
       afterSaleOwnerCount: Math.round(todayMetrics.afterSaleOwnerCount * rampUp),
-      avgInvestment: Math.round(todayMetrics.avgInvestment * (0.85 + 0.15 * rampUp)),
-      requestedCoveragePct: Math.round(todayMetrics.requestedCoveragePct * rampUp),
+      distinctPreferenceCount: Math.round(todayMetrics.distinctPreferenceCount * rampUp),
+      multiPreferenceOwnerCount: Math.round(todayMetrics.multiPreferenceOwnerCount * rampUp),
     });
   }
   history[history.length - 1] = { date: history[history.length - 1].date, ...todayMetrics };
@@ -2834,12 +2834,8 @@ function buildPreviewDataset() {
     // (participation "both"), so that panel has real preview data too —
     // matches how a real owner can want both a bucket and after-sale shares.
     const alsoAfterSale = i % 4 === 0;
-    const levels = ["1", "2", "5", "10"];
     const tiers = tierPool[i % tierPool.length];
-    const priceTierMatrix = blankPriceTierMatrix();
-    tiers.forEach((tier, idx) => {
-      priceTierMatrix[tier] = { enabled: true, level: levels[(i + idx) % levels.length], amount: "", gait, sex: sexes[i % sexes.length] };
-    });
+    const priceTierMatrix = tiers.map((tier, idx) => ({ tier, gait: idx % 2 === 0 ? gait : gaits[(i + idx) % gaits.length], sex: sexes[i % sexes.length] }));
     responses.push({
       id: "preview_" + i,
       ownerId: null,
@@ -2943,31 +2939,30 @@ function renderAdmin() {
   const preview = previewMode ? buildPreviewDataset() : null;
   const responses = preview ? preview.responses : getResponses();
   const rows = flattenResponses(responses);
-  const bucketRows = rows.filter((row) => hasBucket(row) && row.amount);
+  // Round 1 rows carry no percentage (see flattenResponses()'s comment),
+  // so "has a bucket preference" is just hasBucket() + an actual price
+  // tier chosen, not row.amount.
+  const bucketRows = rows.filter((row) => hasBucket(row) && row.priceTier);
   const afterSaleRows = buildAfterSaleRows(responses);
   const ownerCount = new Set(responses.map((item) => item.email)).size;
   const bucketOwnerCount = new Set(bucketRows.map((row) => row.email)).size;
   const afterSaleOwnerCount = new Set(afterSaleRows.map((row) => row.email)).size;
-  const totalPercent = bucketRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const saleDemand = groupDemand(bucketRows, (row) => row.saleLabel);
-  // Same estimated-capital math as the hero figure, but broken out per
-  // sale — only computed when at least one bucket type has a price set.
-  const saleCapital = new Map();
-  bucketRows.forEach((row) => {
-    const price = bucketPriceFor(row.bucketTypes[0], preview ? preview.prices : null);
-    if (price == null) return;
-    const current = saleCapital.get(row.saleLabel) || 0;
-    saleCapital.set(row.saleLabel, current + (Number(row.amount || 0) / 100) * price);
-  });
   const bucketDemand = groupDemand(bucketRows, (row) => labelFor("priceTiers", row.bucketTypes[0]));
   const gaitDemand = groupDemand(bucketRows, (row) => labelFor("gait", row.gait));
   const sexDemand = groupDemand(bucketRows, (row) => labelFor("sex", row.sex));
-  const shareSizeDemand = groupDemand(bucketRows, bucketShareBand);
   const eligibilityDemand = groupMultiDemand(bucketRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
   const afterSaleEligibility = groupMultiDemand(afterSaleRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
-  const previewPrices = preview ? preview.prices : null;
-  const suggestions = buildBucketSuggestions(bucketRows, previewPrices);
+  const suggestions = buildBucketSuggestions(bucketRows);
   const confirmedBuckets = preview ? preview.confirmedBuckets : getConfirmedBuckets("default");
+  // How spread-out demand is: every distinct (sale, price tier, gait, sex)
+  // combination anyone picked, and how many bucket-interested owners
+  // listed more than one — both surface versplintering (Robert's term)
+  // without needing a percentage to measure it by.
+  const distinctPreferenceCount = new Set(bucketRows.map((row) => [row.sale, row.priceTier, row.gait, row.sex].join("|"))).size;
+  const preferenceCountByOwner = new Map();
+  bucketRows.forEach((row) => preferenceCountByOwner.set(row.email, (preferenceCountByOwner.get(row.email) || 0) + 1));
+  const multiPreferenceOwnerCount = [...preferenceCountByOwner.values()].filter((count) => count > 1).length;
 
   const asOf = new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   const ownerRoster = preview ? preview.roster : getOwnerRoster();
@@ -2979,22 +2974,13 @@ function renderAdmin() {
   // from response data alone).
   const responseRatePct = invitedCount ? Math.round((ownerCount / invitedCount) * 100) : null;
   const bucketInterestPct = ownerCount ? Math.round((bucketOwnerCount / ownerCount) * 100) : 0;
-  // Estimated dollar figure: each row's requested share (%) times that
-  // row's bucket-type price, summed. Rows whose bucket type has no price
-  // set yet in the Questions Builder are excluded from the dollar total
-  // (their share % still counts toward totalPercent above).
-  const pricedRows = bucketRows.filter((row) => bucketPriceFor(row.bucketTypes[0], previewPrices) != null);
-  const estimatedCapital = pricedRows.reduce((sum, row) => sum + (Number(row.amount || 0) / 100) * bucketPriceFor(row.bucketTypes[0], previewPrices), 0);
-  const hasCapitalEstimate = pricedRows.length > 0;
-  const requestedCoveragePct = Math.round(totalPercent);
-  const avgInvestment = hasCapitalEstimate && bucketOwnerCount ? Math.round(estimatedCapital / bucketOwnerCount) : null;
 
   // Preview mode never writes a snapshot — otherwise fictional demo numbers
   // would pollute the real trend history shown once preview is turned off.
   // It fabricates its own flat 14-day history instead, purely for display.
   const metricsHistory = preview
-    ? buildPreviewMetricsHistory({ bucketOwnerCount, afterSaleOwnerCount, avgInvestment: avgInvestment ?? 0, requestedCoveragePct })
-    : recordMetricsSnapshot({ bucketOwnerCount, afterSaleOwnerCount, avgInvestment: avgInvestment ?? 0, requestedCoveragePct });
+    ? buildPreviewMetricsHistory({ bucketOwnerCount, afterSaleOwnerCount, distinctPreferenceCount, multiPreferenceOwnerCount })
+    : recordMetricsSnapshot({ bucketOwnerCount, afterSaleOwnerCount, distinctPreferenceCount, multiPreferenceOwnerCount });
   const trendRow = (key, current, trendSuffix = " vs. 14 days ago") => {
     const trend = trendFor(metricsHistory, key, current);
     if (!trend || trend.pctLabel == null) return "";
@@ -3010,10 +2996,6 @@ function renderAdmin() {
       ${preview ? `<div class="preview-banner">Previewing with fictional demo data — no real responses were touched. <button type="button" id="previewOff">Show my real data</button></div>` : ""}
 
       ${adminMasthead("Response Dashboard", `
-          ${hasCapitalEstimate ? `<div class="currency-toggle" role="group" aria-label="Currency">
-            <button class="ccy-btn active" data-ccy="cad" type="button">CAD $</button>
-            <button class="ccy-btn" data-ccy="usd" type="button">USD $</button>
-          </div>` : ""}
           <div class="as-of light">Responses as of <strong>${asOf}</strong></div>
           <button class="export-btn" type="button" id="exportCsv">Export CSV</button>`)}
 
@@ -3021,9 +3003,9 @@ function renderAdmin() {
       <div class="verdict">
         <div class="verdict-top">
           <div>
-            <div class="eyebrow"><span class="dot"></span> ${hasCapitalEstimate ? "Indicative capital, all sales" : "Requested bucket share, all sales"}</div>
-            <div class="verdict-figure">${!bucketRows.length ? "No data" : hasCapitalEstimate ? `<span class="money" data-cad="${estimatedCapital}" data-style="full">${money(estimatedCapital)}</span><sup class="ccy-label">CAD</sup> <span class="verdict-figure-sub">(${percent(totalPercent)} requested share)</span>` : percent(totalPercent)}</div>
-            <div class="verdict-label">${bucketRows.length ? `Total requested bucket interest across ${saleDemand.length} sale${saleDemand.length === 1 ? "" : "s"} currently in the intake. Non-binding, for planning only.${hasCapitalEstimate ? "" : " Set bucket prices in Questions Builder to also see a dollar figure here."}` : "No pre-sale bucket responses yet. This figure will fill in as owners submit the intake."}</div>
+            <div class="eyebrow"><span class="dot"></span> Pre-sale bucket interest, all sales</div>
+            <div class="verdict-figure">${!bucketRows.length ? "No data" : `${bucketOwnerCount} owner${bucketOwnerCount === 1 ? "" : "s"}`}</div>
+            <div class="verdict-label">${bucketRows.length ? `Distinct owners who expressed a pre-sale bucket preference across ${saleDemand.length} sale${saleDemand.length === 1 ? "" : "s"} currently in the intake. This is interest, not a percentage share — TheStable follows up separately once a bucket is finalized to ask each interested owner how much they'd like to invest.` : "No pre-sale bucket responses yet. This figure will fill in as owners submit the intake."}</div>
           </div>
           <div class="response-ring">
             <div class="ring" style="--pct:${responseRatePct ?? 0}">${responseRatePct == null ? `<div class="ring-empty">${ownerCount ? ownerCount : "No data"}</div>` : `<div>${responseRatePct}%</div>`}</div>
@@ -3060,14 +3042,14 @@ function renderAdmin() {
             ${trendBars("afterSaleOwnerCount", afterSaleOwnerCount, (v) => `${Math.round(v)}`)}
           </div>
           <div class="vs-item">
-            <div class="vs-label">Avg. investment / owner</div>
-            <div class="vs-row"><span class="vs-value">${avgInvestment != null ? money(avgInvestment) : "No data"}</span>${avgInvestment != null ? trendRow("avgInvestment", avgInvestment) : ""}</div>
-            ${avgInvestment != null ? trendBars("avgInvestment", avgInvestment, (v) => money(v)) : `<div class="vs-bars-empty">Set bucket prices in Questions Builder to see this.</div>`}
+            <div class="vs-label">Distinct preferences</div>
+            <div class="vs-row"><span class="vs-value">${distinctPreferenceCount}</span></div>
+            <div class="vs-bars-empty">Different price tier / gait / sex combinations chosen so far — a high number relative to owner count may mean demand is spread thin.</div>
           </div>
           <div class="vs-item">
-            <div class="vs-label">Requested bucket coverage</div>
-            <div class="vs-row"><span class="vs-value">${requestedCoveragePct}%</span>${trendRow("requestedCoveragePct", requestedCoveragePct)}</div>
-            ${trendBars("requestedCoveragePct", requestedCoveragePct, (v) => `${Math.round(v)}%`)}
+            <div class="vs-label">Owners with 2+ preferences</div>
+            <div class="vs-row"><span class="vs-value">${multiPreferenceOwnerCount}</span></div>
+            <div class="vs-bars-empty">How many bucket-interested owners listed more than one combination.</div>
           </div>
         </div>
       </div>
@@ -3100,7 +3082,7 @@ function renderAdmin() {
             <h2>Where the demand is, by price tier</h2>
             <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit — owners pick a price tier (budget/mid/premium) per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Use it when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
           </div>
-          <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked by how much of a sale's owners have expressed interest, how many owners that represents, and whether the top requested share size fits the sale's jurisdiction rules. It can only break down demand within the price tiers owners were asked about — it can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
+          <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked by how many distinct owners want each exact combination. It can only break down demand within the price tiers owners were asked about — it can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
         </div>
         <div class="panel-body" style="padding-top: 4px;">
           ${suggestions.length ? suggestions.map((row) => `
@@ -3110,10 +3092,7 @@ function renderAdmin() {
               <div class="sugg-title">${escapeHtml(row.saleLabel)} &middot; ${escapeHtml(labelFor("priceTiers", row.bucketType))} &middot; ${escapeHtml(labelFor("gait", row.gait))} &middot; ${escapeHtml(labelFor("sex", row.sex))}</div>
               <div class="sugg-sub">${row.eligibility.length ? row.eligibility.map((item) => escapeHtml(item.label)).join(", ") : "No jurisdiction preference captured"}</div>
             </div>
-            <div class="stat-block"><div class="num">${percent(row.total)}</div><div class="lbl">requested share</div></div>
             <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
-            <div class="stat-block"><div class="num">${row.shareSizes.length ? escapeHtml(row.shareSizes[0].label) : "No data"}${row.topShareDollarBand ? ` <span class="stat-sub">(~${escapeHtml(row.topShareDollarBand)})</span>` : ""}</div><div class="lbl">top share size</div></div>
-            <div class="fill-meter"><div class="bar"><span style="width:${Math.max(4, Math.min(100, row.total))}%"></span></div><div class="pct">${row.fillSignal}</div></div>
           </div>`).join("") : `<p class="quiet" style="padding:6px 4px;">No demand data yet. This fills in once owners submit pre-sale bucket responses.</p>`}
         </div>
       </div>
@@ -3123,16 +3102,16 @@ function renderAdmin() {
         <div class="ref-panel">
           <div class="panel-head">
             <h2>Interest by sale</h2>
-            <span class="ref-info-dot" tabindex="0">i<span class="tip">Total requested bucket share and number of owners who expressed interest, per sale, based on pre-sale bucket responses collected so far.</span></span>
+            <span class="ref-info-dot" tabindex="0">i<span class="tip">Number of distinct owners who expressed a pre-sale bucket preference, per sale, based on pre-sale bucket responses collected so far.</span></span>
           </div>
           <div class="panel-body">
-            ${refBarList(saleDemand, saleCapital)}
+            ${refBarList(saleDemand)}
           </div>
         </div>
         <div class="ref-panel">
           <div class="panel-head">
             <h2>Price tier mix</h2>
-            <span class="ref-info-dot" tabindex="0">i<span class="tip">Share of total requested percentage that falls into each price tier (Budget, Mid-range, Premium), based on what owners selected in their response.</span></span>
+            <span class="ref-info-dot" tabindex="0">i<span class="tip">Share of owner preferences that fall into each price tier (Budget, Mid-range, Premium). An owner who picked more than one tier counts once per tier they picked.</span></span>
           </div>
           <div class="panel-body">
             ${refDonut(bucketDemand)}
@@ -3140,8 +3119,8 @@ function renderAdmin() {
         </div>
       </div>
 
-      <!-- ROW: gait / sex / share size -->
-      <div class="grid-3">
+      <!-- ROW: gait / sex -->
+      <div class="grid-2">
         <div class="ref-panel">
           <div class="panel-head"><h2>Trotter vs. Pacer</h2></div>
           <div class="panel-body">${refBarList(gaitDemand)}</div>
@@ -3149,10 +3128,6 @@ function renderAdmin() {
         <div class="ref-panel">
           <div class="panel-head"><h2>Colt / Filly</h2></div>
           <div class="panel-body">${refBarList(sexDemand)}</div>
-        </div>
-        <div class="ref-panel">
-          <div class="panel-head"><h2>Share size</h2></div>
-          <div class="panel-body">${refBarList(shareSizeDemand)}</div>
         </div>
       </div>
 
@@ -3206,12 +3181,15 @@ function suggIcon(status) {
   return `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 100 14 7 7 0 000-14zm.75 3.5v3.9l3.3 2-0.75 1.2-4.05-2.4V6.5z"/></svg>`;
 }
 
+// Round 1 has no percentage to size a bar/slice by, so owner count is the
+// measure — see groupDemand()'s comment. dollarByLabel (per-sale capital)
+// stays supported for whenever Round 2 brings real prices back.
 function refBarList(items, dollarByLabel = null) {
-  const max = Math.max(1, ...items.map((item) => item.total));
+  const max = Math.max(1, ...items.map((item) => item.ownerCount));
   return `<div class="bar-list">
     ${items.length ? items.map((item) => {
       const dollar = dollarByLabel?.get(item.label);
-      return `<div class="bar-row"><div class="meta"><span class="name">${escapeHtml(item.label)}</span><span class="amt">${percent(item.total)}${dollar ? ` (${money(dollar)})` : ""} &middot; ${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}</span></div><div class="bar-track"><span style="width:${Math.max(4, (item.total / max) * 100)}%"></span></div></div>`;
+      return `<div class="bar-row"><div class="meta"><span class="name">${escapeHtml(item.label)}</span><span class="amt">${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}${dollar ? ` &middot; ${money(dollar)}` : ""}</span></div><div class="bar-track"><span style="width:${Math.max(4, (item.ownerCount / max) * 100)}%"></span></div></div>`;
     }).join("") : `<p class="quiet">No bucket data yet.</p>`}
   </div>`;
 }
@@ -3221,13 +3199,13 @@ function miniChipRow(items) {
 }
 
 function refDonut(items) {
-  const total = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
-  if (!total || !items.length) {
+  const totalOwners = items.reduce((sum, item) => sum + item.ownerCount, 0);
+  if (!totalOwners || !items.length) {
     return `<p class="quiet">No bucket data yet.</p>`;
   }
   let startAngle = 0;
   const paths = items.slice(0, 6).map((item, index) => {
-    const fraction = Number(item.total || 0) / total;
+    const fraction = item.ownerCount / totalOwners;
     const endAngle = startAngle + fraction * 360;
     const path = donutArcPath(startAngle, endAngle);
     const color = CHART_COLORS[index % CHART_COLORS.length];
@@ -3237,7 +3215,7 @@ function refDonut(items) {
   return `<div class="donut-row">
     <svg class="donut-svg" viewBox="0 0 120 120" width="116" height="116">${paths}</svg>
     <div class="legend">
-      ${items.slice(0, 6).map((item, index) => `<div class="leg-row"><span class="sw" style="background:${CHART_COLORS[index % CHART_COLORS.length]}"></span><span class="name">${escapeHtml(item.label)}</span><span class="pct">${percent(Math.round((Number(item.total || 0) / total) * 1000) / 10)}</span><span class="amt">${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}</span></div>`).join("")}
+      ${items.slice(0, 6).map((item, index) => `<div class="leg-row"><span class="sw" style="background:${CHART_COLORS[index % CHART_COLORS.length]}"></span><span class="name">${escapeHtml(item.label)}</span><span class="pct">${percent(Math.round((item.ownerCount / totalOwners) * 1000) / 10)}</span><span class="amt">${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}</span></div>`).join("")}
     </div>
   </div>`;
 }
@@ -3317,29 +3295,25 @@ function refOwnerTableRows(rows) {
   const customColumns = customTableColumns();
   const filtered = rows.filter((row) => {
     if (ownerTableFilters.sale && row.sale !== ownerTableFilters.sale) return false;
-    if (ownerTableFilters.type && !row.bucketTypes.some((item) => labelFor("bucketTypes", item) === ownerTableFilters.type)) return false;
+    if (ownerTableFilters.type && !row.bucketTypes.some((item) => labelFor("priceTiers", item) === ownerTableFilters.type)) return false;
     if (ownerTableFilters.gait && labelFor("gait", row.gait) !== ownerTableFilters.gait) return false;
     if (ownerTableFilters.sex && sexSummary(row) !== ownerTableFilters.sex) return false;
     if (search && !row.name.toLowerCase().includes(search) && !row.email.toLowerCase().includes(search)) return false;
     return true;
   });
-  if (ownerTableFilters.pctSort) {
-    filtered.sort((a, b) => (ownerTableFilters.pctSort === "asc" ? a.amount - b.amount : b.amount - a.amount));
-  }
   const saleOptions = [...new Map(rows.map((row) => [row.sale, row.saleLabel])).entries()];
-  const typeOptions = [...new Set(rows.flatMap((row) => row.bucketTypes.map((item) => labelFor("bucketTypes", item))))].filter(Boolean);
+  const typeOptions = [...new Set(rows.flatMap((row) => row.bucketTypes.map((item) => labelFor("priceTiers", item))))].filter(Boolean);
   const gaitOptions = [...new Set(rows.map((row) => labelFor("gait", row.gait)))].filter(Boolean);
   const sexOptions = [...new Set(rows.map((row) => sexSummary(row)))].filter(Boolean);
   return `<div style="overflow-x:auto;"><table><thead><tr>
       <th>Owner<input class="col-filter" id="ownerSearch" type="search" placeholder="Search name or email" value="${escapeHtml(ownerTableFilters.search)}"></th>
       <th>Sale<select class="col-filter" id="ownerSaleFilter"><option value="">All sales</option>${saleOptions.map(([id, label]) => `<option value="${id}" ${ownerTableFilters.sale === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></th>
-      <th>Bucket %<select class="col-filter" id="ownerPctSort"><option value="">Unsorted</option><option value="asc" ${ownerTableFilters.pctSort === "asc" ? "selected" : ""}>Low to high</option><option value="desc" ${ownerTableFilters.pctSort === "desc" ? "selected" : ""}>High to low</option></select></th>
-      <th>Type<select class="col-filter" id="ownerTypeFilter"><option value="">All types</option>${typeOptions.map((t) => `<option value="${escapeHtml(t)}" ${ownerTableFilters.type === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select></th>
+      <th>Price tier<select class="col-filter" id="ownerTypeFilter"><option value="">All tiers</option>${typeOptions.map((t) => `<option value="${escapeHtml(t)}" ${ownerTableFilters.type === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select></th>
       <th>Gait<select class="col-filter" id="ownerGaitFilter"><option value="">All gaits</option>${gaitOptions.map((g) => `<option value="${escapeHtml(g)}" ${ownerTableFilters.gait === g ? "selected" : ""}>${escapeHtml(g)}</option>`).join("")}</select></th>
       <th>Colt / Filly<select class="col-filter" id="ownerSexFilter"><option value="">All</option>${sexOptions.map((s) => `<option value="${escapeHtml(s)}" ${ownerTableFilters.sex === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select></th>
       ${customColumns.map((block) => `<th>${escapeHtml(block.label)}</th>`).join("")}
     </tr></thead><tbody>
-      ${filtered.length ? filtered.map((row) => `<tr><td><div class="owner-name">${escapeHtml(row.name)}</div><div class="owner-email">${escapeHtml(row.email)}</div></td><td>${escapeHtml(row.saleLabel)}</td><td class="pct-cell">${row.amount ? percent(row.amount) : ""}</td><td>${row.bucketTypes.map((item) => escapeHtml(labelFor("bucketTypes", item))).join(", ")}</td><td>${escapeHtml(labelFor("gait", row.gait))}</td><td>${escapeHtml(sexSummary(row))}</td>${customColumns.map((block) => `<td>${escapeHtml(customColumnValue(row, block))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${6 + customColumns.length}">${rows.length ? "No owners match your filters." : "No owner data yet."}</td></tr>`}
+      ${filtered.length ? filtered.map((row) => `<tr><td><div class="owner-name">${escapeHtml(row.name)}</div><div class="owner-email">${escapeHtml(row.email)}</div></td><td>${escapeHtml(row.saleLabel)}</td><td>${row.bucketTypes.map((item) => escapeHtml(labelFor("priceTiers", item))).join(", ")}</td><td>${escapeHtml(labelFor("gait", row.gait))}</td><td>${escapeHtml(sexSummary(row))}</td>${customColumns.map((block) => `<td>${escapeHtml(customColumnValue(row, block))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${5 + customColumns.length}">${rows.length ? "No owners match your filters." : "No owner data yet."}</td></tr>`}
     </tbody></table></div>
     <div class="foot-note">Showing ${filtered.length} of ${rows.length} owner row${rows.length === 1 ? "" : "s"}. Use the filters above to refine.</div>`;
 }
@@ -3411,6 +3385,11 @@ function shareBandDollarLabel(bandLabel, bucketPrice) {
   return lo === hi ? loAmt : `${loAmt} – ${hiAmt}`;
 }
 
+// Round 1 rows carry no percentage (see flattenResponses()'s comment), so
+// demand is measured by how many distinct owners picked a combination,
+// not by summing a share. `total` is kept (defaulting to 0) rather than
+// removed, so a future Round 2 that does carry a real percentage can
+// reuse these same grouping functions without another rewrite.
 function groupDemand(rows, keyFn) {
   const groups = new Map();
   rows.forEach((row) => {
@@ -3440,25 +3419,24 @@ function groupMultiDemand(rows, valuesFn) {
 }
 
 function sortDemand(a, b) {
-  if (b.total !== a.total) return b.total - a.total;
+  if (b.ownerCount !== a.ownerCount) return b.ownerCount - a.ownerCount;
   return b.count - a.count;
 }
 
-function buildBucketSuggestions(rows, previewPrices = null) {
+// Round 1 has no percentage to size a suggestion by (see groupDemand()'s
+// comment), so "Offer"/"Shortlist"/"Watch" and the ranking score are
+// based on ownerCount — how many distinct owners want this exact
+// combination — instead of a summed share.
+function buildBucketSuggestions(rows) {
   return buildPlanningRows(rows).map((row) => {
     const relatedRows = rows.filter((item) => item.sale === row.sale && item.bucketTypes[0] === row.bucketType && item.gait === row.gait && item.sex === row.sex);
     const eligibility = groupMultiDemand(relatedRows, (item) => item.eligibility.map((id) => labelFor("eligibility", id))).slice(0, 3);
-    const shareSizes = groupDemand(relatedRows, bucketShareBand).slice(0, 2);
-    const bucketPrice = bucketPriceFor(row.bucketType, previewPrices);
-    const topShareDollarBand = shareSizes.length ? shareBandDollarLabel(shareSizes[0].label, bucketPrice) : null;
-    const score = row.total + row.ownerCount * 8;
-    const status = row.total >= 80 || (row.total >= 45 && row.ownerCount >= 3) ? "Offer" : row.total >= 30 || row.ownerCount >= 2 ? "Shortlist" : "Watch";
-    const fillSignal = `${(row.total / 100).toFixed(1)}×`;
-    return { ...row, eligibility, shareSizes, topShareDollarBand, score, status, fillSignal };
+    const status = row.ownerCount >= 5 ? "Offer" : row.ownerCount >= 2 ? "Shortlist" : "Watch";
+    return { ...row, eligibility, score: row.ownerCount, status };
   }).sort((a, b) => b.score - a.score);
 }
 
-const ownerTableFilters = { search: "", sale: "", type: "", gait: "", sex: "", pctSort: "" };
+const ownerTableFilters = { search: "", sale: "", type: "", gait: "", sex: "" };
 
 function bindOwnerTableFilters(rows) {
   const rerender = () => {
@@ -3475,7 +3453,6 @@ function bindOwnerTableFilters(rows) {
   };
   bind("ownerSearch", "search");
   bind("ownerSaleFilter", "sale", "change");
-  bind("ownerPctSort", "pctSort", "change");
   bind("ownerTypeFilter", "type", "change");
   bind("ownerGaitFilter", "gait", "change");
   bind("ownerSexFilter", "sex", "change");
@@ -3509,25 +3486,24 @@ function buildPlanningRows(rows) {
       bucketType,
       gait: row.gait,
       sex: row.sex,
-      total: 0,
       owners: new Set(),
-      maxCounts: {},
       names: [],
     };
-    item.total += Number(row.amount || 0);
     item.owners.add(row.email);
-    item.maxCounts[row.maxYearlings || "no_preference"] = (item.maxCounts[row.maxYearlings || "no_preference"] || 0) + 1;
     item.names.push(row.name);
     groups.set(key, item);
   });
   return [...groups.values()].map((item) => ({
     ...item,
     ownerCount: item.owners.size,
-    average: item.total / Math.max(1, item.owners.size),
-    maxPreference: Object.entries(item.maxCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "no_preference",
-  })).sort((a, b) => b.total - a.total);
+  })).sort((a, b) => b.ownerCount - a.ownerCount);
 }
 
+// Round 1 asks which price-tier/gait/sex combinations interest an owner,
+// not a percentage (see blankPriceTierMatrix()'s comment for why — a
+// share only means something once a real bucket, with a real horse
+// count, exists). So each flattened row here has no amount; Dashboard
+// panels count OWNERS per combination instead of summing a percentage.
 function flattenResponses(responses) {
   return responses.flatMap((response) => response.selectedSales.flatMap((saleId) => {
     const saleResponse = response.saleResponses[saleId] || {};
@@ -3538,7 +3514,6 @@ function flattenResponses(responses) {
         sale: saleId,
         saleLabel: saleById(saleId)?.label || saleId,
         eligibility: response.eligibilityPreferences || [],
-        amount: tierRow.amount,
         priceTier: tierRow.tier,
         bucketTypes: [tierRow.tier],
         gait: tierRow.gait,
@@ -3548,8 +3523,7 @@ function flattenResponses(responses) {
       }));
     }
 
-    const amount = 0;
-    return { name: response.name, email: response.email, sale: saleId, saleLabel: saleById(saleId)?.label || saleId, eligibility: response.eligibilityPreferences || [], amount, ...saleResponse, _rawResponse: saleResponse };
+    return { name: response.name, email: response.email, sale: saleId, saleLabel: saleById(saleId)?.label || saleId, eligibility: response.eligibilityPreferences || [], ...saleResponse, _rawResponse: saleResponse };
   }));
 }
 
@@ -3565,13 +3539,12 @@ function exportCsv(rows) {
   const customBlocks = currentQuestionSet().blocks.filter(
     (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
   );
-  const header = ["name", "email", "sale", "participation", "bucket_percent", "price_tier", "gait", "sex", "eligibility", ...customBlocks.map((b) => b.label)];
+  const header = ["name", "email", "sale", "participation", "price_tier", "gait", "sex", "eligibility", ...customBlocks.map((b) => b.label)];
   const csv = [header.join(","), ...rows.map((row) => [
     row.name,
     row.email,
     row.saleLabel,
     labelFor("participation", row.participation),
-    row.amount,
     (row.bucketTypes || []).map((item) => labelFor("priceTiers", item)).join("; "),
     labelFor("gait", row.gait),
     labelFor("sex", row.sex),
