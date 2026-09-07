@@ -190,17 +190,6 @@ async function persistSubmission(response) {
   if (upsertError) return { ok: false, message: upsertError.message };
   const submissionId = upserted.id;
 
-  // Clear old per-sale responses before re-inserting current ones, so a
-  // resubmission that drops a previously-selected sale doesn't leave a
-  // stale row behind. Note: this delete-then-insert is not atomic — if
-  // the insert below fails after this succeeds, the owner's prior
-  // responses are gone. Acceptable here because submitResponse() in
-  // app.js surfaces any failure to the owner with a "please try again"
-  // message rather than silently declaring success, so a failed
-  // resubmission is visible and re-submittable, not silently lost.
-  const { error: deleteError } = await supabaseAsOwner().from("responses").delete().eq("submission_id", submissionId);
-  if (deleteError) return { ok: false, message: deleteError.message };
-
   const skippedSales = [];
   const responseRows = Object.entries(response.saleResponses || {})
     .map(([saleId, prefs]) => {
@@ -224,10 +213,36 @@ async function persistSubmission(response) {
     })
     .filter(Boolean);
 
+  // Upsert each sale's response row on (submission_id, sale_year_id)
+  // instead of the previous delete-then-insert. Found via concurrency
+  // testing: two tabs/requests racing this submission (e.g. an owner with
+  // two tabs open, or a slow network causing a retried submit) could
+  // interleave their delete and insert calls — one tab's delete running
+  // between the other's delete and insert — and one side's insert would
+  // then violate idx_responses_submission_saleyear_unique, surfacing a
+  // "please try again" error to an owner whose submission had actually
+  // already been saved by the other request. An upsert on that same
+  // unique key is atomic per row at the database level, so concurrent
+  // writes to the same sale just overwrite each other cleanly instead of
+  // racing a separate delete step.
   if (responseRows.length) {
-    const { error: responsesError } = await supabaseAsOwner().from("responses").insert(responseRows);
+    const { error: responsesError } = await supabaseAsOwner()
+      .from("responses")
+      .upsert(responseRows, { onConflict: "submission_id,sale_year_id" });
     if (responsesError) return { ok: false, message: responsesError.message };
   }
+
+  // Then remove any sale_year this submission no longer includes (the
+  // owner deselected a previously-chosen sale on resubmission) — scoped to
+  // exactly the sale_years NOT in this submission, so it can't delete rows
+  // the upsert above just wrote, regardless of call ordering.
+  const keepSaleYearIds = responseRows.map((row) => row.sale_year_id);
+  let removeStaleQuery = supabaseAsOwner().from("responses").delete().eq("submission_id", submissionId);
+  removeStaleQuery = keepSaleYearIds.length
+    ? removeStaleQuery.not("sale_year_id", "in", `(${keepSaleYearIds.join(",")})`)
+    : removeStaleQuery;
+  const { error: deleteError } = await removeStaleQuery;
+  if (deleteError) return { ok: false, message: deleteError.message };
 
   if (skippedSales.length) {
     console.error("persistSubmission: these selected sales had no active sale_year and were not saved:", skippedSales);
