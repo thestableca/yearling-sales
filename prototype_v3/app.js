@@ -268,7 +268,7 @@ let previewMode = false;
 // so picking USD on one and switching tabs doesn't silently reset it back
 // to CAD — this is applied on every render() via applyCurrency(), not
 // just when a .ccy-btn is clicked.
-let selectedCurrency = "cad";
+let selectedCurrency = "usd";
 
 // Admin screens (Dashboard/Sale History/Owner Roster) read responses
 // synchronously via getResponses() below, matching how they always worked
@@ -2183,17 +2183,16 @@ function renderSaleHistory() {
       </div>
 
       ${adminMasthead("Sale History", `<div class="currency-toggle" role="group" aria-label="Currency">
-            <button class="ccy-btn active" data-ccy="cad" type="button">CAD $</button>
-            <button class="ccy-btn" data-ccy="usd" type="button">USD $</button>
+            <button class="ccy-btn${selectedCurrency === "usd" ? " active" : ""}" data-ccy="usd" type="button">USD $</button>
+            <button class="ccy-btn${selectedCurrency === "cad" ? " active" : ""}" data-ccy="cad" type="button">CAD $</button>
           </div>`)}
 
       <div class="page-title-row">
-        <h1>How should TheStable.ca build its buckets?</h1>
+        <h1>What past sales tell us about building a bucket</h1>
         <div class="as-of">Analysis run <strong>Sep 3, 2026</strong></div>
       </div>
       <div class="intro-block">
         <p class="dek">This page looks back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, and checks which of them later became a top performer. The goal: help TheStable.ca decide how many horses to put in a bucket, and at what price range, based on real past results instead of gut feel alone. The same numbers apply to after-sale horses sold individually at a similar price. Important: this shows patterns in the past. It is not a prediction about any specific 2026 yearling.</p>
-        <div class="definition-card"><b>Why 2014-2023, not further back:</b> Ohio Jug has no sale data before 2014. Starting earlier would give Lexington and Harrisburg extra years of data Ohio never had, making the three sales impossible to compare fairly. 2024 and 2025 are left out for a different reason: to count as a "top performer," a horse needs its 2-year-old and 3-year-old racing seasons to be finished — and for horses sold that recently, those seasons haven't happened yet.</div>
         <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after it was sold. Nothing more, nothing less — it doesn't matter how much that horse earned or how old it was when it first got there. A yes/no flag, checked carefully so a horse with the same name sold in a different year is never counted by mistake (this dataset has 1,858 reused horse names, so that check matters).</div>
         <p class="currency-note">Original sale prices were recorded in USD. CAD figures on this page use the real Bank of Canada exchange rate for each horse's actual sale year, not one rate applied everywhere — the rate moved from about 1.10 to about 1.35 between 2014 and 2023, so using a single rate would distort older years. Use the CAD / USD switch above to see figures either way.</p>
       </div>
@@ -2241,23 +2240,20 @@ function renderSaleHistory() {
             <div class="curve-foot" style="margin-top:16px;">Roughly an even split between trotters and pacers among top performers, across all 3 sales combined. Individually, trotters have a slightly better per-horse chance (2.9% vs. 2.7% for pacers), but it isn't consistent at every venue — see the sale-by-sale table below.</div>
           </div>
 
-          <div class="dash-card">
+          <div class="dash-card" style="grid-column: span 3;">
             <div class="dc-label">Example: splitting one budget several ways</div>
             <div class="verdict-num">5 horses</div>
-            <div class="verdict-sub">For a ${shMoney(103000, 80000, "full")} ${shCcyLabel()} budget specifically, splitting it into 5 horses around ${shMoney(20600, 16000)} each gives <b style="color:#fff">7.7%</b> odds of landing at least one top performer. This is one example, not a general rule — see the card to the right for why the best split size changes with the budget.</div>
+            <div class="verdict-sub">For a ${shMoney(103000, 80000, "full")} ${shCcyLabel()} budget specifically, splitting it into 5 horses around ${shMoney(20600, 16000)} each gives <b style="color:#fff">7.7%</b> odds of landing at least one top performer. This is one example, not a general rule — see "One horse or several: building a bucket" below for why the best split size changes with the budget.</div>
             <div class="verdict-compare"><span>vs. 1 horse at ${shMoney(103000, 80000)}</span><b>4.8%</b></div>
-          </div>
-
-          <div class="dash-card">
-            <div class="dc-label">Splitting a budget doesn't always help the same amount</div>
-            <div class="mini-bars">
+            <div class="mini-bars" style="margin-top:14px;">
               <div class="mini-bar-wrap"><div class="mini-bar-val">4.8%</div><div class="mini-bar" style="height:62%; background:#45557a"></div><div class="mini-bar-name">1 horse</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">4.9%</div><div class="mini-bar" style="height:64%; background:#45557a"></div><div class="mini-bar-name">2 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">4.7%</div><div class="mini-bar" style="height:61%; background:#45557a"></div><div class="mini-bar-name">3 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">6.2%</div><div class="mini-bar" style="height:81%; background:#45557a"></div><div class="mini-bar-name">4 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">7.7%</div><div class="mini-bar" style="height:100%; background:var(--gold)"></div><div class="mini-bar-name">5 horses</div></div>
             </div>
-            <div class="curve-foot" style="margin-top:0;">Same ${shMoney(103000, 80000)} budget, split up to 5 different ways, for this one example. 5 horses did best here — but as the full breakdown further down shows, the best split size is different for other budgets, so this isn't a rule to copy for every bucket. See "One horse or several: building a bucket."</div>
+            <div class="curve-foot" style="margin-top:10px;"><b>What this percentage does and doesn't mean:</b> it's the chance that at least one of the horses becomes a top performer — not a prediction of how much of the bucket's money that one horse represents, and not a guarantee of profit. With 5 horses, a "win" can be just 1 of the 5 hitting; the other 4 may not. This assumes each horse's chance is independent of the others, which won't always hold exactly (horses from the same bloodline or consignor, for instance, aren't fully independent bets).</div>
+          </div>
           </div>
 
         </div>
@@ -2360,6 +2356,7 @@ function renderSaleHistory() {
             <div class="cell"><div class="pct">6.93%</div><div class="n">202</div></div>
           </div>
           <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Trotter colts hold the edge at the higher end of the range, and pacer colts at the cheap end and around ${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}. <b>The right-hand column (above ${shMoney(193128, 150000)}) is built on 202-387 horses per cell</b> — enough to be a reasonable signal, but still narrower than the cheaper columns, so treat it as a bit less precise than the rest of the table.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">Why do fillies score noticeably lower than colts even where the horse counts are similar?</b> It isn't a group-size effect — look at the "n" numbers: Under ${shMoney(38626, 30000)}, trotter colts (n=2,940) and trotter fillies (n=3,170) are close in count, but colts still score 1.39% vs. fillies' 1.04%. Slightly more fillies are sold overall (12,665 vs. 11,127 colts across the full dataset), but that alone can't explain it — with similar or even larger group sizes, fillies still produce top performers at a lower rate. That's a real difference in this data, not an artifact of one group being bigger than the other.</p>
         </div>
       </section>
 
@@ -2434,6 +2431,7 @@ function renderSaleHistory() {
             </div>
           </div>
           <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Splitting the money across several horses usually beats spending it all on one, but not always — in the smallest budget here 3 horses actually did worse than 1 or 2. There is no single "best number of horses" that works for every budget. Which split size wins depends on exactly where the price boundaries fall for that budget.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">What about mixing price ranges instead of buying same-priced horses?</b> Checked for the ${shMoney(103000, 80000)} example: a mix (say, one ${shMoney(64376, 50000)} horse plus one ${shMoney(38626, 30000)} horse) never beat buying as many horses as possible in the cheapest band the budget allows. That's a direct result of the math above, not a separate rule: since each horse's odds only depend on that horse's own price band, and cheaper bands here have a better odds-per-dollar rate, spreading the same money across more, cheaper horses keeps outperforming a mix — right up to the point where "more, cheaper" stops paying off (see the ${shMoney(51500, 40000)} bucket, where 3-4 cheap horses actually did worse than 2).</p>
         </div>
       </section>
 
@@ -2445,23 +2443,25 @@ function renderSaleHistory() {
             <table>
               <thead><tr><th>Sale</th><th>Under ${shMoney(38626, 30000)}</th><th>${shMoney(38626, 30000)}&ndash;${shMoney(64376, 50000)}</th><th>${shMoney(64376, 50000)}&ndash;${shMoney(96564, 75000)}</th><th>${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}</th><th>${shMoney(128752, 100000, "k", "+")}</th></tr></thead>
               <tbody>
-                <tr><td class="venue-name">Lexington Selected</td><td>1.7%</td><td>3.2%</td><td>6.3%</td><td>6.4%</td><td>9.3%</td></tr>
+                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">1.7%</td><td>3.2%</td><td>6.3%</td><td>6.4%</td><td class="win-cell">9.3%</td></tr>
                 <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td>0.7%</td><td>2.0%</td><td>3.1%</td><td>3.1%</td><td>7.0%</td></tr>
-                <tr><td class="venue-name">Ohio Jug</td><td>1.7%</td><td>3.4%</td><td>7.2%</td><td>11.8%</td><td>2.9%</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td>1.7%</td><td class="win-cell">3.4%</td><td class="win-cell">7.2%</td><td class="win-cell">11.8%</td><td>2.9%</td></tr>
               </tbody>
             </table>
           </div>
-          <div style="overflow-x:auto;">
-            <table style="margin-top:20px;">
+          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale at that specific price range).</p>
+          <div style="overflow-x:auto; margin-top:20px;">
+            <table>
               <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th></tr></thead>
               <tbody>
-                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">5.1%</td><td>3.7%</td><td class="win-cell">4.5%</td><td>4.4%</td></tr>
-                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td class="win-cell">2.4%</td><td>1.6%</td><td>1.9%</td><td class="win-cell">2.0%</td></tr>
-                <tr><td class="venue-name">Ohio Jug</td><td class="win-cell">2.5%</td><td>2.3%</td><td class="win-cell">2.7%</td><td>2.1%</td></tr>
+                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">5.1%</td><td class="win-cell">3.7%</td><td class="win-cell">4.5%</td><td class="win-cell">4.4%</td></tr>
+                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td>2.4%</td><td>1.6%</td><td>1.9%</td><td>2.0%</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td>2.5%</td><td>2.3%</td><td>2.7%</td><td>2.1%</td></tr>
               </tbody>
             </table>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio has far fewer horses overall than Lexington or Harrisburg, so treat Ohio's figures generally as a weaker signal than the other two.</p>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale for that specific colt/filly/trotter/pacer group).</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Lexington has the highest rate in every single column here — colts, fillies, trotters, and pacers alike. Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio has far fewer horses overall than Lexington or Harrisburg, so treat Ohio's figures generally as a weaker signal than the other two.</p>
         </div>
       </section>
 
