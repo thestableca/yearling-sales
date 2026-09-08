@@ -1724,7 +1724,7 @@ function renderQuestionsAdmin() {
           <div>
             <div class="tag">Buckets</div>
             <h2>Bucket options</h2>
-            <p>Names and prices offered when an owner's plan includes a pre-sale bucket. Suggested price comes from historical sale data when available.</p>
+            <p>These bucket names appear as the answer choices owners pick from on the intake questionnaire, whenever their plan includes a pre-sale bucket. Renaming or adding one here changes what owners see there immediately.</p>
           </div>
         </div>
         <div class="panel-body">
