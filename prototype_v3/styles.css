@@ -1418,7 +1418,7 @@ th .col-filter option {
 .refskin .curve-bar { width: 100%; background: linear-gradient(180deg, var(--gold-light), var(--gold)); border-radius: 3px 3px 0 0; position: relative; min-height: 4px; }
 .refskin .curve-bar.last { background: linear-gradient(180deg, #fff, var(--gold-light)); }
 .refskin .curve-bar.last + .curve-bar-val, .refskin .curve-bar-wrap:last-child .curve-bar-val { color: #fff; }
-.refskin .curve-bar-price { font-size: 8px; font-weight: 600; color: #fff; margin-top: 5px; text-align: center; white-space: normal; line-height: 1.25; word-break: keep-all; overflow-wrap: break-word; }
+.refskin .curve-bar-price { font-size: 8px; font-weight: 600; color: #fff; margin-top: 5px; text-align: center; white-space: normal; line-height: 1.25; word-break: keep-all; overflow-wrap: break-word; height: 20px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: center; }
 .refskin .curve-labels { display: flex; justify-content: space-between; font-size: 9.5px; color: #7c89a8; }
 .refskin .curve-foot { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 13px; color: #dbe2f0; line-height: 1.5; }
 .refskin .curve-foot b { color: #fff; font-family: "Fraunces", serif; font-weight: 600; }
