@@ -1614,8 +1614,15 @@ th .col-filter option {
    TheStable's own logo colors, instead of a different accent hue per
    sale — the sale name itself is what tells them apart, not the color. */
 .refskin.dashboard-page [class*="sale-accent-"] { border-color: var(--navy); }
-.refskin.dashboard-page [class*="sale-accent-"] .sugg-sale-head { background: linear-gradient(120deg, var(--navy-deep), var(--navy) 70%); color: var(--gold-light); }
+.refskin.dashboard-page [class*="sale-accent-"] .sugg-sale-head { background: linear-gradient(120deg, var(--navy-deep), var(--navy) 70%); color: var(--gold-light); padding-bottom: 8px; }
 .refskin.dashboard-page [class*="sale-accent-"] .sale-dot { background: linear-gradient(135deg, var(--gold), var(--gold-light)); }
+/* Column headings sit right under the sale name, in the same navy/gold
+   band, so it's clear what each number in the rows below means (owners
+   vs. this-sale odds vs. all-sales odds) without repeating that on every
+   single row. */
+.refskin.dashboard-page .sugg-col-heads { display: grid; grid-template-columns: 1.5fr 0.65fr 0.9fr 0.9fr; gap: 12px; padding: 0 18px 12px; background: var(--navy); }
+.refskin.dashboard-page .sugg-col-heads div { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-light); opacity: 0.85; text-align: center; }
+.refskin.dashboard-page .sugg-col-heads div:first-child { text-align: left; }
 .refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.5fr 0.65fr 0.9fr 0.9fr; gap: 12px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
 .refskin.dashboard-page .sugg-row:last-child { border-bottom: 0; }
 .refskin.dashboard-page .status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 7px; }
@@ -1719,6 +1726,7 @@ th .col-filter option {
   .refskin.dashboard-page .vs-item:nth-child(3) { border-left: 0; padding-left: 0; }
   .refskin.dashboard-page .sugg-row { grid-template-columns: 1fr 1fr 1fr; row-gap: 10px; }
   .refskin.dashboard-page .sugg-row > div:first-child { grid-column: 1 / -1; }
+  .refskin.dashboard-page .sugg-col-heads { display: none; }
 }
 
 @media (max-width: 520px) {

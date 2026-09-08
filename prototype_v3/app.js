@@ -3304,6 +3304,12 @@ function renderAdmin() {
           ${suggestions.length ? Object.entries(groupSuggestionsBySale(suggestions)).map(([saleLabel, rows]) => `
           <div class="sugg-sale-group sale-accent-${saleAccentIndex(saleLabel)}">
             <div class="sugg-sale-head"><span class="sale-dot"></span>${escapeHtml(saleLabel)}</div>
+            <div class="sugg-col-heads">
+              <div></div>
+              <div>Owners</div>
+              <div>Odds, this sale</div>
+              <div>Odds, all sales</div>
+            </div>
             ${rows.map((row) => `
             <div class="sugg-row">
               <div>
