@@ -303,19 +303,38 @@ const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
   },
 };
 
-// Looks up the most specific reliable odds figure available for a
-// suggestion row: per-venue first (when that sale's exact tier/gait/sex
-// group has enough JUVENIQ data), falling back to the all-sales-pooled
-// PRICE_TIER_GAIT_SEX_ODDS otherwise (covers "london", which JUVENIQ has
-// no data for at all, and thin per-venue cells like most of Ohio's
-// premium group). The returned object's `pooled` flag tells the caller
-// which case it got, so the UI can say so instead of implying every
-// figure is venue-specific.
+// Returns BOTH odds figures for a suggestion row, never silently
+// substituting one for the other: `venue` (that sale's own JUVENIQ
+// figure, only when its exact tier/gait/sex group has at least 30
+// horses — otherwise null) and `pooled` (the all-sales figure, always
+// present when the pooled table has this tier/gait/sex combination at
+// all). Showing both side by side, always, is deliberate — Robert's
+// call after reviewing an earlier version that quietly swapped in the
+// pooled figure for Ohio (and any venue with thin data) whenever the
+// venue-specific one wasn't reliable: that made Ohio's numbers look
+// exactly as precise as Lexington's or Harrisburg's, when they're
+// actually a different, less specific kind of figure. The UI is
+// responsible for making clear which is which.
 function priceTierGaitSexOdds(saleId, tier, gait, sex) {
-  const venueCell = PRICE_TIER_GAIT_SEX_VENUE_ODDS[saleId]?.[tier]?.[gait]?.[sex];
-  if (venueCell) return { ...venueCell, pooled: false };
-  const pooledCell = PRICE_TIER_GAIT_SEX_ODDS[tier]?.[gait]?.[sex];
-  return pooledCell ? { ...pooledCell, pooled: true } : null;
+  const venueCell = PRICE_TIER_GAIT_SEX_VENUE_ODDS[saleId]?.[tier]?.[gait]?.[sex] || null;
+  const pooledCell = PRICE_TIER_GAIT_SEX_ODDS[tier]?.[gait]?.[sex] || null;
+  return { venue: venueCell, pooled: pooledCell };
+}
+
+// Renders the suggestion row's two historical-odds figures side by side,
+// always both, never one silently standing in for the other. When the
+// venue-specific figure is missing (not enough JUVENIQ sales at that one
+// venue for this exact tier/gait/sex, e.g. most of Ohio's premium group),
+// a short note explains why instead of just leaving a blank stat block.
+function oddsStatBlocks(odds) {
+  if (!odds || !odds.pooled) {
+    return `<div class="stat-block odds-block"><div class="num">&mdash;</div><div class="lbl">historical odds</div></div>`;
+  }
+  const venueBlock = odds.venue
+    ? `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl">this sale (n=${odds.venue.n.toLocaleString()})</div></div>`
+    : `<div class="stat-block odds-block odds-missing"><div class="num">&mdash;</div><div class="lbl">this sale: not enough past sales here to trust a number</div></div>`;
+  const pooledBlock = `<div class="stat-block odds-block odds-pooled"><div class="num">${round1(odds.pooled.odds)}%</div><div class="lbl">all sales combined (n=${odds.pooled.n.toLocaleString()})</div></div>`;
+  return venueBlock + pooledBlock;
 }
 
 const BUCKET_LEVELS = [
@@ -3264,7 +3283,7 @@ function renderAdmin() {
           <div>
             <div class="tag">Demand breakdown</div>
             <h2>Where the demand is, by price tier</h2>
-            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit, grouped by sale in calendar order. Owners pick a price tier per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Price tiers are Budget (up to $50,000 USD), Mid-range ($50,000-$100,000), and Premium ($100,000-$150,000, TheStable's realistic top end). Each row also shows the real historical odds a horse with that exact price tier, gait, and sex became a top performer at that specific sale (from the Sale History page). Some combinations don't have enough past sales at that one venue to trust a venue-specific number. Those rows fall back to the figure across all sales combined instead, labeled "historical odds, all sales" so it's clear which one you're looking at. These are two separate signals side by side, not blended into one number. Use both when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
+            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit, grouped by sale in calendar order. Owners pick a price tier per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Price tiers are Budget (up to $50,000 USD), Mid-range ($50,000-$100,000), and Premium ($100,000-$150,000, TheStable's realistic top end). Each row shows two historical odds figures side by side, from the Sale History data: the real odds at that specific sale, and the odds across all three sales combined, for a horse with that exact price tier, gait, and sex. Some combinations don't have enough past sales at that one venue to trust a venue-specific number. Those rows show a short note there instead of a number, but the all-sales figure is always shown too, so you can see both the most specific signal available and the broader baseline it's being judged against. None of this affects the demand ranking. Use it as context when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
           </div>
           <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked within each sale by how many distinct owners want each exact combination. The historical odds column doesn't affect the ranking. It's context to help you judge whether that demand is worth acting on. It can only break down demand within the price tiers owners were asked about. It can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
         </div>
@@ -3280,7 +3299,7 @@ function renderAdmin() {
                 <div class="sugg-sub">${row.eligibility.length ? row.eligibility.map((item) => escapeHtml(item.label)).join(", ") : "No jurisdiction preference captured"}</div>
               </div>
               <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
-              <div class="stat-block odds-block"><div class="num">${row.historicalOdds ? `${round1(row.historicalOdds.odds)}%` : "&mdash;"}</div><div class="lbl">${row.historicalOdds ? (row.historicalOdds.pooled ? "historical odds, all sales" : "historical odds, this sale") : "historical odds"}${row.historicalOdds ? ` (n=${row.historicalOdds.n.toLocaleString()})` : ""}</div></div>
+              ${oddsStatBlocks(row.historicalOdds)}
             </div>`).join("")}
           </div>`).join("") : `<p class="quiet" style="padding:6px 4px;">No demand data yet. This fills in once owners submit pre-sale bucket responses.</p>`}
         </div>

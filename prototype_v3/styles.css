@@ -1612,7 +1612,7 @@ th .col-filter option {
 .refskin.dashboard-page .sale-accent-2 .sale-dot { background: linear-gradient(135deg, #7a8aa8, #a6b1c9); }
 .refskin.dashboard-page .sale-accent-3 { border-left-color: #b8925a; }
 .refskin.dashboard-page .sale-accent-3 .sale-dot { background: linear-gradient(135deg, #b8925a, #d4b587); }
-.refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.7fr 0.8fr 1fr; gap: 16px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
+.refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.5fr 0.65fr 0.9fr 0.9fr; gap: 12px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
 .refskin.dashboard-page .sugg-row:last-child { border-bottom: 0; }
 .refskin.dashboard-page .status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 7px; }
 .refskin.dashboard-page .status svg { width: 11px; height: 11px; }
@@ -1621,12 +1621,24 @@ th .col-filter option {
 .refskin.dashboard-page .status.watch { background: #eceef1; color: #5b6472; }
 .refskin.dashboard-page .sugg-title { font-weight: 700; font-size: 13.5px; color: var(--ink); line-height: 1.3; }
 .refskin.dashboard-page .sugg-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
-.refskin.dashboard-page .stat-block { text-align: center; padding: 8px 10px; border-radius: 12px; background: var(--ivory-dim); }
+.refskin.dashboard-page .stat-block { text-align: center; padding: 8px 8px; border-radius: 12px; background: var(--ivory-dim); }
 .refskin.dashboard-page .stat-block.odds-block { background: linear-gradient(150deg, #fbf3e2, #f4ead0); }
 .refskin.dashboard-page .stat-block .num { font-family: "Fraunces", serif; font-weight: 600; font-size: 19px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .refskin.dashboard-page .stat-block.odds-block .num { color: #8a6417; }
 .refskin.dashboard-page .stat-block .stat-sub { font-family: "Inter", sans-serif; font-weight: 500; font-size: 11px; color: var(--muted); }
 .refskin.dashboard-page .stat-block .lbl { font-size: 10px; color: var(--muted); margin-top: 1px; line-height: 1.3; }
+/* Pooled ("all sales") odds sit next to the venue-specific figure, kept
+   visually one notch quieter so the two never look like equally-precise
+   peers -- pooled is real context, but it's a different, less specific
+   kind of number than a venue-specific figure. */
+.refskin.dashboard-page .stat-block.odds-pooled { background: var(--ivory-dim); }
+.refskin.dashboard-page .stat-block.odds-pooled .num { color: var(--muted); font-size: 16px; }
+/* Missing venue-specific figure: dashed border and a short reason
+   instead of a blank block, so "no number" reads as "not enough data
+   here" rather than a bug. */
+.refskin.dashboard-page .stat-block.odds-missing { background: transparent; border: 1.5px dashed var(--line); }
+.refskin.dashboard-page .stat-block.odds-missing .num { color: var(--line); }
+.refskin.dashboard-page .stat-block.odds-missing .lbl { color: var(--muted); font-style: italic; }
 .refskin.dashboard-page .fill-meter { display: flex; align-items: center; gap: 8px; }
 .refskin.dashboard-page .fill-meter .bar { flex: 1; height: 6px; border-radius: 999px; background: var(--ivory-dim); overflow: hidden; }
 .refskin.dashboard-page .fill-meter .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius: inherit; }
@@ -1701,7 +1713,8 @@ th .col-filter option {
   .refskin.dashboard-page .grid-2, .refskin.dashboard-page .grid-3 { grid-template-columns: 1fr; }
   .refskin.dashboard-page .verdict-strip { grid-template-columns: repeat(2, 1fr); row-gap: 20px; }
   .refskin.dashboard-page .vs-item:nth-child(3) { border-left: 0; padding-left: 0; }
-  .refskin.dashboard-page .sugg-row { grid-template-columns: 1fr 1fr; row-gap: 10px; }
+  .refskin.dashboard-page .sugg-row { grid-template-columns: 1fr 1fr 1fr; row-gap: 10px; }
+  .refskin.dashboard-page .sugg-row > div:first-child { grid-column: 1 / -1; }
 }
 
 @media (max-width: 520px) {
