@@ -233,8 +233,83 @@ const PRICE_TIER_GAIT_SEX_ODDS = {
   },
 };
 
-function priceTierGaitSexOdds(tier, gait, sex) {
-  return PRICE_TIER_GAIT_SEX_ODDS[tier]?.[gait]?.[sex] || null;
+// Same idea as PRICE_TIER_GAIT_SEX_ODDS, but split further by sale venue
+// (lexington/harrisburg/ohio — the three sales JUVENIQ has data for;
+// "london" has none, see priceTierGaitSexOdds() below for how that's
+// handled). A cell is only filled in when its exact (venue, tier, gait,
+// sex) group has at least 30 horses in the JUVENIQ dataset — thinner
+// than that (mostly Ohio's premium cells, some in single digits) would
+// be a falsely precise percentage, not a real signal. Those cells are
+// left out entirely (undefined, not present) so priceTierGaitSexOdds()
+// can detect "no reliable per-venue number" and fall back to the
+// venue-pooled table instead of showing something misleading.
+const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
+  lexington: {
+    budget: {
+      trotter: { colt: { odds: 2.63, n: 1217, top: 32 }, filly: { odds: 1.73, n: 1101, top: 19 }, both: { odds: 2.20, n: 2318, top: 51 } },
+      pacer: { colt: { odds: 3.28, n: 946, top: 31 }, filly: { odds: 1.40, n: 998, top: 14 }, both: { odds: 2.31, n: 1944, top: 45 } },
+      both: { colt: { odds: 2.91, n: 2163, top: 63 }, filly: { odds: 1.57, n: 2099, top: 33 }, both: { odds: 2.25, n: 4262, top: 96 } },
+    },
+    mid: {
+      trotter: { colt: { odds: 7.13, n: 477, top: 34 }, filly: { odds: 5.50, n: 436, top: 24 }, both: { odds: 6.35, n: 913, top: 58 } },
+      pacer: { colt: { odds: 6.40, n: 500, top: 32 }, filly: { odds: 6.35, n: 378, top: 24 }, both: { odds: 6.38, n: 878, top: 56 } },
+      both: { colt: { odds: 6.76, n: 977, top: 66 }, filly: { odds: 5.90, n: 814, top: 48 }, both: { odds: 6.37, n: 1791, top: 114 } },
+    },
+    premium: {
+      trotter: { colt: { odds: 10.94, n: 384, top: 42 }, filly: { odds: 8.19, n: 354, top: 29 }, both: { odds: 9.62, n: 738, top: 71 } },
+      pacer: { colt: { odds: 9.00, n: 289, top: 26 }, filly: { odds: 8.92, n: 213, top: 19 }, both: { odds: 8.96, n: 502, top: 45 } },
+      both: { colt: { odds: 10.10, n: 673, top: 68 }, filly: { odds: 8.47, n: 567, top: 48 }, both: { odds: 9.35, n: 1240, top: 116 } },
+    },
+  },
+  harrisburg: {
+    budget: {
+      trotter: { colt: { odds: 1.21, n: 2147, top: 26 }, filly: { odds: 1.06, n: 2634, top: 28 }, both: { odds: 1.13, n: 4781, top: 54 } },
+      pacer: { colt: { odds: 1.59, n: 1948, top: 31 }, filly: { odds: 1.04, n: 3074, top: 32 }, both: { odds: 1.25, n: 5022, top: 63 } },
+      both: { colt: { odds: 1.39, n: 4095, top: 57 }, filly: { odds: 1.05, n: 5708, top: 60 }, both: { odds: 1.19, n: 9803, top: 117 } },
+    },
+    mid: {
+      trotter: { colt: { odds: 2.19, n: 411, top: 9 }, filly: { odds: 3.02, n: 596, top: 18 }, both: { odds: 2.68, n: 1007, top: 27 } },
+      pacer: { colt: { odds: 4.58, n: 568, top: 26 }, filly: { odds: 3.25, n: 585, top: 19 }, both: { odds: 3.90, n: 1153, top: 45 } },
+      both: { colt: { odds: 3.58, n: 979, top: 35 }, filly: { odds: 3.13, n: 1181, top: 37 }, both: { odds: 3.33, n: 2160, top: 72 } },
+    },
+    premium: {
+      trotter: { colt: { odds: 10.63, n: 254, top: 27 }, filly: { odds: 6.55, n: 351, top: 23 }, both: { odds: 8.26, n: 605, top: 50 } },
+      pacer: { colt: { odds: 7.72, n: 272, top: 21 }, filly: { odds: 4.05, n: 247, top: 10 }, both: { odds: 5.97, n: 519, top: 31 } },
+      both: { colt: { odds: 9.13, n: 526, top: 48 }, filly: { odds: 5.52, n: 598, top: 33 }, both: { odds: 7.21, n: 1124, top: 81 } },
+    },
+  },
+  ohio: {
+    budget: {
+      trotter: { colt: { odds: 2.49, n: 603, top: 15 }, filly: { odds: 2.16, n: 555, top: 12 }, both: { odds: 2.33, n: 1158, top: 27 } },
+      pacer: { colt: { odds: 1.40, n: 641, top: 9 }, filly: { odds: 1.88, n: 586, top: 11 }, both: { odds: 1.63, n: 1227, top: 20 } },
+      both: { colt: { odds: 1.93, n: 1244, top: 24 }, filly: { odds: 2.02, n: 1141, top: 23 }, both: { odds: 1.97, n: 2385, top: 47 } },
+    },
+    mid: {
+      trotter: { colt: { odds: 12.12, n: 33, top: 4 }, filly: null, both: null },
+      pacer: { colt: { odds: 8.33, n: 60, top: 5 }, filly: { odds: 6.25, n: 48, top: 3 }, both: { odds: 7.41, n: 108, top: 8 } },
+      both: { colt: { odds: 9.68, n: 93, top: 9 }, filly: { odds: 6.25, n: 80, top: 5 }, both: { odds: 8.09, n: 173, top: 14 } },
+    },
+    premium: {
+      trotter: { colt: null, filly: null, both: null },
+      pacer: { colt: null, filly: null, both: null },
+      both: { colt: null, filly: null, both: { odds: 2.94, n: 34, top: 1 } },
+    },
+  },
+};
+
+// Looks up the most specific reliable odds figure available for a
+// suggestion row: per-venue first (when that sale's exact tier/gait/sex
+// group has enough JUVENIQ data), falling back to the all-sales-pooled
+// PRICE_TIER_GAIT_SEX_ODDS otherwise (covers "london", which JUVENIQ has
+// no data for at all, and thin per-venue cells like most of Ohio's
+// premium group). The returned object's `pooled` flag tells the caller
+// which case it got, so the UI can say so instead of implying every
+// figure is venue-specific.
+function priceTierGaitSexOdds(saleId, tier, gait, sex) {
+  const venueCell = PRICE_TIER_GAIT_SEX_VENUE_ODDS[saleId]?.[tier]?.[gait]?.[sex];
+  if (venueCell) return { ...venueCell, pooled: false };
+  const pooledCell = PRICE_TIER_GAIT_SEX_ODDS[tier]?.[gait]?.[sex];
+  return pooledCell ? { ...pooledCell, pooled: true } : null;
 }
 
 const BUCKET_LEVELS = [
@@ -3183,14 +3258,14 @@ function renderAdmin() {
           <div>
             <div class="tag">Demand breakdown</div>
             <h2>Where the demand is, by price tier</h2>
-            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit, grouped by sale. Owners pick a price tier (budget/mid/premium) per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Each row also shows the real historical odds a horse with that exact price tier, gait, and sex became a top performer (from the Sale History page). These are two separate signals side by side, not blended into one number. Use both when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
+            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit, grouped by sale in calendar order. Owners pick a price tier per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Price tiers are Budget (up to $50,000 USD), Mid-range ($50,000-$100,000), and Premium (above $100,000). Each row also shows the real historical odds a horse with that exact price tier, gait, and sex became a top performer at that specific sale (from the Sale History page). Some combinations don't have enough past sales at that one venue to trust a venue-specific number. Those rows fall back to the figure across all sales combined instead, labeled "historical odds, all sales" so it's clear which one you're looking at. These are two separate signals side by side, not blended into one number. Use both when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
           </div>
           <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked within each sale by how many distinct owners want each exact combination. The historical odds column doesn't affect the ranking. It's context to help you judge whether that demand is worth acting on. It can only break down demand within the price tiers owners were asked about. It can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
         </div>
         <div class="panel-body" style="padding-top: 4px;">
           ${suggestions.length ? Object.entries(groupSuggestionsBySale(suggestions)).map(([saleLabel, rows]) => `
-          <div class="sugg-sale-group">
-            <div class="sugg-sale-head">${escapeHtml(saleLabel)}</div>
+          <div class="sugg-sale-group sale-accent-${saleAccentIndex(saleLabel)}">
+            <div class="sugg-sale-head"><span class="sale-dot"></span>${escapeHtml(saleLabel)}</div>
             ${rows.map((row) => `
             <div class="sugg-row">
               <div>
@@ -3199,7 +3274,7 @@ function renderAdmin() {
                 <div class="sugg-sub">${row.eligibility.length ? row.eligibility.map((item) => escapeHtml(item.label)).join(", ") : "No jurisdiction preference captured"}</div>
               </div>
               <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
-              <div class="stat-block odds-block"><div class="num">${row.historicalOdds ? `${round1(row.historicalOdds.odds)}%` : "&mdash;"}</div><div class="lbl">historical odds${row.historicalOdds ? ` (n=${row.historicalOdds.n.toLocaleString()})` : ""}</div></div>
+              <div class="stat-block odds-block"><div class="num">${row.historicalOdds ? `${round1(row.historicalOdds.odds)}%` : "&mdash;"}</div><div class="lbl">${row.historicalOdds ? (row.historicalOdds.pooled ? "historical odds, all sales" : "historical odds, this sale") : "historical odds"}${row.historicalOdds ? ` (n=${row.historicalOdds.n.toLocaleString()})` : ""}</div></div>
             </div>`).join("")}
           </div>`).join("") : `<p class="quiet" style="padding:6px 4px;">No demand data yet. This fills in once owners submit pre-sale bucket responses.</p>`}
         </div>
@@ -3608,28 +3683,36 @@ function buildBucketSuggestions(rows) {
     const relatedRows = rows.filter((item) => item.sale === row.sale && item.bucketTypes[0] === row.bucketType && item.gait === row.gait && item.sex === row.sex);
     const eligibility = groupMultiDemand(relatedRows, (item) => item.eligibility.map((id) => labelFor("eligibility", id))).slice(0, 3);
     const status = row.ownerCount >= 5 ? "Offer" : row.ownerCount >= 2 ? "Shortlist" : "Watch";
-    const historicalOdds = priceTierGaitSexOdds(row.bucketType, row.gait, row.sex);
+    const historicalOdds = priceTierGaitSexOdds(row.sale, row.bucketType, row.gait, row.sex);
     return { ...row, eligibility, score: row.ownerCount, status, historicalOdds };
   }).sort((a, b) => b.score - a.score);
 }
 
 // Groups suggestion rows under their sale, keeping each sale's rows in
 // their existing (score-sorted) order. Sale groups themselves are ordered
-// by total demand across all their rows, highest first, so the sale
-// Anthony most needs to act on leads the panel. A plain-object return
-// (not a Map) so a template literal can Object.entries() it directly.
+// chronologically, in the same calendar order as SALES() (Ohio ->
+// Lexington -> London -> Harrisburg), not by demand, so the panel reads
+// as "here's the year in order" rather than shuffling every time demand
+// shifts. A plain-object return (not a Map) so a template literal can
+// Object.entries() it directly.
 function groupSuggestionsBySale(suggestions) {
   const bySale = new Map();
   suggestions.forEach((row) => {
     if (!bySale.has(row.saleLabel)) bySale.set(row.saleLabel, []);
     bySale.get(row.saleLabel).push(row);
   });
-  const sorted = [...bySale.entries()].sort((a, b) => {
-    const totalA = a[1].reduce((sum, r) => sum + r.ownerCount, 0);
-    const totalB = b[1].reduce((sum, r) => sum + r.ownerCount, 0);
-    return totalB - totalA;
-  });
+  const calendarOrder = SALES().map((s) => s.label);
+  const sorted = [...bySale.entries()].sort((a, b) => calendarOrder.indexOf(a[0]) - calendarOrder.indexOf(b[0]));
   return Object.fromEntries(sorted);
+}
+
+// A fixed color per sale (by calendar position, not demand rank, so a
+// given sale keeps the same color across renders) to make it easy to
+// spot which section is which while scrolling the Demand breakdown panel.
+function saleAccentIndex(saleLabel) {
+  const order = SALES().map((s) => s.label);
+  const idx = order.indexOf(saleLabel);
+  return idx >= 0 ? idx % 4 : 0;
 }
 
 const ownerTableFilters = { search: "", sale: "", type: "", gait: "", sex: "" };

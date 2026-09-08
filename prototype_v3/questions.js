@@ -307,11 +307,14 @@ function defaultQuestionSet() {
         dependsOn: null,
         required: true,
         fixedPosition: true,
+        // In calendar order (Ohio first in the year, Harrisburg last), per
+        // Robert's confirmation, so any list built from these options
+        // (this question, Dashboard panels via SALES()) reads chronologically.
         options: [
           { value: "ohio", label: "Ohio Selected Sale", help: "" },
           { value: "lexington", label: "Lexington Selected Sale", help: "" },
-          { value: "harrisburg", label: "Harrisburg Sale", help: "" },
           { value: "london", label: "London Classic Yearling Sale", help: "" },
+          { value: "harrisburg", label: "Harrisburg Sale", help: "" },
         ],
       },
       {
