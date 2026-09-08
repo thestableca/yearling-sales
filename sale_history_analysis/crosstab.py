@@ -3,12 +3,15 @@ import json
 with open("horses_raw.json") as f:
     horses = json.load(f)
 
+# Re-indexed 2026-09-07 alongside price_bands.py, denser in TheStable's
+# realistic buying range (see that file's comment).
 BANDS = [
-    (0, 28000, "Under $28k"),
-    (28000, 85000, "$28k-$85k"),
-    (85000, 140000, "$85k-$140k"),
-    (140000, 210000, "$140k-$210k"),
-    (210000, float("inf"), "$210k+"),
+    (0, 30000, "Under $30k"),
+    (30000, 50000, "$30k-$50k"),
+    (50000, 75000, "$50k-$75k"),
+    (75000, 100000, "$75k-$100k"),
+    (100000, 150000, "$100k-$150k"),
+    (150000, float("inf"), "$150k+"),
 ]
 
 print("=== Sex x Gait crosstab per price band (top-performer rate) ===")

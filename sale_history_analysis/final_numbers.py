@@ -12,15 +12,17 @@ with open("horses_with_cad.json") as f:
 # boundary is being used to describe), rather than picking an arbitrary
 # single year's rate.
 
+# Re-indexed 2026-09-07 alongside price_bands.py, denser in TheStable's
+# realistic buying range (see that file's comment).
 BANDS = [
-    (0, 14000, "Under $14,000"),
-    (14000, 28000, "$14,000-$28,000"),
-    (28000, 50000, "$28,000-$50,000"),
-    (50000, 85000, "$50,000-$85,000"),
-    (85000, 140000, "$85,000-$140,000"),
-    (140000, 210000, "$140,000-$210,000"),
-    (210000, 280000, "$210,000-$280,000"),
-    (280000, float("inf"), "$280,000+"),
+    (0, 15000, "Under $15,000"),
+    (15000, 30000, "$15,000-$30,000"),
+    (30000, 50000, "$30,000-$50,000"),
+    (50000, 75000, "$50,000-$75,000"),
+    (75000, 100000, "$75,000-$100,000"),
+    (100000, 125000, "$100,000-$125,000"),
+    (125000, 150000, "$125,000-$150,000"),
+    (150000, float("inf"), "$150,000+"),
 ]
 
 print("Weighted-average CAD equivalent for each USD band boundary:")

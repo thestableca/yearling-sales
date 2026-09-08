@@ -3,16 +3,21 @@ import json
 with open("horses_raw.json") as f:
     horses = json.load(f)
 
-# Same 8 price bands as the old page, in USD (original sale currency)
+# 8 price bands in USD (original sale currency). Re-indexed 2026-09-07:
+# the original bands (14k/28k/50k/85k/140k/210k/280k) spent nearly half
+# their range on $140k-$280k+, where TheStable rarely buys (only ~4-5% of
+# all sold yearlings cost more than $120k) - denser now in the realistic
+# buying range, one wide band above $150k for everything TheStable almost
+# never reaches.
 BANDS = [
-    (0, 14000, "Under $14,000"),
-    (14000, 28000, "$14,000-$28,000"),
-    (28000, 50000, "$28,000-$50,000"),
-    (50000, 85000, "$50,000-$85,000"),
-    (85000, 140000, "$85,000-$140,000"),
-    (140000, 210000, "$140,000-$210,000"),
-    (210000, 280000, "$210,000-$280,000"),
-    (280000, float("inf"), "$280,000+"),
+    (0, 15000, "Under $15,000"),
+    (15000, 30000, "$15,000-$30,000"),
+    (30000, 50000, "$30,000-$50,000"),
+    (50000, 75000, "$50,000-$75,000"),
+    (75000, 100000, "$75,000-$100,000"),
+    (100000, 125000, "$100,000-$125,000"),
+    (125000, 150000, "$125,000-$150,000"),
+    (150000, float("inf"), "$150,000+"),
 ]
 
 print(f"Total horses in dataset: {len(horses)}")

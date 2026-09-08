@@ -3,15 +3,17 @@ import json
 with open("horses_with_cad.json") as f:
     horses = json.load(f)
 
+# Re-indexed 2026-09-07 alongside price_bands.py, denser in TheStable's
+# realistic buying range (see that file's comment).
 BANDS = [
-    (0, 14000, 0.0056),
-    (14000, 28000, 0.0152),
-    (28000, 50000, 0.0245),
-    (50000, 85000, 0.0456),
-    (85000, 140000, 0.0613),
-    (140000, 210000, 0.0895),
-    (210000, 280000, 0.0949),
-    (280000, float("inf"), 0.1093),
+    (0, 15000, 0.0055),
+    (15000, 30000, 0.0160),
+    (30000, 50000, 0.0248),
+    (50000, 75000, 0.0460),
+    (75000, 100000, 0.0479),
+    (100000, 125000, 0.0617),
+    (125000, 150000, 0.0763),
+    (150000, float("inf"), 0.0983),
 ]
 
 def rate_for_price(usd_price):
@@ -24,11 +26,11 @@ def odds_at_least_one(per_horse_rate, n_horses):
     # P(at least one top performer) = 1 - P(none)^n, assuming independence
     return 1 - (1 - per_horse_rate) ** n_horses
 
-# Recompute the three budget scenarios from the OLD page (85k, 170k, 210k CAD)
-# in USD terms first (since price bands and rates are all keyed to USD, the
-# real source currency), splitting into 1/2/3/4/5 horses.
+# Budget scenarios re-picked 2026-09-07 to match TheStable's realistic
+# buying range (was $60,714/$121,429/$150,000 USD, drawn from a budget
+# example that didn't reflect real behavior) - see price_bands.py's comment.
 print("=== Bucket simulation: same total budget, split N ways ===")
-for total_usd, label in [(60714, "$85k CAD budget"), (121429, "$170k CAD budget"), (150000, "$210k CAD budget")]:
+for total_usd, label in [(40000, "$40k USD budget"), (80000, "$80k USD budget"), (120000, "$120k USD budget")]:
     print(f"\n{label} (~${total_usd:,} USD total):")
     for n in [1, 2, 3, 4, 5]:
         per_horse = total_usd / n

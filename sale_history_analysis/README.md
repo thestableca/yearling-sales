@@ -43,6 +43,18 @@ The two JSON output files aren't checked in (regenerate by re-running
 `build_analysis.py` then `cad_conversion.py` — needs the JUVENIQ database,
 which lives outside this repo).
 
+## Price bands
+
+The 8 price bands (and the crosstab's 6-column, leaner set) were
+re-indexed on 2026-09-07 to match TheStable's realistic buying range,
+after Robert checked JUVENIQ directly: ~94% of all sold yearlings in this
+dataset cost $120,000 USD or less, so the original bands (which spread
+their range up to $280,000+) gave most of their resolution to a price
+range TheStable almost never buys in. The new bands are denser up to
+$150,000 with one wide band above that — see each script's `BANDS`
+constant for the exact cutoffs. If re-running this pipeline, keep that
+in mind before reusing the old boundaries.
+
 ## Re-running when JUVENIQ data updates
 
 If JUVENIQ's sale_results or top_performers tables get more data (e.g.
