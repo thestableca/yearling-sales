@@ -1,3 +1,14 @@
+// "Confirmed buckets" (Questions Builder → planning list of the buckets
+// TheStable will actually offer, plus its matching "Buckets we're
+// offering" Dashboard panel) is hidden for this sale season — there's no
+// intake data yet to plan against, and this is Phase 2 of the 5-phase
+// process (Anthony designing buckets from demand + Sale History), a step
+// that doesn't need this UI to happen this year. Nothing is deleted: the
+// data (getConfirmedBuckets()/saveConfirmedBucketsFor()) and both panels'
+// code are untouched, just not rendered. Flip this back to true once
+// there's real demand data to plan a confirmed offer against.
+const SHOW_CONFIRMED_BUCKETS = false;
+
 // SALES/REAL_SALES are now derived from the "sales" block's own options
 // (see defaultQuestionSet() in questions.js) so that editing a sale's name
 // or adding a new one in Questions Builder updates every place that reads
@@ -1721,6 +1732,7 @@ function renderQuestionsAdmin() {
         </div>
       </div>
 
+      ${SHOW_CONFIRMED_BUCKETS ? `
       <div class="ref-panel" style="margin-top: 18px;">
         <div class="panel-head">
           <div>
@@ -1732,7 +1744,7 @@ function renderQuestionsAdmin() {
         <div class="panel-body">
           ${confirmedBucketsEditor(getConfirmedBuckets("default"))}
         </div>
-      </div>
+      </div>` : ""}
     </div>
     </div>`;
 
@@ -1862,6 +1874,12 @@ function confirmedBucketsEditor(buckets) {
     <button class="btn" type="button" data-add-confirmed>Add confirmed bucket</button>`;
 }
 
+// Price/suggestedPrice fields on a bucket are stored but not read or
+// shown anywhere else in the app yet (owners only ever see name/help via
+// bucketConfigOptionRows()) — hidden from this editor for now so it
+// doesn't look like filling in a price does something it doesn't. The
+// data itself is untouched; re-add the inputs here if/when a real use
+// for a per-bucket price is built.
 function bucketConfigEditor(bucketConfig) {
   if (!bucketConfig) return `<p class="notice">No bucket configuration on this question set.</p>`;
   return `
@@ -1869,8 +1887,6 @@ function bucketConfigEditor(bucketConfig) {
       ${bucketConfig.buckets.map((bucket, i) => `
         <div class="qb-bucket-row">
           <input class="input" data-bucket-name="${i}" value="${escapeHtml(bucket.name)}" placeholder="Bucket name">
-          <input class="input" data-bucket-price="${i}" inputmode="decimal" value="${bucket.price ?? ""}" placeholder="Price ($)">
-          <span class="qb-suggested-price">${bucket.suggestedPrice != null ? `Suggested: $${Number(bucket.suggestedPrice).toLocaleString()}` : "No suggestion yet"}</span>
           <button class="btn red" type="button" data-remove-bucket="${i}">Remove</button>
         </div>`).join("")}
     </div>
@@ -3080,6 +3096,7 @@ function renderAdmin() {
       </div>
 
       <!-- CONFIRMED OFFER -->
+      ${SHOW_CONFIRMED_BUCKETS ? `
       <div class="ref-panel">
         <div class="panel-head">
           <div>
@@ -3097,7 +3114,7 @@ function renderAdmin() {
             ${b.note ? `<div class="cbc-note">${escapeHtml(b.note)}</div>` : ""}
           </div>`).join("")}</div>` : `<p class="quiet" style="padding:6px 4px;">No buckets confirmed yet. Review demand below, then set the final lineup in Questions Builder &rarr; Confirmed buckets.</p>`}
         </div>
-      </div>
+      </div>` : ""}
 
       <!-- SUGGESTIONS -->
       <div class="ref-panel" style="margin-top: 18px;">
