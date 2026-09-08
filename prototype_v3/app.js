@@ -166,9 +166,13 @@ const PRICE_TIERS = [
 // dataset the Sale History page uses (24,676 horses, 2014-2023,
 // season-scoped matching). Price tiers match the budget/mid/premium
 // split owners choose from in the intake question (budget = up to
-// $50,000 USD, mid = $50,000-$100,000, premium = above $100,000,
-// TheStable's realistic buying range per Sale History's own price
-// bands). Only counts horses with a known trotter/pacer gait and
+// $50,000 USD, mid = $50,000-$100,000, premium = $100,000-$150,000).
+// Premium is capped at $150,000, not open-ended, per Robert's
+// confirmation that TheStable essentially never pays more than that for
+// a yearling — an open "$100k+" premium band would have been inflated by
+// a handful of much pricier horses (some $300k+) TheStable would never
+// realistically buy, overstating what a real premium bucket's odds are.
+// Only counts horses with a known trotter/pacer gait and
 // colt/filly sex (a small "other" sex/gait group in the raw data is
 // excluded here, since an owner's own answer is always one of these
 // three gait options and three sex options, never "other") — so this is
@@ -216,19 +220,19 @@ const PRICE_TIER_GAIT_SEX_ODDS = {
   },
   premium: {
     trotter: {
-      colt: { odds: 10.71, n: 644, top: 69 },
-      filly: { odds: 7.32, n: 710, top: 52 },
-      both: { odds: 8.94, n: 1354, top: 121 },
+      colt: { odds: 9.20, n: 326, top: 30 },
+      filly: { odds: 5.26, n: 323, top: 17 },
+      both: { odds: 7.24, n: 649, top: 47 },
     },
     pacer: {
-      colt: { odds: 8.29, n: 579, top: 48 },
-      filly: { odds: 6.24, n: 465, top: 29 },
-      both: { odds: 7.38, n: 1044, top: 77 },
+      colt: { odds: 6.48, n: 355, top: 23 },
+      filly: { odds: 5.70, n: 263, top: 15 },
+      both: { odds: 6.15, n: 618, top: 38 },
     },
     both: {
-      colt: { odds: 9.57, n: 1223, top: 117 },
-      filly: { odds: 6.89, n: 1175, top: 81 },
-      both: { odds: 8.26, n: 2398, top: 198 },
+      colt: { odds: 7.78, n: 681, top: 53 },
+      filly: { odds: 5.46, n: 586, top: 32 },
+      both: { odds: 6.71, n: 1267, top: 85 },
     },
   },
 };
@@ -238,11 +242,13 @@ const PRICE_TIER_GAIT_SEX_ODDS = {
 // "london" has none, see priceTierGaitSexOdds() below for how that's
 // handled). A cell is only filled in when its exact (venue, tier, gait,
 // sex) group has at least 30 horses in the JUVENIQ dataset — thinner
-// than that (mostly Ohio's premium cells, some in single digits) would
-// be a falsely precise percentage, not a real signal. Those cells are
-// left out entirely (undefined, not present) so priceTierGaitSexOdds()
-// can detect "no reliable per-venue number" and fall back to the
-// venue-pooled table instead of showing something misleading.
+// than that would be a falsely precise percentage, not a real signal.
+// With premium capped at $150,000 (see PRICE_TIER_GAIT_SEX_ODDS above),
+// every one of Ohio's premium cells falls under that 30-horse floor
+// (n=3-25), so all of Ohio's premium cells are null here on purpose.
+// Cells left out (null) let priceTierGaitSexOdds() detect "no reliable
+// per-venue number" and fall back to the venue-pooled table instead of
+// showing something misleading.
 const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
   lexington: {
     budget: {
@@ -256,9 +262,9 @@ const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
       both: { colt: { odds: 6.76, n: 977, top: 66 }, filly: { odds: 5.90, n: 814, top: 48 }, both: { odds: 6.37, n: 1791, top: 114 } },
     },
     premium: {
-      trotter: { colt: { odds: 10.94, n: 384, top: 42 }, filly: { odds: 8.19, n: 354, top: 29 }, both: { odds: 9.62, n: 738, top: 71 } },
-      pacer: { colt: { odds: 9.00, n: 289, top: 26 }, filly: { odds: 8.92, n: 213, top: 19 }, both: { odds: 8.96, n: 502, top: 45 } },
-      both: { colt: { odds: 10.10, n: 673, top: 68 }, filly: { odds: 8.47, n: 567, top: 48 }, both: { odds: 9.35, n: 1240, top: 116 } },
+      trotter: { colt: { odds: 10.11, n: 178, top: 18 }, filly: { odds: 6.79, n: 162, top: 11 }, both: { odds: 8.53, n: 340, top: 29 } },
+      pacer: { colt: { odds: 7.36, n: 163, top: 12 }, filly: { odds: 7.76, n: 116, top: 9 }, both: { odds: 7.53, n: 279, top: 21 } },
+      both: { colt: { odds: 8.80, n: 341, top: 30 }, filly: { odds: 7.19, n: 278, top: 20 }, both: { odds: 8.08, n: 619, top: 50 } },
     },
   },
   harrisburg: {
@@ -273,9 +279,9 @@ const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
       both: { colt: { odds: 3.58, n: 979, top: 35 }, filly: { odds: 3.13, n: 1181, top: 37 }, both: { odds: 3.33, n: 2160, top: 72 } },
     },
     premium: {
-      trotter: { colt: { odds: 10.63, n: 254, top: 27 }, filly: { odds: 6.55, n: 351, top: 23 }, both: { odds: 8.26, n: 605, top: 50 } },
-      pacer: { colt: { odds: 7.72, n: 272, top: 21 }, filly: { odds: 4.05, n: 247, top: 10 }, both: { odds: 5.97, n: 519, top: 31 } },
-      both: { colt: { odds: 9.13, n: 526, top: 48 }, filly: { odds: 5.52, n: 598, top: 33 }, both: { odds: 7.21, n: 1124, top: 81 } },
+      trotter: { colt: { odds: 8.33, n: 144, top: 12 }, filly: { odds: 3.80, n: 158, top: 6 }, both: { odds: 5.96, n: 302, top: 18 } },
+      pacer: { colt: { odds: 6.21, n: 177, top: 11 }, filly: { odds: 4.17, n: 144, top: 6 }, both: { odds: 5.30, n: 321, top: 17 } },
+      both: { colt: { odds: 7.17, n: 321, top: 23 }, filly: { odds: 3.97, n: 302, top: 12 }, both: { odds: 5.62, n: 623, top: 35 } },
     },
   },
   ohio: {
@@ -292,7 +298,7 @@ const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
     premium: {
       trotter: { colt: null, filly: null, both: null },
       pacer: { colt: null, filly: null, both: null },
-      both: { colt: null, filly: null, both: { odds: 2.94, n: 34, top: 1 } },
+      both: { colt: null, filly: null, both: null },
     },
   },
 };
@@ -3258,7 +3264,7 @@ function renderAdmin() {
           <div>
             <div class="tag">Demand breakdown</div>
             <h2>Where the demand is, by price tier</h2>
-            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit, grouped by sale in calendar order. Owners pick a price tier per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Price tiers are Budget (up to $50,000 USD), Mid-range ($50,000-$100,000), and Premium (above $100,000). Each row also shows the real historical odds a horse with that exact price tier, gait, and sex became a top performer at that specific sale (from the Sale History page). Some combinations don't have enough past sales at that one venue to trust a venue-specific number. Those rows fall back to the figure across all sales combined instead, labeled "historical odds, all sales" so it's clear which one you're looking at. These are two separate signals side by side, not blended into one number. Use both when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
+            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit, grouped by sale in calendar order. Owners pick a price tier per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Price tiers are Budget (up to $50,000 USD), Mid-range ($50,000-$100,000), and Premium ($100,000-$150,000, TheStable's realistic top end). Each row also shows the real historical odds a horse with that exact price tier, gait, and sex became a top performer at that specific sale (from the Sale History page). Some combinations don't have enough past sales at that one venue to trust a venue-specific number. Those rows fall back to the figure across all sales combined instead, labeled "historical odds, all sales" so it's clear which one you're looking at. These are two separate signals side by side, not blended into one number. Use both when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
           </div>
           <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked within each sale by how many distinct owners want each exact combination. The historical odds column doesn't affect the ranking. It's context to help you judge whether that demand is worth acting on. It can only break down demand within the price tiers owners were asked about. It can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
         </div>
