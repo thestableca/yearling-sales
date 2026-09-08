@@ -2204,14 +2204,14 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Odds of becoming a top performer, by price</div>
             <div class="curve-row">
-              <div class="curve-bar-wrap"><div class="curve-bar-val">0.55</div><div class="curve-bar" style="height:6%"></div><div class="curve-bar-price">&lt;${shMoney(19313, 15000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">1.6</div><div class="curve-bar" style="height:16%"></div><div class="curve-bar-price">${shMoneyRange(19313, 38626, 15000, 30000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">2.5</div><div class="curve-bar" style="height:25%"></div><div class="curve-bar-price">${shMoneyRange(38626, 64376, 30000, 50000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">4.6</div><div class="curve-bar" style="height:47%"></div><div class="curve-bar-price">${shMoneyRange(64376, 96564, 50000, 75000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">4.8</div><div class="curve-bar" style="height:49%"></div><div class="curve-bar-price">${shMoneyRange(96564, 128752, 75000, 100000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">6.2</div><div class="curve-bar" style="height:63%"></div><div class="curve-bar-price">${shMoneyRange(128752, 160940, 100000, 125000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">7.6</div><div class="curve-bar" style="height:77%"></div><div class="curve-bar-price">${shMoneyRange(160940, 193128, 125000, 150000)}</div></div>
-              <div class="curve-bar-wrap"><div class="curve-bar-val">9.8</div><div class="curve-bar last" style="height:100%"></div><div class="curve-bar-price">${shMoney(193128, 150000, "k", "+")}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">0.55</div><div class="curve-bar-track"><div class="curve-bar" style="height:6%"></div></div><div class="curve-bar-price">&lt;${shMoney(19313, 15000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">1.6</div><div class="curve-bar-track"><div class="curve-bar" style="height:16%"></div></div><div class="curve-bar-price">${shMoneyRange(19313, 38626, 15000, 30000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">2.5</div><div class="curve-bar-track"><div class="curve-bar" style="height:25%"></div></div><div class="curve-bar-price">${shMoneyRange(38626, 64376, 30000, 50000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">4.6</div><div class="curve-bar-track"><div class="curve-bar" style="height:47%"></div></div><div class="curve-bar-price">${shMoneyRange(64376, 96564, 50000, 75000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">4.8</div><div class="curve-bar-track"><div class="curve-bar" style="height:49%"></div></div><div class="curve-bar-price">${shMoneyRange(96564, 128752, 75000, 100000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">6.2</div><div class="curve-bar-track"><div class="curve-bar" style="height:63%"></div></div><div class="curve-bar-price">${shMoneyRange(128752, 160940, 100000, 125000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">7.6</div><div class="curve-bar-track"><div class="curve-bar" style="height:77%"></div></div><div class="curve-bar-price">${shMoneyRange(160940, 193128, 125000, 150000)}</div></div>
+              <div class="curve-bar-wrap"><div class="curve-bar-val">9.8</div><div class="curve-bar-track"><div class="curve-bar last" style="height:100%"></div></div><div class="curve-bar-price">${shMoney(193128, 150000, "k", "+")}</div></div>
             </div>
             <div class="curve-foot">All top figures are %. Cheapest horses: <b>0.55%</b> became a top performer. Priciest: <b>9.8%</b> did. Bands are sized around TheStable's realistic buying range — most yearlings TheStable considers sell for under ${shMoney(193128, 150000)}.</div>
           </div>
@@ -2219,7 +2219,7 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Colt vs. filly: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 56.0%, #45557a 56.0% 100%)"><div><strong>56.0%</strong><span>colt share</span></div></div>
+              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 56.0%, #45557a 56.0% 100%)"><div></div></div>
               <div class="ring-legend">
                 <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Colt <b>56.0%</b></div>
                 <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Filly <b>44.0%</b></div>
@@ -2231,7 +2231,7 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Trotter vs. pacer: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 52.5%, #45557a 52.5% 100%)"><div><strong>52.5%</strong><span>trotter share</span></div></div>
+              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 52.5%, #45557a 52.5% 100%)"><div></div></div>
               <div class="ring-legend">
                 <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Trotter <b>52.5%</b></div>
                 <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Pacer <b>47.5%</b></div>
@@ -2244,7 +2244,6 @@ function renderSaleHistory() {
             <div class="dc-label">Example: splitting one budget several ways</div>
             <div class="verdict-num">5 horses</div>
             <div class="verdict-sub">For a ${shMoney(103000, 80000, "full")} ${shCcyLabel()} budget specifically, splitting it into 5 horses around ${shMoney(20600, 16000)} each gives <b style="color:#fff">7.7%</b> odds of landing at least one top performer. This is one example, not a general rule — see "One horse or several: building a bucket" below for why the best split size changes with the budget.</div>
-            <div class="verdict-compare"><span>vs. 1 horse at ${shMoney(103000, 80000)}</span><b>4.8%</b></div>
             <div class="mini-bars" style="margin-top:14px;">
               <div class="mini-bar-wrap"><div class="mini-bar-val">4.8%</div><div class="mini-bar" style="height:62%; background:#45557a"></div><div class="mini-bar-name">1 horse</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">4.9%</div><div class="mini-bar" style="height:64%; background:#45557a"></div><div class="mini-bar-name">2 horses</div></div>

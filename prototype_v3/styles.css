@@ -1411,9 +1411,10 @@ th .col-filter option {
 .refskin .dash-card .dc-label { font-size: 11px; color: #93a1bf; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; margin-bottom: 10px; }
 
 /* Price curve card */
-.refskin .curve-row { display: flex; align-items: flex-end; gap: 2px; height: 84px; margin: 4px 0 6px; }
+.refskin .curve-row { display: flex; align-items: flex-end; gap: 2px; height: 122px; margin: 4px 0 6px; }
 .refskin .curve-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
 .refskin .curve-bar-val { font-size: 8.5px; font-weight: 700; color: #eef1f8; margin-bottom: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.refskin .curve-bar-track { width: 100%; height: 60px; display: flex; align-items: flex-end; flex-shrink: 0; }
 .refskin .curve-bar { width: 100%; background: linear-gradient(180deg, var(--gold-light), var(--gold)); border-radius: 3px 3px 0 0; position: relative; min-height: 4px; }
 .refskin .curve-bar.last { background: linear-gradient(180deg, #fff, var(--gold-light)); }
 .refskin .curve-bar.last + .curve-bar-val, .refskin .curve-bar-wrap:last-child .curve-bar-val { color: #fff; }
