@@ -587,7 +587,7 @@ function identifyCard() {
     return card(
       "Step 1",
       "Check your email",
-      `<p>We sent a one-time sign-in link to <strong>${escapeHtml(draft.email)}</strong>. Click the link in that email to continue — it may take a minute to arrive, and is worth a check in your spam folder.</p>
+      `<p>We sent a one-time sign-in link to <strong>${escapeHtml(draft.email)}</strong>. Click the link in that email to continue. It may take a minute to arrive. Worth a check in your spam folder too.</p>
        <div class="actions single"><button class="btn" type="button" id="useDifferentEmail">Use a different email</button></div>`
     );
   }
@@ -678,7 +678,7 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
     // No question left to show (e.g. the question set was edited down to
     // nothing, or the requested block no longer exists). Surface this
     // instead of silently rendering a blank, dead-end card.
-    return card(meta, "This question is no longer available", `<p class="notice">Please contact TheStable to continue — there's nothing left to answer here.</p><div class="actions single"><button class="btn" type="button" data-go="welcome">Start over</button></div>`, tag);
+    return card(meta, "This question is no longer available", `<p class="notice">There's nothing left to answer here. Please contact TheStable to continue.</p><div class="actions single"><button class="btn" type="button" data-go="welcome">Start over</button></div>`, tag);
   }
   const blockTag = block.id === "participation" || block.id === "gait" || block.id === "sex" || block.id === "sexTrotter" || block.id === "sexPacer" ? tag
     : block.dependsOn && (block.dependsOn.blockId === "participation") && block.id.startsWith("specific") ? "After-sale shares"
@@ -808,7 +808,7 @@ function reviewCard() {
 
 function doneCard() {
   const warning = draft.submitWarning ? `<p class="notice">${escapeHtml(draft.submitWarning)}</p>` : "";
-  return card("Complete", "Thank you!", `<p class="prompt">Your preferences have been submitted successfully.</p>${warning}<p class="prompt">Want to change something later? Come back to this page and enter the same email address — your answers will load back in so you can update and resubmit them.</p><div class="actions single"><button class="btn primary" type="button" data-start-over>Close</button></div>`, "Complete");
+  return card("Complete", "Thank you!", `<p class="prompt">Your preferences have been submitted successfully.</p>${warning}<p class="prompt">Want to change something later? Come back to this page and enter the same email address. Your answers will load back in so you can update and resubmit them.</p><div class="actions single"><button class="btn primary" type="button" data-start-over>Close</button></div>`, "Complete");
 }
 
 function radioOptions(field, value, options, target = null) {
@@ -818,7 +818,7 @@ function radioOptions(field, value, options, target = null) {
     return `
     <button class="option ${value === id ? "selected" : ""} ${isArmed ? "armed-confirm" : ""}" data-radio="${field}" data-value="${id}" data-target="${targetName}" type="button">
       <span class="mark radio"></span>
-      <span><strong>${label}</strong>${isArmed ? `<small class="confirm-hint">This will clear your answers below — click again to confirm</small>` : help ? `<small>${help}</small>` : ""}</span>
+      <span><strong>${label}</strong>${isArmed ? `<small class="confirm-hint">This will clear your answers below. Click again to confirm.</small>` : help ? `<small>${help}</small>` : ""}</span>
     </button>
   `;
   }).join("")}</div>`;
@@ -1495,7 +1495,7 @@ async function submitResponse() {
   const result = await persistSubmission(response);
   draft.submitting = false;
   if (!result.ok) {
-    draft.submitError = "We couldn't save your submission. Please try again — " + result.message;
+    draft.submitError = "We couldn't save your submission. Please try again. " + result.message;
     render();
     return;
   }
@@ -1576,7 +1576,7 @@ function armDestructiveButton(button, confirmText, onConfirm) {
 // Clearing real data is an admin-database action, not a local browser
 // reset, and isn't exposed here on purpose.
 function resetDemoDataButton() {
-  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears the local in-progress intake draft in this browser — does not delete real data">Reset local draft</button>`;
+  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears the local in-progress intake draft in this browser. Does not delete real data.">Reset local draft</button>`;
 }
 
 // Only shown on the Dashboard tab, where preview mode actually changes
@@ -1683,7 +1683,7 @@ function renderQuestionsAdmin() {
         </div>
         <div class="panel-body">
           <div class="qb-block-list">
-            ${orderedBlocks.map((block, index) => questionBlockRow(block, index, orderedBlocks.length)).join("") || `<p class="notice">No blocks yet — add one below.</p>`}
+            ${orderedBlocks.map((block, index) => questionBlockRow(block, index, orderedBlocks.length)).join("") || `<p class="notice">No blocks yet. Add one below.</p>`}
           </div>
           <div class="qb-add-row">
             <span>Add a block:</span>
@@ -1698,7 +1698,7 @@ function renderQuestionsAdmin() {
           <div>
             <div class="tag">Archived</div>
             <h2>Archived questions</h2>
-            <p>Hidden from owners, not shown on the Dashboard — but nothing is lost. Restore any of these any time.</p>
+            <p>Hidden from owners and not shown on the Dashboard, but nothing is lost. Restore any of these any time.</p>
           </div>
         </div>
         <div class="panel-body">
@@ -1738,7 +1738,7 @@ function renderQuestionsAdmin() {
           <div>
             <div class="tag">Confirmed offer</div>
             <h2>Confirmed buckets</h2>
-            <p>The buckets TheStable is actually going to offer this sale year — decide these after reviewing demand on the Dashboard's "Suggested buckets to offer" panel. Separate from the bucket options above (which drive what owners see in the intake form); this list is just for planning and shows on the Dashboard as the finalized offer. Add as many as you need.</p>
+            <p>The buckets TheStable is actually going to offer this sale year. Decide these after reviewing demand on the Dashboard's "Suggested buckets to offer" panel. This is separate from the bucket options above, which drive what owners see in the intake form. This list is just for planning, and shows on the Dashboard as the finalized offer. Add as many as you need.</p>
           </div>
         </div>
         <div class="panel-body">
@@ -1760,14 +1760,14 @@ function renderAdminSettings() {
 
       ${adminMasthead("Settings")}
 
-      <p class="dek">System-wide settings that aren't tied to one specific sale year's questions — currently just the CAD/USD conversion rate.</p>
+      <p class="dek">System-wide settings that aren't tied to one specific sale year's questions. Currently just the CAD/USD conversion rate.</p>
 
       <div class="ref-panel" style="margin-top: 22px; max-width: 480px;">
         <div class="panel-head">
           <div>
             <div class="tag">Exchange rate</div>
             <h2>CAD / USD conversion rate</h2>
-            <p>Used by the CAD/USD switch on the Dashboard page (the Sale History page's historical figures use each sale year's own real rate instead — see that page for details). Not live — update it here whenever the actual current rate has moved and you want the Dashboard's USD figures to reflect that.</p>
+            <p>Used by the CAD/USD switch on the Dashboard page. The Sale History page's historical figures use each sale year's own real rate instead, see that page for details. This rate is not live. Update it here whenever the actual current rate has moved and you want the Dashboard's USD figures to reflect that.</p>
           </div>
         </div>
         <div class="panel-body">
@@ -1802,12 +1802,12 @@ function questionBlockRow(block, index, total) {
   const dashboardImpact = CORE_QUESTION_DASHBOARD_IMPACT[block.id];
   const archiveTitle = dashboardImpact
     ? `Archiving this also affects ${dashboardImpact} on the Dashboard`
-    : "Hides this question from owners and its Dashboard panel (if any) — restore any time from Archived questions below";
+    : "Hides this question from owners and its Dashboard panel (if any). Restore any time from Archived questions below.";
   // interest/sales/eligibility always run first, in that fixed order —
   // later parts of the flow depend on it — so they can't be reordered or
   // archived here, only their question text/help/options edited.
   const controls = block.fixedPosition
-    ? `<span class="qb-fixed-flag" title="This question always appears first, in a fixed order — its text and options can be edited, but not its position">Fixed position</span>`
+    ? `<span class="qb-fixed-flag" title="This question always appears first, in a fixed order. Its text and options can be edited, but not its position.">Fixed position</span>`
     : `<button class="btn" type="button" data-move-block="${block.id}" data-dir="up" ${index === 0 ? "disabled" : ""} title="Move up">&uarr;</button>
        <button class="btn" type="button" data-move-block="${block.id}" data-dir="down" ${index === total - 1 ? "disabled" : ""} title="Move down">&darr;</button>
        <button class="btn red" type="button" data-remove-block="${block.id}" title="${escapeHtml(archiveTitle)}">Archive</button>`;
@@ -1829,7 +1829,7 @@ function questionBlockRow(block, index, total) {
 
 function questionBlockEditor(block) {
   const optionsEditor = block.id === "bucketTypes"
-    ? `<p class="notice">This question's choices always match the buckets configured in the "Bucket options" section below — edit the bucket names there instead.</p>`
+    ? `<p class="notice">This question's choices always match the buckets configured in the "Bucket options" section below. Edit the bucket names there instead.</p>`
     : block.type === "single_select" || block.type === "multi_select" || block.type === "yes_no"
     ? `<div class="qb-options">
         <span class="qb-field-label">Options</span>
@@ -1869,7 +1869,7 @@ function confirmedBucketsEditor(buckets) {
           <select class="input" data-cb-sex="${i}">${sexOptions.map(([v, l]) => `<option value="${v}" ${bucket.sex === v ? "selected" : ""}>${l}</option>`).join("")}</select>
           <input class="input" data-cb-note="${i}" value="${escapeHtml(bucket.note || "")}" placeholder="Note (optional)">
           <button class="btn red" type="button" data-remove-confirmed="${i}">Remove</button>
-        </div>`).join("") : `<p class="notice">No confirmed buckets yet — add one below once you've decided what to offer.</p>`}
+        </div>`).join("") : `<p class="notice">No confirmed buckets yet. Add one below once you've decided what to offer.</p>`}
     </div>
     <button class="btn" type="button" data-add-confirmed>Add confirmed bucket</button>`;
 }
@@ -1968,7 +1968,7 @@ function bindQuestionsAdmin(questionSet) {
 
   document.querySelectorAll("[data-remove-block]").forEach((el) => {
     const id = el.getAttribute("data-remove-block");
-    const confirmLabel = CORE_QUESTION_DASHBOARD_IMPACT[id] ? "This affects a Dashboard panel — archive?" : "Confirm archive?";
+    const confirmLabel = CORE_QUESTION_DASHBOARD_IMPACT[id] ? "This affects a Dashboard panel. Archive anyway?" : "Confirm archive?";
     armDestructiveButton(el, confirmLabel, () => archiveQuestionBlock(id));
   });
 
@@ -2232,8 +2232,8 @@ function renderSaleHistory() {
       </div>
       <div class="intro-block">
         <p class="dek">This page looks back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, and checks which of them later became a top performer. The goal: help TheStable.ca decide how many horses to put in a bucket, and at what price range, based on real past results instead of gut feel alone. The same numbers apply to after-sale horses sold individually at a similar price. Important: this shows patterns in the past. It is not a prediction about any specific 2026 yearling.</p>
-        <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after it was sold. Nothing more, nothing less — it doesn't matter how much that horse earned or how old it was when it first got there. A yes/no flag, checked carefully so a horse with the same name sold in a different year is never counted by mistake (this dataset has 1,858 reused horse names, so that check matters).</div>
-        <p class="currency-note">Original sale prices were recorded in USD. CAD figures on this page use the real Bank of Canada exchange rate for each horse's actual sale year, not one rate applied everywhere — the rate moved from about 1.10 to about 1.35 between 2014 and 2023, so using a single rate would distort older years. Use the CAD / USD switch above to see figures either way.</p>
+        <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after it was sold. Nothing more, nothing less. It doesn't matter how much that horse earned or how old it was when it first got there. This is a simple yes/no flag, checked carefully so a horse with the same name sold in a different year is never counted by mistake. This dataset has 1,858 reused horse names, so that check matters.</div>
+        <p class="currency-note">Original sale prices were recorded in USD. CAD figures on this page use the real Bank of Canada exchange rate for each horse's actual sale year, not one rate applied everywhere. The rate moved from about 1.10 to about 1.35 between 2014 and 2023, so using a single rate would distort older years. Use the CAD / USD switch above to see figures either way.</p>
       </div>
 
       <div class="dash-panel">
@@ -2252,7 +2252,7 @@ function renderSaleHistory() {
               <div class="curve-bar-wrap"><div class="curve-bar-val">7.6</div><div class="curve-bar-track"><div class="curve-bar" style="height:77%"></div></div><div class="curve-bar-price">${shMoneyRange(160940, 193128, 125000, 150000)}</div></div>
               <div class="curve-bar-wrap"><div class="curve-bar-val">9.8</div><div class="curve-bar-track"><div class="curve-bar last" style="height:100%"></div></div><div class="curve-bar-price">${shMoney(193128, 150000, "k", "+")}</div></div>
             </div>
-            <div class="curve-foot">All top figures are %. Cheapest horses: <b>0.55%</b> became a top performer. Priciest: <b>9.8%</b> did. Bands are sized around TheStable's realistic buying range — most yearlings TheStable considers sell for under ${shMoney(193128, 150000)}.</div>
+            <div class="curve-foot">All top figures are %. Cheapest horses: <b>0.55%</b> became a top performer. Priciest: <b>9.8%</b> did. Bands are sized around TheStable's realistic buying range. Most yearlings TheStable considers sell for under ${shMoney(193128, 150000)}.</div>
           </div>
 
           <div class="dash-card">
@@ -2264,7 +2264,7 @@ function renderSaleHistory() {
                 <div class="rl-row"><span class="rl-dot" style="background:#d8dee8"></span>Filly <b>44.0%</b></div>
               </div>
             </div>
-            <div class="curve-foot" style="margin-top:16px;">Out of every 100 top performers, 56 were colts and 44 were fillies. That's because colts also have better odds individually: 3.3% of colts sold became a top performer, vs. 2.3% of fillies, across all three sales combined — see the sale-by-sale table below for whether that holds at every individual venue.</div>
+            <div class="curve-foot" style="margin-top:16px;">Out of every 100 top performers, 56 were colts and 44 were fillies. That's because colts also have better odds individually: 3.3% of colts sold became a top performer, vs. 2.3% of fillies, across all three sales combined. See the sale-by-sale table below for whether that holds at every individual venue.</div>
           </div>
 
           <div class="dash-card">
@@ -2276,13 +2276,13 @@ function renderSaleHistory() {
                 <div class="rl-row"><span class="rl-dot" style="background:#d8dee8"></span>Pacer <b>47.5%</b></div>
               </div>
             </div>
-            <div class="curve-foot" style="margin-top:16px;">Roughly an even split between trotters and pacers among top performers, across all 3 sales combined. Individually, trotters have a slightly better per-horse chance (2.9% vs. 2.7% for pacers), but it isn't consistent at every venue — see the sale-by-sale table below.</div>
+            <div class="curve-foot" style="margin-top:16px;">Roughly an even split between trotters and pacers among top performers, across all 3 sales combined. Individually, trotters have a slightly better per-horse chance (2.9% vs. 2.7% for pacers), but it isn't consistent at every venue. See the sale-by-sale table below.</div>
           </div>
 
           <div class="dash-card" style="grid-column: span 3;">
             <div class="dc-label">Example: splitting one budget several ways</div>
             <div class="verdict-num">5 horses</div>
-            <div class="verdict-sub">For a ${shMoney(103000, 80000, "full")} ${shCcyLabel()} budget specifically, splitting it into 5 horses around ${shMoney(20600, 16000)} each gives <b style="color:#fff">7.7%</b> odds of landing at least one top performer. This is one example, not a general rule — see "One horse or several: building a bucket" below for why the best split size changes with the budget.</div>
+            <div class="verdict-sub">For a ${shMoney(103000, 80000, "full")} ${shCcyLabel()} budget specifically, splitting it into 5 horses around ${shMoney(20600, 16000)} each gives <b style="color:#fff">7.7%</b> odds of landing at least one top performer. This is one example, not a general rule. See "One horse or several: building a bucket" below for why the best split size changes with the budget.</div>
             <div class="mini-bars" style="margin-top:14px;">
               <div class="mini-bar-wrap"><div class="mini-bar-val">4.8%</div><div class="mini-bar" style="height:62%; background:#e8ebf0"></div><div class="mini-bar-name">1 horse</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">4.9%</div><div class="mini-bar" style="height:64%; background:#c7cede"></div><div class="mini-bar-name">2 horses</div></div>
@@ -2290,7 +2290,7 @@ function renderSaleHistory() {
               <div class="mini-bar-wrap"><div class="mini-bar-val">6.2%</div><div class="mini-bar" style="height:81%; background:#8592b0"></div><div class="mini-bar-name">4 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">7.7%</div><div class="mini-bar" style="height:100%; background:var(--gold)"></div><div class="mini-bar-name">5 horses</div></div>
             </div>
-            <div class="curve-foot" style="margin-top:10px;"><b>What this percentage does and doesn't mean:</b> it's the chance that at least one of the horses becomes a top performer — not a prediction of how much of the bucket's money that one horse represents, and not a guarantee of profit. With 5 horses, a "win" can be just 1 of the 5 hitting; the other 4 may not. This assumes each horse's chance is independent of the others, which won't always hold exactly (horses from the same bloodline or consignor, for instance, aren't fully independent bets).</div>
+            <div class="curve-foot" style="margin-top:10px;"><b>What this percentage does and doesn't mean:</b> it's the chance that at least one of the horses becomes a top performer. It is not a prediction of how much of the bucket's money that one horse represents, and not a guarantee of profit. With 5 horses, a "win" can be just 1 of the 5 hitting. The other 4 may not. This assumes each horse's chance is independent of the others, which won't always hold exactly. Horses from the same bloodline or consignor, for instance, aren't fully independent bets.</div>
           </div>
           </div>
 
@@ -2393,15 +2393,15 @@ function renderSaleHistory() {
             <div class="cell"><div class="pct">5.70%</div><div class="n">15 of 263</div></div>
             <div class="cell"><div class="pct">6.93%</div><div class="n">14 of 202</div></div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Each cell shows "X of Y": X horses became a top performer, out of Y sold in that exact price/sex/gait group. Trotter colts hold the edge at the higher end of the range, and pacer colts at the cheap end and around ${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}. <b>The right-hand column (above ${shMoney(193128, 150000)}) is built on 202-387 horses per cell</b> — enough to be a reasonable signal, but still narrower than the cheaper columns, so treat it as a bit less precise than the rest of the table.</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">Why do fillies score noticeably lower than colts even where the horse counts are similar?</b> Take ${shMoney(128752, 100000)}&ndash;${shMoney(193128, 150000)}: trotter colts and trotter fillies were sold in almost the same numbers (326 vs. 323), but 30 of the 326 colts went on to become a top performer, against only 17 of the 323 fillies — nearly twice as many, out of nearly the same group size. That's not a group-size effect; it's a real difference in how many of each actually became a top performer. The same pattern repeats in most other columns of this table too.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Each cell shows "X of Y": X horses became a top performer, out of Y sold in that exact price/sex/gait group. Trotter colts hold the edge at the higher end of the range, and pacer colts at the cheap end and around ${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}. <b>The right-hand column (above ${shMoney(193128, 150000)}) is built on 202-387 horses per cell.</b> That's enough to be a reasonable signal, but still narrower than the cheaper columns, so treat it as a bit less precise than the rest of the table.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">Why do fillies score noticeably lower than colts even where the horse counts are similar?</b> Take ${shMoney(128752, 100000)}&ndash;${shMoney(193128, 150000)}: trotter colts and trotter fillies were sold in almost the same numbers (326 vs. 323). But 30 of the 326 colts went on to become a top performer, against only 17 of the 323 fillies. That's nearly twice as many, out of nearly the same group size. This isn't a group-size effect. It's a real difference in how many of each actually became a top performer. The same pattern repeats in most other columns of this table too.</p>
         </div>
       </section>
 
       <section class="block">
         <h2 class="section-title">How old was the horse when it became a top performer?</h2>
         <p class="section-lead">A horse can show up on the leaderboard as a 2-year-old, a 3-year-old, or older ("aged," 4 and up). All three count as "top performer" everywhere else on this page. Split apart, the percentages below show how often each price group produced a top performer at that specific age. The odds drop the longer it takes.</p>
-        <p class="currency-note">This section only uses sale years 2014-2022, not 2014-2023 like the rest of the page — confirming "became a top performer at 4+" needs that horse's age-4 season to be over, which for a 2023 yearling won't happen until 2027. 2023 sales are excluded here so every figure reflects a fully-closed outcome, not a still-pending one.</p>
+        <p class="currency-note">This section only uses sale years 2014-2022, not 2014-2023 like the rest of the page. Confirming "became a top performer at 4+" needs that horse's age-4 season to be over, which for a 2023 yearling won't happen until 2027. 2023 sales are excluded here so every figure reflects a fully-closed outcome, not a still-pending one.</p>
         <div class="ref-panel">
           <div class="matrix-grid" style="grid-template-columns: 150px repeat(5, 1fr);">
             <div class="hdr" style="background:transparent"></div>
@@ -2441,7 +2441,7 @@ function renderSaleHistory() {
         <h2 class="section-title">One horse or several: building a bucket</h2>
         <p class="section-lead">Everything above is about one horse at one price. A bucket usually buys several horses. This section answers: for a fixed amount of money, is it better to buy one expensive horse, or split it across two, three, four, or five cheaper ones?</p>
         <div class="ref-panel">
-          <p style="font-size:13.5px; line-height:1.6; margin:0 0 18px;">Each horse in a split uses the real odds for its own actual price, not an average across a wide range — a horse bought at ${shMoney(25750, 20000)} is scored with the ${shMoney(19313, 15000)}&ndash;${shMoney(38626, 30000)} odds, never blended with much pricier horses. Every horse's chance is also treated as independent of the others, the way flipping several coins is.</p>
+          <p style="font-size:13.5px; line-height:1.6; margin:0 0 18px;">Each horse in a split uses the real odds for its own actual price, not an average across a wide range. A horse bought at ${shMoney(25750, 20000)} is scored with the ${shMoney(19313, 15000)}&ndash;${shMoney(38626, 30000)} odds, never blended with much pricier horses. Every horse's chance is also treated as independent of the others, the way flipping several coins is.</p>
           <div class="bucket-grid">
             <div class="bucket-card">
               <div class="ttl">${shMoney(51500, 40000, "full")} bucket</div>
@@ -2468,8 +2468,8 @@ function renderSaleHistory() {
               <div class="split-row"><div class="lbl">5 horses<span class="spend">around ${shMoney(30900, 24000)} each</span></div><div class="val">7.7%</div></div>
             </div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Splitting the money across several horses usually beats spending it all on one, but not always — in the smallest budget here 3 horses actually did worse than 1 or 2. There is no single "best number of horses" that works for every budget. Which split size wins depends on exactly where the price boundaries fall for that budget.</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">What about mixing price ranges instead of buying same-priced horses?</b> Checked for the ${shMoney(103000, 80000)} example: a mix (say, one ${shMoney(64376, 50000)} horse plus one ${shMoney(38626, 30000)} horse, giving 6.96%) never beat the winning split shown above — 5 horses around ${shMoney(20600, 16000)} each, at 7.7%. That's not "always pick the very cheapest band": horses under ${shMoney(19313, 15000)} only score 0.55% each, too low to make up for in numbers, so 5 of those (2.7%) actually does worse than 5 horses one band up. The pattern is: match the split size to whichever single band gives the best combination of odds-per-horse and how many horses that band lets the budget buy — not "cheapest always wins," and not "mixing bands helps." See the ${shMoney(51500, 40000)} bucket for a case where even that isn't enough: 3-4 cheap horses still did worse than just 2.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Splitting the money across several horses usually beats spending it all on one, but not always. In the smallest budget here, 3 horses actually did worse than 1 or 2. There is no single "best number of horses" that works for every budget. Which split size wins depends on exactly where the price boundaries fall for that budget.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">What about mixing price ranges instead of buying same-priced horses?</b> Checked for the ${shMoney(103000, 80000)} example: a mix (say, one ${shMoney(64376, 50000)} horse plus one ${shMoney(38626, 30000)} horse, giving 6.96%) never beat the winning split shown above. 5 horses around ${shMoney(20600, 16000)} each did better, at 7.7%. This doesn't mean "always pick the very cheapest band": horses under ${shMoney(19313, 15000)} only score 0.55% each, too low to make up for in numbers, so 5 of those (2.7%) actually does worse than 5 horses one band up. The pattern is this: match the split size to whichever single band gives the best combination of odds-per-horse and how many horses that band lets the budget buy. It's not "cheapest always wins," and it's not "mixing bands helps." See the ${shMoney(51500, 40000)} bucket for a case where even that isn't enough. There, 3-4 cheap horses still did worse than just 2.</p>
         </div>
       </section>
 
@@ -2499,12 +2499,12 @@ function renderSaleHistory() {
             </table>
           </div>
           <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale for that specific colt/filly/trotter/pacer group).</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Lexington has the highest rate in every single column here — colts, fillies, trotters, and pacers alike. Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio has far fewer horses overall than Lexington or Harrisburg, so treat Ohio's figures generally as a weaker signal than the other two.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Lexington has the highest rate in every single column here: colts, fillies, trotters, and pacers alike. Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio has far fewer horses overall than Lexington or Harrisburg, so treat Ohio's figures generally as a weaker signal than the other two.</p>
         </div>
       </section>
 
       <div class="footer-note">
-Covers Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug, 2014-2023, using the same rules explained at the top of this page. This is a pattern in past results — it is not a prediction about any specific 2026 yearling. Original sale prices were in USD; amounts are currently shown in ${shCcyLabel()}, ${saleHistoryFxNote()}.
+Covers Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug, 2014-2023, using the same rules explained at the top of this page. This is a pattern in past results. It is not a prediction about any specific 2026 yearling. Original sale prices were in USD. Amounts are currently shown in ${shCcyLabel()}, ${saleHistoryFxNote()}.
       </div>
     </div>
     </div>`;
@@ -2635,7 +2635,7 @@ function sparklinePoints(history, key, current) {
 }
 
 function vsBarsHtml(points, formatFn) {
-  if (points.length < 2) return `<div class="vs-bars-empty">Not enough history yet — check back after a few more days of responses.</div>`;
+  if (points.length < 2) return `<div class="vs-bars-empty">Not enough history yet. Check back after a few more days of responses.</div>`;
   const max = Math.max(...points, 1);
   const bars = points.map((value, i) => {
     const isLast = i === points.length - 1;
@@ -2661,7 +2661,7 @@ function renderAdminAccount() {
           <div>
             <div class="tag">Security</div>
             <h2>Change password</h2>
-            <p>Each admin can set their own password here — there's no shared login to keep in sync.</p>
+            <p>Each admin can set their own password here. There's no shared login to keep in sync.</p>
           </div>
         </div>
         <div class="panel-body">
@@ -2754,7 +2754,7 @@ function renderOwnerRosterAdmin() {
             <input type="file" id="ownerRosterFile" accept=".csv,.txt,.xlsx,.xls" style="display:none;">
           </label>
           <span class="qb-suggested-price" id="ownerRosterFileStatus"></span>
-          <p class="quiet" style="margin-top:8px;">Works with a spreadsheet exported from Excel or Google Sheets. Include a header row with "Name" and "Email" columns if you can — if not, the first two columns are used.</p>
+          <p class="quiet" style="margin-top:8px;">Works with a spreadsheet exported from Excel or Google Sheets. Include a header row with "Name" and "Email" columns if you can. If not, the first two columns are used.</p>
         </div>
       </div>
 
@@ -2909,7 +2909,7 @@ function buildPreviewDataset() {
   const prices = { budget: 3000, mid: 8000, premium: 15000 };
   const confirmedBuckets = [
     { id: "cb_preview_1", name: "Premium Trotter Colts", price: 15000, gait: "trotter", sex: "colt", note: "" },
-    { id: "cb_preview_2", name: "Balanced — Any gait, Fillies", price: 8000, gait: "any", sex: "filly", note: "" },
+    { id: "cb_preview_2", name: "Balanced: Any gait, Fillies", price: 8000, gait: "any", sex: "filly", note: "" },
     { id: "cb_preview_3", name: "Value Buys", price: 3000, gait: "any", sex: "any", note: "" },
   ];
 
@@ -3034,7 +3034,7 @@ function renderAdmin() {
     <div class="wrap">
       <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${previewToggleButton()}${resetDemoDataButton()}${backToSiteLink()}</div></div>
 
-      ${preview ? `<div class="preview-banner">Previewing with fictional demo data — no real responses were touched. <button type="button" id="previewOff">Show my real data</button></div>` : ""}
+      ${preview ? `<div class="preview-banner">Previewing with fictional demo data. No real responses were touched. <button type="button" id="previewOff">Show my real data</button></div>` : ""}
 
       ${adminMasthead("Response Dashboard", `
           <div class="as-of light">Responses as of <strong>${asOf}</strong></div>
@@ -3046,7 +3046,7 @@ function renderAdmin() {
           <div>
             <div class="eyebrow"><span class="dot"></span> Pre-sale bucket interest, all sales</div>
             <div class="verdict-figure">${!bucketRows.length ? "No data" : `${bucketOwnerCount} owner${bucketOwnerCount === 1 ? "" : "s"}`}</div>
-            <div class="verdict-label">${bucketRows.length ? `Distinct owners who expressed a pre-sale bucket preference across ${saleDemand.length} sale${saleDemand.length === 1 ? "" : "s"} currently in the intake. This is interest, not a percentage share — TheStable follows up separately once a bucket is finalized to ask each interested owner how much they'd like to invest.` : "No pre-sale bucket responses yet. This figure will fill in as owners submit the intake."}</div>
+            <div class="verdict-label">${bucketRows.length ? `Distinct owners who expressed a pre-sale bucket preference across ${saleDemand.length} sale${saleDemand.length === 1 ? "" : "s"} currently in the intake. This is interest, not a percentage share. TheStable follows up separately once a bucket is finalized to ask each interested owner how much they'd like to invest.` : "No pre-sale bucket responses yet. This figure will fill in as owners submit the intake."}</div>
           </div>
           <div class="response-ring">
             <div class="ring" style="--pct:${responseRatePct ?? 0}">${responseRatePct == null ? `<div class="ring-empty">${ownerCount ? ownerCount : "No data"}</div>` : `<div>${responseRatePct}%</div>`}</div>
@@ -3085,7 +3085,7 @@ function renderAdmin() {
           <div class="vs-item">
             <div class="vs-label">Distinct preferences</div>
             <div class="vs-row"><span class="vs-value">${distinctPreferenceCount}</span></div>
-            <div class="vs-bars-empty">Different price tier / gait / sex combinations chosen so far — a high number relative to owner count may mean demand is spread thin.</div>
+            <div class="vs-bars-empty">Different price tier / gait / sex combinations chosen so far. A high number relative to owner count may mean demand is spread thin.</div>
           </div>
           <div class="vs-item">
             <div class="vs-label">Owners with 2+ preferences</div>
@@ -3122,9 +3122,9 @@ function renderAdmin() {
           <div>
             <div class="tag">Demand breakdown</div>
             <h2>Where the demand is, by price tier</h2>
-            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit — owners pick a price tier (budget/mid/premium) per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Each row also shows the real historical odds a horse at that price tier became a top performer (from the Sale History page) — two separate signals side by side, not blended into one number. Use both when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
+            <p>Breaks down the requests you've already received by price tier, gait, sex, and jurisdiction fit. Owners pick a price tier (budget/mid/premium) per sale rather than an existing bucket name, so this is raw demand for you to shape into an actual bucket, not a proposal to approve. Each row also shows the real historical odds a horse at that price tier became a top performer (from the Sale History page). These are two separate signals side by side, not blended into one number. Use both when you set the sale's final offer in the "Confirmed Buckets" panel below.</p>
           </div>
-          <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked by how many distinct owners want each exact combination — the historical odds column doesn't affect the ranking, it's context to help you judge whether that demand is worth acting on. It can only break down demand within the price tiers owners were asked about — it can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
+          <span class="ref-info-dot" tabindex="0">i<span class="tip">Ranked by how many distinct owners want each exact combination. The historical odds column doesn't affect the ranking. It's context to help you judge whether that demand is worth acting on. It can only break down demand within the price tiers owners were asked about. It can't suggest a brand-new bucket idea nobody was asked about. Use the Sale History page for that kind of idea before the intake form ever opens.</span></span>
         </div>
         <div class="panel-body" style="padding-top: 4px;">
           ${suggestions.length ? suggestions.map((row) => `
@@ -3327,7 +3327,7 @@ function customQuestionPanels(rows) {
       return Array.isArray(value) ? value.map((v) => labelFor(block.id, v) || v).join(", ") : (labelFor(block.id, value) || value);
     });
     return `<div class="ref-panel">
-      <div class="panel-head"><h2>${escapeHtml(block.label)}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Question added in Questions Builder. Shown here automatically — for a purpose-built chart like the bucket suggestions above, that needs custom design work.</span></span></div>
+      <div class="panel-head"><h2>${escapeHtml(block.label)}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Question added in Questions Builder. Shown here automatically. A purpose-built chart like the bucket suggestions above needs custom design work instead.</span></span></div>
       <div class="panel-body">${refBarList(demand)}</div>
     </div>`;
   });
