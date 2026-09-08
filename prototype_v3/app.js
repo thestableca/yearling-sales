@@ -344,9 +344,9 @@ function oddsStatBlocks(odds) {
     return `<div class="stat-block odds-block"><div class="num">&mdash;</div><div class="lbl">historical odds</div></div>`;
   }
   const venueBlock = odds.venue?.odds !== undefined
-    ? `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl">this sale</div></div>`
+    ? `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl repeat-lbl">this sale</div></div>`
     : `<div class="stat-block odds-block odds-missing"><div class="num">&mdash;</div><div class="lbl">too few horses sold in this group at this sale</div></div>`;
-  const pooledBlock = `<div class="stat-block odds-block odds-pooled"><div class="num">${round1(odds.pooled.odds)}%</div><div class="lbl">all sales combined</div></div>`;
+  const pooledBlock = `<div class="stat-block odds-block odds-pooled"><div class="num">${round1(odds.pooled.odds)}%</div><div class="lbl repeat-lbl">all sales combined</div></div>`;
   return venueBlock + pooledBlock;
 }
 
@@ -3317,7 +3317,7 @@ function renderAdmin() {
                 <div class="sugg-title">${escapeHtml(labelFor("priceTiers", row.bucketType))} &middot; ${escapeHtml(labelFor("gait", row.gait))} &middot; ${escapeHtml(labelFor("sex", row.sex))}</div>
                 <div class="sugg-sub">${row.eligibility.length ? row.eligibility.map((item) => escapeHtml(item.label)).join(", ") : "No jurisdiction preference captured"}</div>
               </div>
-              <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
+              <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl repeat-lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
               ${oddsStatBlocks(row.historicalOdds)}
             </div>`).join("")}
           </div>`).join("") : `<p class="quiet" style="padding:6px 4px;">No demand data yet. This fills in once owners submit pre-sale bucket responses.</p>`}

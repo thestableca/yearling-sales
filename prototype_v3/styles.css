@@ -1638,6 +1638,12 @@ th .col-filter option {
 .refskin.dashboard-page .stat-block.odds-block .num { color: #8a6417; }
 .refskin.dashboard-page .stat-block .stat-sub { font-family: "Inter", sans-serif; font-weight: 500; font-size: 11px; color: var(--muted); }
 .refskin.dashboard-page .stat-block .lbl { font-size: 10px; color: var(--muted); margin-top: 1px; line-height: 1.3; }
+/* repeat-lbl duplicates what the column heading above already says
+   (Owners / Odds, this sale / Odds, all sales) -- hidden once those
+   headings are visible, shown again on mobile where the headings are
+   hidden instead (4-column heading row doesn't fit the stacked mobile
+   layout), so the number still has SOME caption there. */
+.refskin.dashboard-page .repeat-lbl { display: none; }
 /* Pooled ("all sales") odds sit next to the venue-specific figure, kept
    visually one notch quieter so the two never look like equally-precise
    peers -- pooled is real context, but it's a different, less specific
@@ -1727,6 +1733,7 @@ th .col-filter option {
   .refskin.dashboard-page .sugg-row { grid-template-columns: 1fr 1fr 1fr; row-gap: 10px; }
   .refskin.dashboard-page .sugg-row > div:first-child { grid-column: 1 / -1; }
   .refskin.dashboard-page .sugg-col-heads { display: none; }
+  .refskin.dashboard-page .repeat-lbl { display: block; }
 }
 
 @media (max-width: 520px) {
