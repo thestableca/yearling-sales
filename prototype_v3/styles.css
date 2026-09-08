@@ -1445,7 +1445,7 @@ th .col-filter option {
 .refskin .mini-bar-wrap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; flex: 1; min-width: 0; height: 100%; }
 .refskin .mini-bar-val { font-size: 10.5px; font-weight: 700; color: #eef1f8; white-space: nowrap; }
 .refskin .mini-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 4px; }
-.refskin .mini-bar-name { font-size: 9px; color: #93a1bf; white-space: nowrap; }
+.refskin .mini-bar-name { font-size: 9px; color: #fff; white-space: nowrap; }
 
 /* Secondary metadata strip, below the visual dashboard */
 .refskin .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 30px; }
