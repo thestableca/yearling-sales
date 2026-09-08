@@ -332,26 +332,21 @@ function priceTierGaitSexOdds(saleId, tier, gait, sex) {
 // always both, never one silently standing in for the other. A venue
 // cell can be: a full { odds, n, top } object (reliable, >=30 horses
 // sold in this exact group at this sale), an { n } object with no odds
-// (that venue DID sell horses in this exact group, just too few to
-// trust a %, e.g. Ohio's premium tier — this is a volume gap at that
-// venue, not a shortage of top performers specifically), or missing
-// entirely (no venue-specific breakdown computed at all). The wording
-// is deliberately about how few horses were EVER SOLD in that exact
-// group at that venue, not about how many became top performers,
-// since the two are easy to conflate but aren't the same thing.
+// (that venue DID sell horses in this exact group, just too few of
+// them became a top performer to trust a %, e.g. Ohio's premium tier),
+// or missing entirely. Per Robert's request, the on-page wording is
+// kept simple and non-technical (no raw n counts shown) — the fuller
+// "how many horses were actually sold here" detail lives in this
+// comment and in PRICE_TIER_GAIT_SEX_VENUE_ODDS's own n values, for
+// whoever maintains this later, not in the UI itself.
 function oddsStatBlocks(odds) {
   if (!odds || !odds.pooled) {
     return `<div class="stat-block odds-block"><div class="num">&mdash;</div><div class="lbl">historical odds</div></div>`;
   }
-  let venueBlock;
-  if (odds.venue?.odds !== undefined) {
-    venueBlock = `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl">this sale (n=${odds.venue.n.toLocaleString()})</div></div>`;
-  } else if (odds.venue?.n !== undefined) {
-    venueBlock = `<div class="stat-block odds-block odds-missing"><div class="num">n=${odds.venue.n}</div><div class="lbl">this sale has only sold ${odds.venue.n} horses in this exact group, too few to trust a %</div></div>`;
-  } else {
-    venueBlock = `<div class="stat-block odds-block odds-missing"><div class="num">&mdash;</div><div class="lbl">this sale: no breakdown available</div></div>`;
-  }
-  const pooledBlock = `<div class="stat-block odds-block odds-pooled"><div class="num">${round1(odds.pooled.odds)}%</div><div class="lbl">all sales combined (n=${odds.pooled.n.toLocaleString()})</div></div>`;
+  const venueBlock = odds.venue?.odds !== undefined
+    ? `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl">this sale</div></div>`
+    : `<div class="stat-block odds-block odds-missing"><div class="num">&mdash;</div><div class="lbl">too few horses sold in this group at this sale</div></div>`;
+  const pooledBlock = `<div class="stat-block odds-block odds-pooled"><div class="num">${round1(odds.pooled.odds)}%</div><div class="lbl">all sales combined</div></div>`;
   return venueBlock + pooledBlock;
 }
 

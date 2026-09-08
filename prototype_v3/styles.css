@@ -1610,18 +1610,12 @@ th .col-filter option {
 .refskin.dashboard-page .sugg-sale-group .sugg-row { padding-left: 18px; padding-right: 18px; }
 .refskin.dashboard-page .sugg-sale-group .sugg-row:last-child { padding-bottom: 18px; }
 .refskin.dashboard-page .sale-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-.refskin.dashboard-page .sale-accent-0 { border-color: var(--gold); }
-.refskin.dashboard-page .sale-accent-0 .sugg-sale-head { background: linear-gradient(135deg, #fbf3e2, #f4ead0); color: #8a6417; }
-.refskin.dashboard-page .sale-accent-0 .sale-dot { background: linear-gradient(135deg, var(--gold), var(--gold-light)); }
-.refskin.dashboard-page .sale-accent-1 { border-color: var(--navy); }
-.refskin.dashboard-page .sale-accent-1 .sugg-sale-head { background: linear-gradient(135deg, #e4e9f2, #d3dceb); color: var(--navy-deep); }
-.refskin.dashboard-page .sale-accent-1 .sale-dot { background: linear-gradient(135deg, var(--navy), var(--navy-mid)); }
-.refskin.dashboard-page .sale-accent-2 { border-color: #7a8aa8; }
-.refskin.dashboard-page .sale-accent-2 .sugg-sale-head { background: linear-gradient(135deg, #eef0f5, #dfe4ee); color: #4b5773; }
-.refskin.dashboard-page .sale-accent-2 .sale-dot { background: linear-gradient(135deg, #7a8aa8, #a6b1c9); }
-.refskin.dashboard-page .sale-accent-3 { border-color: #b8925a; }
-.refskin.dashboard-page .sale-accent-3 .sugg-sale-head { background: linear-gradient(135deg, #f6ecdd, #eeddc2); color: #7a5a2e; }
-.refskin.dashboard-page .sale-accent-3 .sale-dot { background: linear-gradient(135deg, #b8925a, #d4b587); }
+/* One consistent navy-and-gold treatment for every sale card, matching
+   TheStable's own logo colors, instead of a different accent hue per
+   sale — the sale name itself is what tells them apart, not the color. */
+.refskin.dashboard-page [class*="sale-accent-"] { border-color: var(--navy); }
+.refskin.dashboard-page [class*="sale-accent-"] .sugg-sale-head { background: linear-gradient(120deg, var(--navy-deep), var(--navy) 70%); color: var(--gold-light); }
+.refskin.dashboard-page [class*="sale-accent-"] .sale-dot { background: linear-gradient(135deg, var(--gold), var(--gold-light)); }
 .refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.5fr 0.65fr 0.9fr 0.9fr; gap: 12px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
 .refskin.dashboard-page .sugg-row:last-child { border-bottom: 0; }
 .refskin.dashboard-page .status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 7px; }
