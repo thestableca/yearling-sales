@@ -2219,10 +2219,10 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Colt vs. filly: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring ring-solid" style="background: conic-gradient(var(--gold-light) 0% 56.0%, #93a1bf 56.0% 100%)"></div>
+              <div class="ring ring-solid" style="background: conic-gradient(var(--gold-light) 0% 56.0%, #d8dee8 56.0% 100%)"></div>
               <div class="ring-legend">
                 <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Colt <b>56.0%</b></div>
-                <div class="rl-row"><span class="rl-dot" style="background:#93a1bf"></span>Filly <b>44.0%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#d8dee8"></span>Filly <b>44.0%</b></div>
               </div>
             </div>
             <div class="curve-foot" style="margin-top:16px;">Out of every 100 top performers, 56 were colts and 44 were fillies. That's because colts also have better odds individually: 3.3% of colts sold became a top performer, vs. 2.3% of fillies, across all three sales combined — see the sale-by-sale table below for whether that holds at every individual venue.</div>
@@ -2231,10 +2231,10 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Trotter vs. pacer: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring ring-solid" style="background: conic-gradient(var(--gold-light) 0% 52.5%, #93a1bf 52.5% 100%)"></div>
+              <div class="ring ring-solid" style="background: conic-gradient(var(--gold-light) 0% 52.5%, #d8dee8 52.5% 100%)"></div>
               <div class="ring-legend">
                 <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Trotter <b>52.5%</b></div>
-                <div class="rl-row"><span class="rl-dot" style="background:#93a1bf"></span>Pacer <b>47.5%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#d8dee8"></span>Pacer <b>47.5%</b></div>
               </div>
             </div>
             <div class="curve-foot" style="margin-top:16px;">Roughly an even split between trotters and pacers among top performers, across all 3 sales combined. Individually, trotters have a slightly better per-horse chance (2.9% vs. 2.7% for pacers), but it isn't consistent at every venue — see the sale-by-sale table below.</div>
@@ -2245,10 +2245,10 @@ function renderSaleHistory() {
             <div class="verdict-num">5 horses</div>
             <div class="verdict-sub">For a ${shMoney(103000, 80000, "full")} ${shCcyLabel()} budget specifically, splitting it into 5 horses around ${shMoney(20600, 16000)} each gives <b style="color:#fff">7.7%</b> odds of landing at least one top performer. This is one example, not a general rule — see "One horse or several: building a bucket" below for why the best split size changes with the budget.</div>
             <div class="mini-bars" style="margin-top:14px;">
-              <div class="mini-bar-wrap"><div class="mini-bar-val">4.8%</div><div class="mini-bar" style="height:62%; background:#45557a"></div><div class="mini-bar-name">1 horse</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">4.9%</div><div class="mini-bar" style="height:64%; background:#45557a"></div><div class="mini-bar-name">2 horses</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">4.7%</div><div class="mini-bar" style="height:61%; background:#45557a"></div><div class="mini-bar-name">3 horses</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">6.2%</div><div class="mini-bar" style="height:81%; background:#45557a"></div><div class="mini-bar-name">4 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">4.8%</div><div class="mini-bar" style="height:62%; background:#d8dee8"></div><div class="mini-bar-name">1 horse</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">4.9%</div><div class="mini-bar" style="height:64%; background:#d8dee8"></div><div class="mini-bar-name">2 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">4.7%</div><div class="mini-bar" style="height:61%; background:#d8dee8"></div><div class="mini-bar-name">3 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">6.2%</div><div class="mini-bar" style="height:81%; background:#d8dee8"></div><div class="mini-bar-name">4 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">7.7%</div><div class="mini-bar" style="height:100%; background:var(--gold)"></div><div class="mini-bar-name">5 horses</div></div>
             </div>
             <div class="curve-foot" style="margin-top:10px;"><b>What this percentage does and doesn't mean:</b> it's the chance that at least one of the horses becomes a top performer — not a prediction of how much of the bucket's money that one horse represents, and not a guarantee of profit. With 5 horses, a "win" can be just 1 of the 5 hitting; the other 4 may not. This assumes each horse's chance is independent of the others, which won't always hold exactly (horses from the same bloodline or consignor, for instance, aren't fully independent bets).</div>
