@@ -1597,8 +1597,11 @@ th .col-filter option {
 .refskin.dashboard-page .cbc-criteria { font-size: 11.5px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; margin-top: 6px; }
 .refskin.dashboard-page .cbc-note { font-size: 12px; color: var(--muted); margin-top: auto; padding-top: 6px; line-height: 1.4; }
 
-/* Suggestions */
-.refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.7fr 0.9fr 0.7fr 0.9fr 1fr; gap: 14px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
+/* Suggestions: grouped by sale, each group under its own heading. */
+.refskin.dashboard-page .sugg-sale-group { margin-bottom: 4px; }
+.refskin.dashboard-page .sugg-sale-group:not(:first-child) { margin-top: 22px; padding-top: 18px; border-top: 2px solid var(--line); }
+.refskin.dashboard-page .sugg-sale-head { font-family: "Fraunces", serif; font-weight: 600; font-size: 15px; color: var(--navy-deep); margin-bottom: 4px; }
+.refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.7fr 0.8fr 1fr; gap: 16px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
 .refskin.dashboard-page .sugg-row:last-child { border-bottom: 0; }
 .refskin.dashboard-page .status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 7px; }
 .refskin.dashboard-page .status svg { width: 11px; height: 11px; }
@@ -1607,9 +1610,12 @@ th .col-filter option {
 .refskin.dashboard-page .status.watch { background: #eceef1; color: #5b6472; }
 .refskin.dashboard-page .sugg-title { font-weight: 700; font-size: 13.5px; color: var(--ink); line-height: 1.3; }
 .refskin.dashboard-page .sugg-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.refskin.dashboard-page .stat-block { text-align: center; padding: 8px 10px; border-radius: 12px; background: var(--ivory-dim); }
+.refskin.dashboard-page .stat-block.odds-block { background: linear-gradient(150deg, #fbf3e2, #f4ead0); }
 .refskin.dashboard-page .stat-block .num { font-family: "Fraunces", serif; font-weight: 600; font-size: 19px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.refskin.dashboard-page .stat-block.odds-block .num { color: #8a6417; }
 .refskin.dashboard-page .stat-block .stat-sub { font-family: "Inter", sans-serif; font-weight: 500; font-size: 11px; color: var(--muted); }
-.refskin.dashboard-page .stat-block .lbl { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+.refskin.dashboard-page .stat-block .lbl { font-size: 10px; color: var(--muted); margin-top: 1px; line-height: 1.3; }
 .refskin.dashboard-page .fill-meter { display: flex; align-items: center; gap: 8px; }
 .refskin.dashboard-page .fill-meter .bar { flex: 1; height: 6px; border-radius: 999px; background: var(--ivory-dim); overflow: hidden; }
 .refskin.dashboard-page .fill-meter .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius: inherit; }
