@@ -1,12 +1,18 @@
-const SALES = [
-  { id: "ohio", label: "Ohio Selected Sale" },
-  { id: "lexington", label: "Lexington Selected Sale" },
-  { id: "harrisburg", label: "Harrisburg Sale" },
-  { id: "london", label: "London Classic Yearling Sale" },
-  { id: "unsure", label: "Not sure which sale yet" },
-];
+// SALES/REAL_SALES are now derived from the "sales" block's own options
+// (see defaultQuestionSet() in questions.js) so that editing a sale's name
+// or adding a new one in Questions Builder updates every place that reads
+// the sale list, instead of needing a separate hardcoded array kept in
+// sync by hand. Functions (not consts) because they must read the block
+// AFTER questions.js/the question-set cache is ready, not at module load.
+function SALES() {
+  const block = currentQuestionSet().blocks.find((b) => b.id === "sales");
+  const fromBlock = (block?.options || []).map((o) => ({ id: o.value, label: o.label }));
+  return [...fromBlock, { id: "unsure", label: "Not sure which sale yet" }];
+}
 
-const REAL_SALES = SALES.filter((sale) => sale.id !== "unsure");
+function REAL_SALES() {
+  return SALES().filter((sale) => sale.id !== "unsure");
+}
 
 const OWNERS = [
   { id: "own_test", name: "Test Owner", email: "test@thestable.ca" },
@@ -399,7 +405,7 @@ function cleanPercent(value) {
 }
 
 function saleById(id) {
-  return SALES.find((sale) => sale.id === id);
+  return SALES().find((sale) => sale.id === id);
 }
 
 function currentSaleId() {
@@ -459,7 +465,11 @@ function defaultQuestions(prefs = draft.defaultPrefs) {
   // Archived blocks (see archiveQuestionBlock()) are never shown to
   // owners — Anthony can restore one from Questions Builder any time,
   // but while archived it's as if it doesn't exist for the intake flow.
-  const allBlocks = currentQuestionSet().blocks.filter((b) => !b.archived);
+  // fixedPosition blocks (interest/sales/eligibility) are excluded too —
+  // they have their own dedicated draft.view screens BEFORE this walk
+  // ever starts (see interestCard()/salesCard()/eligibilityCard()), so
+  // they must never appear a second time as a "defaults" step.
+  const allBlocks = currentQuestionSet().blocks.filter((b) => !b.archived && !b.fixedPosition);
   const visible = visibleBlocks(allBlocks, prefs);
   const blocks = visible.filter((block) => block.type !== "bucket_config");
   const questions = blocks.map((block) => block.id);
@@ -582,25 +592,37 @@ function identifyCard() {
   );
 }
 
+// interestCard()/salesCard()/eligibilityCard() render the fixed-position
+// "interest"/"sales"/"eligibility" blocks from questions.js's
+// defaultQuestionSet() — their question text and options come from those
+// blocks (editable in Questions Builder), while the screen ORDER and
+// draft.* state they write to stay exactly as before; see the
+// fixedPosition comment on those blocks in questions.js for why.
+function questionBlock(id) {
+  return currentQuestionSet().blocks.find((b) => b.id === id);
+}
+
 function interestCard() {
+  const block = questionBlock("interest");
+  const options = (block?.options || []).map((o) => [o.value, o.label, o.help || ""]);
   return card(
     "Step 2",
-    "Are you interested in purchasing yearling shares in 2026?",
+    block?.label || "Are you interested in purchasing yearling shares in 2026?",
     `${draft.resumedExisting ? `<p class="notice">We found a previous submission for this email address and loaded it here. Continuing will update and replace that submission.</p>` : ""}
-    ${radioOptions("interest", draft.interest, [
-      ["yes", "Yes", ""],
-      ["no", "No", ""],
-    ])}
+    ${block?.helpText ? `<p class="prompt">${escapeHtml(block.helpText)}</p>` : ""}
+    ${radioOptions("interest", draft.interest, options)}
     <div class="actions"><button class="btn" type="button" data-go="identify">Back</button><button class="btn primary" type="button" data-interest-next ${!draft.interest ? "disabled" : ""}>Continue</button></div>`
   );
 }
 
 function salesCard() {
+  const block = questionBlock("sales");
+  const options = (block?.options || []).map((o) => [o.value, o.label, o.help || ""]);
   return card(
     "Step 3",
-    "Which yearling sales should TheStable consider for you?",
-    `<p class="prompt">Select all that apply.</p>
-     ${checkOptions("sales", draft.selectedSales, REAL_SALES.map((sale) => [sale.id, sale.label, ""]))}
+    block?.label || "Which yearling sales should TheStable consider for you?",
+    `<p class="prompt">${block?.helpText ? escapeHtml(block.helpText) : "Select all that apply."}</p>
+     ${checkOptions("sales", draft.selectedSales, options)}
      <div class="options">
        <button class="option ${draft.openToAnySale ? "selected" : ""}" type="button" data-any-sale><span class="mark check"></span><span><strong>I am open to any sale</strong></span></button>
        <button class="option ${draft.selectedSales.includes("unsure") ? "selected" : ""}" type="button" data-unsure-sale><span class="mark check"></span><span><strong>I am not sure which sale yet</strong></span></button>
@@ -610,20 +632,13 @@ function salesCard() {
 }
 
 function eligibilityCard() {
+  const block = questionBlock("eligibility");
+  const options = (block?.options || []).map((o) => [o.value, o.label, o.help || ""]);
   return card(
     "Step 4",
-    "Which jurisdictions are you interested in?",
-    `<p class="prompt">Select all that apply.</p>
-     ${checkOptions("globalEligibility", draft.eligibilityPreferences, [
-      ["ohio", "Ohio eligible", ""],
-      ["kentucky", "Kentucky eligible", ""],
-      ["new_jersey", "New Jersey eligible", ""],
-      ["pennsylvania", "Pennsylvania eligible", ""],
-      ["ontario", "Ontario eligible", ""],
-      ["new_york", "New York eligible", ""],
-      ["indiana", "Indiana eligible", ""],
-      ["no_preference", "No strong preference", ""],
-    ])}
+    block?.label || "Which jurisdictions are you interested in?",
+    `<p class="prompt">${block?.helpText ? escapeHtml(block.helpText) : "Select all that apply."}</p>
+     ${checkOptions("globalEligibility", draft.eligibilityPreferences, options)}
     <div class="actions"><button class="btn" type="button" data-go="sales">Back</button><button class="btn primary" type="button" data-start-defaults ${!draft.eligibilityPreferences.length ? "disabled" : ""}>Continue</button></div>`
   );
 }
@@ -1306,7 +1321,7 @@ function applyDefaultsToSales() {
 function toggleAnySale() {
   draft.openToAnySale = !draft.openToAnySale;
   draft.unsureSale = false;
-  draft.selectedSales = draft.openToAnySale ? REAL_SALES.map((sale) => sale.id) : [];
+  draft.selectedSales = draft.openToAnySale ? REAL_SALES().map((sale) => sale.id) : [];
   saveDraft();
   render();
 }
@@ -1367,6 +1382,7 @@ function saveInputs() {
 // an owner's answer to a custom question would be collected but never
 // shown back to them on the review screen before they submit.
 const KNOWN_SUMMARY_BLOCK_IDS = new Set([
+  "interest", "sales", "eligibility",
   "participation", "gait", "sex", "sexTrotter", "sexPacer",
   "priceTierMatrix",
   "specificHorseCount", "specificShareSize",
@@ -1775,6 +1791,14 @@ function questionBlockRow(block, index, total) {
   const archiveTitle = dashboardImpact
     ? `Archiving this also affects ${dashboardImpact} on the Dashboard`
     : "Hides this question from owners and its Dashboard panel (if any) — restore any time from Archived questions below";
+  // interest/sales/eligibility always run first, in that fixed order —
+  // later parts of the flow depend on it — so they can't be reordered or
+  // archived here, only their question text/help/options edited.
+  const controls = block.fixedPosition
+    ? `<span class="qb-fixed-flag" title="This question always appears first, in a fixed order — its text and options can be edited, but not its position">Fixed position</span>`
+    : `<button class="btn" type="button" data-move-block="${block.id}" data-dir="up" ${index === 0 ? "disabled" : ""} title="Move up">&uarr;</button>
+       <button class="btn" type="button" data-move-block="${block.id}" data-dir="down" ${index === total - 1 ? "disabled" : ""} title="Move down">&darr;</button>
+       <button class="btn red" type="button" data-remove-block="${block.id}" title="${escapeHtml(archiveTitle)}">Archive</button>`;
   return `
     <div class="qb-block ${expanded ? "expanded" : ""}">
       <div class="qb-block-head" data-toggle-block="${block.id}">
@@ -1784,9 +1808,7 @@ function questionBlockRow(block, index, total) {
           ${dashboardImpact ? `<span class="qb-core-flag" title="Drives ${escapeHtml(dashboardImpact)} on the Dashboard">Drives a Dashboard panel</span>` : ""}
         </div>
         <div class="qb-block-controls">
-          <button class="btn" type="button" data-move-block="${block.id}" data-dir="up" ${index === 0 ? "disabled" : ""} title="Move up">&uarr;</button>
-          <button class="btn" type="button" data-move-block="${block.id}" data-dir="down" ${index === total - 1 ? "disabled" : ""} title="Move down">&darr;</button>
-          <button class="btn red" type="button" data-remove-block="${block.id}" title="${escapeHtml(archiveTitle)}">Archive</button>
+          ${controls}
         </div>
       </div>
       ${expanded ? questionBlockEditor(block) : ""}
@@ -1863,6 +1885,7 @@ function bucketConfigEditor(bucketConfig) {
 // generically (see customQuestionPanels()) — archiving those has no
 // such side effect.
 const CORE_QUESTION_DASHBOARD_IMPACT = {
+  sales: "the \"Interest by sale\" panel and every sale-scoped figure on the Dashboard",
   participation: "the \"Suggested buckets to offer\" panel and the pre-sale/after-sale split",
   gait: "the \"Trotter vs. Pacer\" panel and the Gait column in Owner detail",
   sex: "the \"Colt / Filly\" panel and the Colt/Filly column in Owner detail",
@@ -2820,7 +2843,7 @@ function renderOwnerRosterAdmin() {
 function buildPreviewDataset() {
   const firstNames = ["Jane", "Mark", "Susan", "David", "Linda", "Michael", "Karen", "Robert", "Patricia", "James", "Nancy", "Thomas", "Sandra", "Daniel", "Betty", "Paul", "Carol", "Steven", "Ruth", "Kevin"];
   const lastNames = ["Smith", "Doe", "Miller", "Taylor", "Anderson", "Reed", "Clark", "Kessler", "Owens", "Foster", "Bennett", "Hayes", "Coleman", "Pierce", "Sutton", "Marsh", "Doyle", "Grant", "Wells", "Barrett"];
-  const salesPool = REAL_SALES.map((s) => s.id);
+  const salesPool = REAL_SALES().map((s) => s.id);
   const tierPool = [["premium"], ["mid"], ["budget"], ["premium", "mid"], ["budget"], ["mid"]];
   const gaits = ["trotter", "pacer", "both"];
   const sexes = ["colt", "filly", "both"];

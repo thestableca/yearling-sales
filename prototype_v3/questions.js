@@ -223,9 +223,25 @@ async function saveQuestionSets(sets) {
   await setSetting("question_sets", sets);
 }
 
+// A previously-saved question set (from before interest/sales/eligibility
+// existed as blocks) won't have them — without this, someone who once
+// edited any question via Questions Builder would silently keep seeing
+// the old hardcoded interest/sales/eligibility screens forever, since a
+// saved set always wins over defaultQuestionSet() below. Backfills any
+// fixedPosition block missing from a stored set (matched by id) from the
+// current default, leaving every other saved block/edit untouched.
+function withFixedPositionBlocksBackfilled(questionSet) {
+  const defaults = defaultQuestionSet();
+  const defaultFixed = defaults.blocks.filter((b) => b.fixedPosition);
+  const existingIds = new Set(questionSet.blocks.map((b) => b.id));
+  const missing = defaultFixed.filter((b) => !existingIds.has(b.id));
+  if (!missing.length) return questionSet;
+  return { ...questionSet, blocks: [...missing, ...questionSet.blocks] };
+}
+
 function getQuestionSet(saleYearId) {
   const sets = loadQuestionSets();
-  if (sets[saleYearId]) return sets[saleYearId];
+  if (sets[saleYearId]) return withFixedPositionBlocksBackfilled(sets[saleYearId]);
   return defaultQuestionSet();
 }
 
@@ -257,6 +273,66 @@ function defaultBucketConfig() {
 function defaultQuestionSet() {
   return {
     blocks: [
+      // These three blocks (interest/sales/eligibility) drive the first
+      // three screens of the owner intake flow, BEFORE the participation
+      // question. Their sortOrder is negative to keep them first in the
+      // Questions Builder list and to leave room between them and
+      // "participation" (10) for anything inserted later. Editing their
+      // label/help/options here changes what an owner sees on those three
+      // screens (see interestCard()/salesCard()/eligibilityCard() in
+      // app.js) — but unlike the blocks below, their POSITION in the flow
+      // is fixed (interest -> sales -> eligibility -> participation, in
+      // that order, always first): they can't be archived, reordered, or
+      // depend on another block, because later parts of the flow (e.g.
+      // which sale a "Confirmed Buckets" or Sale Detail question applies
+      // to) assume all three are always answered first.
+      {
+        id: "interest",
+        type: "yes_no",
+        label: "Are you interested in purchasing yearling shares in 2026?",
+        sortOrder: -30,
+        dependsOn: null,
+        required: true,
+        fixedPosition: true,
+        options: [
+          { value: "yes", label: "Yes", help: "" },
+          { value: "no", label: "No", help: "" },
+        ],
+      },
+      {
+        id: "sales",
+        type: "multi_select",
+        label: "Which yearling sales should TheStable consider for you?",
+        sortOrder: -20,
+        dependsOn: null,
+        required: true,
+        fixedPosition: true,
+        options: [
+          { value: "ohio", label: "Ohio Selected Sale", help: "" },
+          { value: "lexington", label: "Lexington Selected Sale", help: "" },
+          { value: "harrisburg", label: "Harrisburg Sale", help: "" },
+          { value: "london", label: "London Classic Yearling Sale", help: "" },
+        ],
+      },
+      {
+        id: "eligibility",
+        type: "multi_select",
+        label: "Which jurisdictions are you interested in?",
+        sortOrder: -10,
+        dependsOn: null,
+        required: true,
+        fixedPosition: true,
+        options: [
+          { value: "ohio", label: "Ohio eligible", help: "" },
+          { value: "kentucky", label: "Kentucky eligible", help: "" },
+          { value: "new_jersey", label: "New Jersey eligible", help: "" },
+          { value: "pennsylvania", label: "Pennsylvania eligible", help: "" },
+          { value: "ontario", label: "Ontario eligible", help: "" },
+          { value: "new_york", label: "New York eligible", help: "" },
+          { value: "indiana", label: "Indiana eligible", help: "" },
+          { value: "no_preference", label: "No strong preference", help: "" },
+        ],
+      },
       {
         id: "participation",
         type: "single_select",
