@@ -2219,10 +2219,10 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Colt vs. filly: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 56.0%, #45557a 56.0% 100%)"><div></div></div>
+              <div class="ring ring-solid" style="background: conic-gradient(var(--gold-light) 0% 56.0%, #93a1bf 56.0% 100%)"></div>
               <div class="ring-legend">
                 <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Colt <b>56.0%</b></div>
-                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Filly <b>44.0%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#93a1bf"></span>Filly <b>44.0%</b></div>
               </div>
             </div>
             <div class="curve-foot" style="margin-top:16px;">Out of every 100 top performers, 56 were colts and 44 were fillies. That's because colts also have better odds individually: 3.3% of colts sold became a top performer, vs. 2.3% of fillies, across all three sales combined — see the sale-by-sale table below for whether that holds at every individual venue.</div>
@@ -2231,10 +2231,10 @@ function renderSaleHistory() {
           <div class="dash-card">
             <div class="dc-label">Trotter vs. pacer: who makes up the top performers</div>
             <div class="ring-wrap">
-              <div class="ring" style="background: conic-gradient(var(--gold-light) 0% 52.5%, #45557a 52.5% 100%)"><div></div></div>
+              <div class="ring ring-solid" style="background: conic-gradient(var(--gold-light) 0% 52.5%, #93a1bf 52.5% 100%)"></div>
               <div class="ring-legend">
                 <div class="rl-row"><span class="rl-dot" style="background:var(--gold-light)"></span>Trotter <b>52.5%</b></div>
-                <div class="rl-row"><span class="rl-dot" style="background:#45557a"></span>Pacer <b>47.5%</b></div>
+                <div class="rl-row"><span class="rl-dot" style="background:#93a1bf"></span>Pacer <b>47.5%</b></div>
               </div>
             </div>
             <div class="curve-foot" style="margin-top:16px;">Roughly an even split between trotters and pacers among top performers, across all 3 sales combined. Individually, trotters have a slightly better per-horse chance (2.9% vs. 2.7% for pacers), but it isn't consistent at every venue — see the sale-by-sale table below.</div>
