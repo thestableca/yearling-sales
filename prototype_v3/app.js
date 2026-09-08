@@ -2245,10 +2245,10 @@ function renderSaleHistory() {
             <div class="verdict-num">5 horses</div>
             <div class="verdict-sub">For a ${shMoney(103000, 80000, "full")} ${shCcyLabel()} budget specifically, splitting it into 5 horses around ${shMoney(20600, 16000)} each gives <b style="color:#fff">7.7%</b> odds of landing at least one top performer. This is one example, not a general rule — see "One horse or several: building a bucket" below for why the best split size changes with the budget.</div>
             <div class="mini-bars" style="margin-top:14px;">
-              <div class="mini-bar-wrap"><div class="mini-bar-val">4.8%</div><div class="mini-bar" style="height:62%; background:#d8dee8"></div><div class="mini-bar-name">1 horse</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">4.9%</div><div class="mini-bar" style="height:64%; background:#d8dee8"></div><div class="mini-bar-name">2 horses</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">4.7%</div><div class="mini-bar" style="height:61%; background:#d8dee8"></div><div class="mini-bar-name">3 horses</div></div>
-              <div class="mini-bar-wrap"><div class="mini-bar-val">6.2%</div><div class="mini-bar" style="height:81%; background:#d8dee8"></div><div class="mini-bar-name">4 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">4.8%</div><div class="mini-bar" style="height:62%; background:#e8ebf0"></div><div class="mini-bar-name">1 horse</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">4.9%</div><div class="mini-bar" style="height:64%; background:#c7cede"></div><div class="mini-bar-name">2 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">4.7%</div><div class="mini-bar" style="height:61%; background:#a6b1c9"></div><div class="mini-bar-name">3 horses</div></div>
+              <div class="mini-bar-wrap"><div class="mini-bar-val">6.2%</div><div class="mini-bar" style="height:81%; background:#8592b0"></div><div class="mini-bar-name">4 horses</div></div>
               <div class="mini-bar-wrap"><div class="mini-bar-val">7.7%</div><div class="mini-bar" style="height:100%; background:var(--gold)"></div><div class="mini-bar-name">5 horses</div></div>
             </div>
             <div class="curve-foot" style="margin-top:10px;"><b>What this percentage does and doesn't mean:</b> it's the chance that at least one of the horses becomes a top performer — not a prediction of how much of the bucket's money that one horse represents, and not a guarantee of profit. With 5 horses, a "win" can be just 1 of the 5 hitting; the other 4 may not. This assumes each horse's chance is independent of the others, which won't always hold exactly (horses from the same bloodline or consignor, for instance, aren't fully independent bets).</div>
