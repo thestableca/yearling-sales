@@ -3272,12 +3272,27 @@ function refCompareBars(items) {
   </div>`;
 }
 
+// Interpolates between the page's gold and navy tones by rank position
+// (0 = first/highest, 1 = last/lowest), so a bar list of any length reads
+// as a ranking: gold at the top, fading toward navy at the bottom.
+function rankGradientColor(t) {
+  const gold = [201, 161, 63];
+  const navy = [15, 36, 68];
+  const mix = (a, b) => Math.round(a + (b - a) * t);
+  const [r, g, b] = [mix(gold[0], navy[0]), mix(gold[1], navy[1]), mix(gold[2], navy[2])];
+  return `rgb(${r},${g},${b})`;
+}
+
 function refBarList(items, dollarByLabel = null) {
   const max = Math.max(1, ...items.map((item) => item.ownerCount));
+  const total = items.reduce((sum, item) => sum + item.ownerCount, 0) || 1;
   return `<div class="bar-list">
-    ${items.length ? items.map((item) => {
+    ${items.length ? items.map((item, i) => {
       const dollar = dollarByLabel?.get(item.label);
-      return `<div class="bar-row"><div class="meta"><span class="name">${escapeHtml(item.label)}</span><span class="amt">${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}${dollar ? ` &middot; ${money(dollar)}` : ""}</span></div><div class="bar-track"><span style="width:${Math.max(4, (item.ownerCount / max) * 100)}%"></span></div></div>`;
+      const pct = Math.round((item.ownerCount / total) * 100);
+      const t = items.length > 1 ? i / (items.length - 1) : 0;
+      const color = rankGradientColor(t);
+      return `<div class="bar-row"><div class="meta"><span class="name">${escapeHtml(item.label)}</span><span class="amt">${pct}% &middot; ${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}${dollar ? ` &middot; ${money(dollar)}` : ""}</span></div><div class="bar-track"><span style="width:${Math.max(4, (item.ownerCount / max) * 100)}%; background:${color}"></span></div></div>`;
     }).join("") : `<p class="quiet">No bucket data yet.</p>`}
   </div>`;
 }

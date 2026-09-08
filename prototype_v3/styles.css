@@ -1615,13 +1615,18 @@ th .col-filter option {
 .refskin.dashboard-page .fill-meter .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius: inherit; }
 .refskin.dashboard-page .fill-meter .pct { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
 
-/* Bar list */
-.refskin.dashboard-page .bar-list { display: grid; gap: 14px; }
-.refskin.dashboard-page .bar-row .meta { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
+/* Bar list: same thicker, rounded, shadowed bar treatment as the
+   compare-bars component (see below), but ranked 1st-to-last by a
+   single gold-to-navy gradient position instead of a fixed per-item
+   color cycle -- reads as a ranking, which fits a 5-8 item list (Interest
+   by sale, Requested jurisdictions, After-sale panels) better than
+   assigning each item its own hue. */
+.refskin.dashboard-page .bar-list { display: grid; gap: 13px; }
+.refskin.dashboard-page .bar-row .meta { display: flex; align-items: baseline; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
 .refskin.dashboard-page .bar-row .meta .name { font-weight: 600; color: var(--ink); }
-.refskin.dashboard-page .bar-row .meta .amt { color: var(--muted); font-variant-numeric: tabular-nums; }
-.refskin.dashboard-page .bar-track { height: 8px; border-radius: 999px; background: var(--ivory-dim); overflow: hidden; }
-.refskin.dashboard-page .bar-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--navy), var(--navy-mid)); }
+.refskin.dashboard-page .bar-row .meta .amt { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.refskin.dashboard-page .bar-track { height: 12px; border-radius: 999px; background: var(--ivory-dim); overflow: hidden; box-shadow: inset 0 1px 2px rgba(11,29,58,0.06); }
+.refskin.dashboard-page .bar-track > span { display: block; height: 100%; border-radius: inherit; transition: width 0.3s ease; }
 
 /* Compare bars: a small, fixed set of categories (2-4) shown as thick,
    individually-colored horizontal bars with a percent-of-total figure,
