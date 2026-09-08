@@ -240,15 +240,18 @@ const PRICE_TIER_GAIT_SEX_ODDS = {
 // Same idea as PRICE_TIER_GAIT_SEX_ODDS, but split further by sale venue
 // (lexington/harrisburg/ohio — the three sales JUVENIQ has data for;
 // "london" has none, see priceTierGaitSexOdds() below for how that's
-// handled). A cell is only filled in when its exact (venue, tier, gait,
-// sex) group has at least 30 horses in the JUVENIQ dataset — thinner
-// than that would be a falsely precise percentage, not a real signal.
+// handled). A cell gets a full { odds, n, top } object only when its
+// exact (venue, tier, gait, sex) group has at least 30 horses sold in
+// the JUVENIQ dataset — thinner than that would be a falsely precise
+// percentage, not a real signal. Below that floor, the cell is still
+// filled in, but with only { n }: that venue really did sell that few
+// horses in this exact group (a volume gap at that venue, e.g. Ohio's
+// small yearling pool overall — not a shortage of top performers
+// specifically, which is a different thing easy to conflate with this).
 // With premium capped at $150,000 (see PRICE_TIER_GAIT_SEX_ODDS above),
 // every one of Ohio's premium cells falls under that 30-horse floor
-// (n=3-25), so all of Ohio's premium cells are null here on purpose.
-// Cells left out (null) let priceTierGaitSexOdds() detect "no reliable
-// per-venue number" and fall back to the venue-pooled table instead of
-// showing something misleading.
+// (n=3-25). oddsStatBlocks() in app.js is what turns an { n }-only cell
+// into the "too few horses sold here" message instead of a percentage.
 const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
   lexington: {
     budget: {
@@ -291,14 +294,18 @@ const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
       both: { colt: { odds: 1.93, n: 1244, top: 24 }, filly: { odds: 2.02, n: 1141, top: 23 }, both: { odds: 1.97, n: 2385, top: 47 } },
     },
     mid: {
-      trotter: { colt: { odds: 12.12, n: 33, top: 4 }, filly: null, both: null },
+      trotter: { colt: { odds: 12.12, n: 33, top: 4 }, filly: { odds: 6.25, n: 32, top: 2 }, both: { odds: 9.23, n: 65, top: 6 } },
       pacer: { colt: { odds: 8.33, n: 60, top: 5 }, filly: { odds: 6.25, n: 48, top: 3 }, both: { odds: 7.41, n: 108, top: 8 } },
       both: { colt: { odds: 9.68, n: 93, top: 9 }, filly: { odds: 6.25, n: 80, top: 5 }, both: { odds: 8.09, n: 173, top: 14 } },
     },
+    // Premium ($100k-$150k) is thin across the board at Ohio -- unlike
+    // budget/mid, none of these 9 cells reach the 30-horse floor, so
+    // every one is { n } only (no odds/top), letting the UI show exactly
+    // how few horses Ohio sold in that group instead of just "no data".
     premium: {
-      trotter: { colt: null, filly: null, both: null },
-      pacer: { colt: null, filly: null, both: null },
-      both: { colt: null, filly: null, both: null },
+      trotter: { colt: { n: 4 }, filly: { n: 3 }, both: { n: 7 } },
+      pacer: { colt: { n: 15 }, filly: { n: 3 }, both: { n: 18 } },
+      both: { colt: { n: 19 }, filly: { n: 6 }, both: { n: 25 } },
     },
   },
 };
@@ -322,17 +329,28 @@ function priceTierGaitSexOdds(saleId, tier, gait, sex) {
 }
 
 // Renders the suggestion row's two historical-odds figures side by side,
-// always both, never one silently standing in for the other. When the
-// venue-specific figure is missing (not enough JUVENIQ sales at that one
-// venue for this exact tier/gait/sex, e.g. most of Ohio's premium group),
-// a short note explains why instead of just leaving a blank stat block.
+// always both, never one silently standing in for the other. A venue
+// cell can be: a full { odds, n, top } object (reliable, >=30 horses
+// sold in this exact group at this sale), an { n } object with no odds
+// (that venue DID sell horses in this exact group, just too few to
+// trust a %, e.g. Ohio's premium tier — this is a volume gap at that
+// venue, not a shortage of top performers specifically), or missing
+// entirely (no venue-specific breakdown computed at all). The wording
+// is deliberately about how few horses were EVER SOLD in that exact
+// group at that venue, not about how many became top performers,
+// since the two are easy to conflate but aren't the same thing.
 function oddsStatBlocks(odds) {
   if (!odds || !odds.pooled) {
     return `<div class="stat-block odds-block"><div class="num">&mdash;</div><div class="lbl">historical odds</div></div>`;
   }
-  const venueBlock = odds.venue
-    ? `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl">this sale (n=${odds.venue.n.toLocaleString()})</div></div>`
-    : `<div class="stat-block odds-block odds-missing"><div class="num">&mdash;</div><div class="lbl">this sale: not enough past sales here to trust a number</div></div>`;
+  let venueBlock;
+  if (odds.venue?.odds !== undefined) {
+    venueBlock = `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl">this sale (n=${odds.venue.n.toLocaleString()})</div></div>`;
+  } else if (odds.venue?.n !== undefined) {
+    venueBlock = `<div class="stat-block odds-block odds-missing"><div class="num">n=${odds.venue.n}</div><div class="lbl">this sale has only sold ${odds.venue.n} horses in this exact group, too few to trust a %</div></div>`;
+  } else {
+    venueBlock = `<div class="stat-block odds-block odds-missing"><div class="num">&mdash;</div><div class="lbl">this sale: no breakdown available</div></div>`;
+  }
   const pooledBlock = `<div class="stat-block odds-block odds-pooled"><div class="num">${round1(odds.pooled.odds)}%</div><div class="lbl">all sales combined (n=${odds.pooled.n.toLocaleString()})</div></div>`;
   return venueBlock + pooledBlock;
 }

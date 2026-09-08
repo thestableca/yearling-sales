@@ -1600,17 +1600,27 @@ th .col-filter option {
 /* Suggestions: grouped by sale, each group under its own heading. A fixed
    accent color per sale (by calendar position, see saleAccentIndex())
    makes it easy to tell sections apart while scrolling. */
-.refskin.dashboard-page .sugg-sale-group { margin-bottom: 4px; padding-left: 14px; border-left: 3px solid transparent; }
-.refskin.dashboard-page .sugg-sale-group:not(:first-child) { margin-top: 22px; padding-top: 18px; border-top: 2px solid var(--line); }
-.refskin.dashboard-page .sugg-sale-head { display: flex; align-items: center; gap: 8px; font-family: "Fraunces", serif; font-weight: 600; font-size: 15px; color: var(--navy-deep); margin-bottom: 4px; }
+/* Each sale gets a genuine framed card, not just a colored rule: a
+   tinted header band carrying the sale name, a full border in that
+   sale's accent color, and rounded corners, so which section belongs to
+   which sale is obvious even at a glance while scrolling. */
+.refskin.dashboard-page .sugg-sale-group { border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 22px; background: #fff; }
+.refskin.dashboard-page .sugg-sale-group:last-child { margin-bottom: 0; }
+.refskin.dashboard-page .sugg-sale-head { display: flex; align-items: center; gap: 9px; font-family: "Fraunces", serif; font-weight: 600; font-size: 15px; padding: 12px 18px; margin: 0; }
+.refskin.dashboard-page .sugg-sale-group .sugg-row { padding-left: 18px; padding-right: 18px; }
+.refskin.dashboard-page .sugg-sale-group .sugg-row:last-child { padding-bottom: 18px; }
 .refskin.dashboard-page .sale-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-.refskin.dashboard-page .sale-accent-0 { border-left-color: var(--gold); }
+.refskin.dashboard-page .sale-accent-0 { border-color: var(--gold); }
+.refskin.dashboard-page .sale-accent-0 .sugg-sale-head { background: linear-gradient(135deg, #fbf3e2, #f4ead0); color: #8a6417; }
 .refskin.dashboard-page .sale-accent-0 .sale-dot { background: linear-gradient(135deg, var(--gold), var(--gold-light)); }
-.refskin.dashboard-page .sale-accent-1 { border-left-color: var(--navy); }
+.refskin.dashboard-page .sale-accent-1 { border-color: var(--navy); }
+.refskin.dashboard-page .sale-accent-1 .sugg-sale-head { background: linear-gradient(135deg, #e4e9f2, #d3dceb); color: var(--navy-deep); }
 .refskin.dashboard-page .sale-accent-1 .sale-dot { background: linear-gradient(135deg, var(--navy), var(--navy-mid)); }
-.refskin.dashboard-page .sale-accent-2 { border-left-color: #7a8aa8; }
+.refskin.dashboard-page .sale-accent-2 { border-color: #7a8aa8; }
+.refskin.dashboard-page .sale-accent-2 .sugg-sale-head { background: linear-gradient(135deg, #eef0f5, #dfe4ee); color: #4b5773; }
 .refskin.dashboard-page .sale-accent-2 .sale-dot { background: linear-gradient(135deg, #7a8aa8, #a6b1c9); }
-.refskin.dashboard-page .sale-accent-3 { border-left-color: #b8925a; }
+.refskin.dashboard-page .sale-accent-3 { border-color: #b8925a; }
+.refskin.dashboard-page .sale-accent-3 .sugg-sale-head { background: linear-gradient(135deg, #f6ecdd, #eeddc2); color: #7a5a2e; }
 .refskin.dashboard-page .sale-accent-3 .sale-dot { background: linear-gradient(135deg, #b8925a, #d4b587); }
 .refskin.dashboard-page .sugg-row { display: grid; grid-template-columns: 1.5fr 0.65fr 0.9fr 0.9fr; gap: 12px; align-items: center; padding: 15px 4px; border-bottom: 1px solid var(--line); }
 .refskin.dashboard-page .sugg-row:last-child { border-bottom: 0; }
