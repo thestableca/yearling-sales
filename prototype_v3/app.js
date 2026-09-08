@@ -355,11 +355,11 @@ function priceTierGaitSexOdds(saleId, tier, gait, sex) {
 // whoever maintains this later, not in the UI itself.
 function oddsStatBlocks(odds) {
   if (!odds || !odds.pooled) {
-    return `<div class="stat-block odds-block"><div class="num">&mdash;</div><div class="lbl">historical odds</div></div>`;
+    return `<div class="stat-block odds-block"><div class="num">&ndash;</div><div class="lbl">historical odds</div></div>`;
   }
   const venueBlock = odds.venue?.odds !== undefined
     ? `<div class="stat-block odds-block"><div class="num">${round1(odds.venue.odds)}%</div><div class="lbl repeat-lbl">this sale</div></div>`
-    : `<div class="stat-block odds-block odds-missing"><div class="num">&mdash;</div><div class="lbl">too few horses sold in this group at this sale</div></div>`;
+    : `<div class="stat-block odds-block odds-missing"><div class="num">&ndash;</div><div class="lbl">too few horses sold in this group at this sale</div></div>`;
   const pooledBlock = `<div class="stat-block odds-block odds-pooled"><div class="num">${round1(odds.pooled.odds)}%</div><div class="lbl repeat-lbl">all sales combined</div></div>`;
   return venueBlock + pooledBlock;
 }
