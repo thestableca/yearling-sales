@@ -2324,39 +2324,39 @@ function renderSaleHistory() {
           </div>
           <div class="matrix-grid" style="margin-top:2px; grid-template-columns: 118px repeat(6, 1fr);">
             <div class="row-hdr">Trotter colt</div>
-            <div class="cell"><div class="pct">1.39%</div><div class="n">2,940</div></div>
-            <div class="cell hi"><div class="pct">3.12%</div><div class="n">1,027</div></div>
-            <div class="cell hi"><div class="pct">5.40%</div><div class="n">630</div></div>
-            <div class="cell"><div class="pct">4.47%</div><div class="n">291</div></div>
-            <div class="cell hi"><div class="pct">9.20%</div><div class="n">326</div></div>
-            <div class="cell hi"><div class="pct">12.26%</div><div class="n">318</div></div>
+            <div class="cell"><div class="pct">1.39%</div><div class="n">41 of 2,940</div></div>
+            <div class="cell hi"><div class="pct">3.12%</div><div class="n">32 of 1,027</div></div>
+            <div class="cell hi"><div class="pct">5.40%</div><div class="n">34 of 630</div></div>
+            <div class="cell"><div class="pct">4.47%</div><div class="n">13 of 291</div></div>
+            <div class="cell hi"><div class="pct">9.20%</div><div class="n">30 of 326</div></div>
+            <div class="cell hi"><div class="pct">12.26%</div><div class="n">39 of 318</div></div>
 
             <div class="row-hdr">Trotter filly</div>
-            <div class="cell"><div class="pct">1.04%</div><div class="n">3,170</div></div>
-            <div class="cell"><div class="pct">2.32%</div><div class="n">1,120</div></div>
-            <div class="cell"><div class="pct">4.24%</div><div class="n">731</div></div>
-            <div class="cell"><div class="pct">3.90%</div><div class="n">333</div></div>
-            <div class="cell"><div class="pct">5.26%</div><div class="n">323</div></div>
-            <div class="cell"><div class="pct">9.04%</div><div class="n">387</div></div>
+            <div class="cell"><div class="pct">1.04%</div><div class="n">33 of 3,170</div></div>
+            <div class="cell"><div class="pct">2.32%</div><div class="n">26 of 1,120</div></div>
+            <div class="cell"><div class="pct">4.24%</div><div class="n">31 of 731</div></div>
+            <div class="cell"><div class="pct">3.90%</div><div class="n">13 of 333</div></div>
+            <div class="cell"><div class="pct">5.26%</div><div class="n">17 of 323</div></div>
+            <div class="cell"><div class="pct">9.04%</div><div class="n">35 of 387</div></div>
 
             <div class="row-hdr">Pacer colt</div>
-            <div class="cell hi"><div class="pct">1.70%</div><div class="n">2,473</div></div>
-            <div class="cell"><div class="pct">2.73%</div><div class="n">1,062</div></div>
-            <div class="cell"><div class="pct">4.91%</div><div class="n">733</div></div>
-            <div class="cell hi"><div class="pct">6.84%</div><div class="n">395</div></div>
-            <div class="cell"><div class="pct">6.48%</div><div class="n">355</div></div>
-            <div class="cell"><div class="pct">11.16%</div><div class="n">224</div></div>
+            <div class="cell hi"><div class="pct">1.70%</div><div class="n">42 of 2,473</div></div>
+            <div class="cell"><div class="pct">2.73%</div><div class="n">29 of 1,062</div></div>
+            <div class="cell"><div class="pct">4.91%</div><div class="n">36 of 733</div></div>
+            <div class="cell hi"><div class="pct">6.84%</div><div class="n">27 of 395</div></div>
+            <div class="cell"><div class="pct">6.48%</div><div class="n">23 of 355</div></div>
+            <div class="cell"><div class="pct">11.16%</div><div class="n">25 of 224</div></div>
 
             <div class="row-hdr">Pacer filly</div>
-            <div class="cell"><div class="pct">0.85%</div><div class="n">3,523</div></div>
-            <div class="cell"><div class="pct">2.38%</div><div class="n">1,135</div></div>
-            <div class="cell"><div class="pct">4.67%</div><div class="n">706</div></div>
-            <div class="cell"><div class="pct">4.26%</div><div class="n">305</div></div>
-            <div class="cell"><div class="pct">5.70%</div><div class="n">263</div></div>
-            <div class="cell"><div class="pct">6.93%</div><div class="n">202</div></div>
+            <div class="cell"><div class="pct">0.85%</div><div class="n">30 of 3,523</div></div>
+            <div class="cell"><div class="pct">2.38%</div><div class="n">27 of 1,135</div></div>
+            <div class="cell"><div class="pct">4.67%</div><div class="n">33 of 706</div></div>
+            <div class="cell"><div class="pct">4.26%</div><div class="n">13 of 305</div></div>
+            <div class="cell"><div class="pct">5.70%</div><div class="n">15 of 263</div></div>
+            <div class="cell"><div class="pct">6.93%</div><div class="n">14 of 202</div></div>
           </div>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Trotter colts hold the edge at the higher end of the range, and pacer colts at the cheap end and around ${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}. <b>The right-hand column (above ${shMoney(193128, 150000)}) is built on 202-387 horses per cell</b> — enough to be a reasonable signal, but still narrower than the cheaper columns, so treat it as a bit less precise than the rest of the table.</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">Why do fillies score noticeably lower than colts even where the horse counts are similar?</b> It isn't a group-size effect — look at the "n" numbers: Under ${shMoney(38626, 30000)}, trotter colts (n=2,940) and trotter fillies (n=3,170) are close in count, but colts still score 1.39% vs. fillies' 1.04%. Slightly more fillies are sold overall (12,665 vs. 11,127 colts across the full dataset), but that alone can't explain it — with similar or even larger group sizes, fillies still produce top performers at a lower rate. That's a real difference in this data, not an artifact of one group being bigger than the other.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Each cell shows "X of Y": X horses became a top performer, out of Y sold in that exact price/sex/gait group. Trotter colts hold the edge at the higher end of the range, and pacer colts at the cheap end and around ${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}. <b>The right-hand column (above ${shMoney(193128, 150000)}) is built on 202-387 horses per cell</b> — enough to be a reasonable signal, but still narrower than the cheaper columns, so treat it as a bit less precise than the rest of the table.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">Why do fillies score noticeably lower than colts even where the horse counts are similar?</b> Take ${shMoney(128752, 100000)}&ndash;${shMoney(193128, 150000)}: trotter colts and trotter fillies were sold in almost the same numbers (326 vs. 323), but 30 of the 326 colts went on to become a top performer, against only 17 of the 323 fillies — nearly twice as many, out of nearly the same group size. That's not a group-size effect; it's a real difference in how many of each actually became a top performer. The same pattern repeats in most other columns of this table too.</p>
         </div>
       </section>
 
