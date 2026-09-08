@@ -3166,11 +3166,11 @@ function renderAdmin() {
       <div class="grid-2">
         <div class="ref-panel">
           <div class="panel-head"><h2>Trotter vs. Pacer</h2></div>
-          <div class="panel-body">${refBarList(gaitDemand)}</div>
+          <div class="panel-body">${refCompareBars(gaitDemand)}</div>
         </div>
         <div class="ref-panel">
           <div class="panel-head"><h2>Colt / Filly</h2></div>
-          <div class="panel-body">${refBarList(sexDemand)}</div>
+          <div class="panel-body">${refCompareBars(sexDemand)}</div>
         </div>
       </div>
 
@@ -3248,6 +3248,30 @@ function suggIcon(status) {
 // Round 1 has no percentage to size a bar/slice by, so owner count is the
 // measure — see groupDemand()'s comment. dollarByLabel (per-sale capital)
 // stays supported for whenever Round 2 brings real prices back.
+// Head-to-head comparison for a small, fixed set of categories (Colt vs.
+// Filly, Trotter vs. Pacer): thicker, individually-colored bars with a
+// real percent-of-total figure, instead of refBarList()'s same-color
+// bars that only differ by length. Built for 2-4 items; falls back to
+// refBarList() styling concerns don't apply above that, but nothing
+// stops a 5th category, it just cycles the 4 color slots.
+function refCompareBars(items) {
+  if (!items.length) return `<p class="quiet">No bucket data yet.</p>`;
+  const total = items.reduce((sum, item) => sum + item.ownerCount, 0) || 1;
+  return `<div class="cmp-bars">
+    ${items.map((item, i) => {
+      const pct = Math.round((item.ownerCount / total) * 100);
+      const fillClass = `cmp-fill-${i % 4}`;
+      return `<div class="cmp-row">
+        <div class="cmp-meta">
+          <span class="cmp-name"><span class="cmp-dot ${fillClass}"></span>${escapeHtml(item.label)}</span>
+          <span class="cmp-figs"><span class="cmp-pct">${pct}%</span><span class="cmp-count">${item.ownerCount} owner${item.ownerCount === 1 ? "" : "s"}</span></span>
+        </div>
+        <div class="cmp-track"><span class="${fillClass}" style="width:${Math.max(4, pct)}%"></span></div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
 function refBarList(items, dollarByLabel = null) {
   const max = Math.max(1, ...items.map((item) => item.ownerCount));
   return `<div class="bar-list">
