@@ -2142,7 +2142,7 @@ function bindQuestionsAdmin(questionSet) {
 // the DOM and rewrites .money/.money-range text in place - no server-side
 // re-render on toggle, exactly like the reference.
 function saleHistoryFxNote() {
-  return `using each sale year's actual historical annual-average exchange rate (Bank of Canada), not a single fixed rate`;
+  return `<span class="ccy-fx-note">using each sale year's actual historical annual-average exchange rate (Bank of Canada), not a single fixed rate</span>`;
 }
 
 function shMoney(cad, usd, style = "k", suffix = "") {
@@ -2431,7 +2431,7 @@ function renderSaleHistory() {
             </div>
           </div>
           <p style="font-size:13px; color:var(--ink-soft); margin:18px 0 0; line-height:1.6;">Splitting the money across several horses usually beats spending it all on one, but not always — in the smallest budget here 3 horses actually did worse than 1 or 2. There is no single "best number of horses" that works for every budget. Which split size wins depends on exactly where the price boundaries fall for that budget.</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">What about mixing price ranges instead of buying same-priced horses?</b> Checked for the ${shMoney(103000, 80000)} example: a mix (say, one ${shMoney(64376, 50000)} horse plus one ${shMoney(38626, 30000)} horse) never beat buying as many horses as possible in the cheapest band the budget allows. That's a direct result of the math above, not a separate rule: since each horse's odds only depend on that horse's own price band, and cheaper bands here have a better odds-per-dollar rate, spreading the same money across more, cheaper horses keeps outperforming a mix — right up to the point where "more, cheaper" stops paying off (see the ${shMoney(51500, 40000)} bucket, where 3-4 cheap horses actually did worse than 2).</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:10px 0 0; line-height:1.6;"><b style="color:var(--ink);">What about mixing price ranges instead of buying same-priced horses?</b> Checked for the ${shMoney(103000, 80000)} example: a mix (say, one ${shMoney(64376, 50000)} horse plus one ${shMoney(38626, 30000)} horse, giving 6.96%) never beat the winning split shown above — 5 horses around ${shMoney(20600, 16000)} each, at 7.7%. That's not "always pick the very cheapest band": horses under ${shMoney(19313, 15000)} only score 0.55% each, too low to make up for in numbers, so 5 of those (2.7%) actually does worse than 5 horses one band up. The pattern is: match the split size to whichever single band gives the best combination of odds-per-horse and how many horses that band lets the budget buy — not "cheapest always wins," and not "mixing bands helps." See the ${shMoney(51500, 40000)} bucket for a case where even that isn't enough: 3-4 cheap horses still did worse than just 2.</p>
         </div>
       </section>
 
@@ -2528,6 +2528,11 @@ function applyCurrency(ccy) {
   });
   document.querySelectorAll(".ccy-label").forEach((el) => {
     el.textContent = ccy.toUpperCase();
+  });
+  document.querySelectorAll(".ccy-fx-note").forEach((el) => {
+    el.textContent = ccy === "usd"
+      ? "these are the real original sale prices, not a converted figure"
+      : "using each sale year's actual historical annual-average exchange rate (Bank of Canada), not a single fixed rate";
   });
 }
 
