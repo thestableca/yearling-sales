@@ -9,6 +9,20 @@
 // there's real demand data to plan a confirmed offer against.
 const SHOW_CONFIRMED_BUCKETS = false;
 
+// Owner Roster (import an invited-owner list so the Dashboard can show a
+// real "X of Y invited" response rate) is hidden this season, per
+// Robert's decision (2026-09-08): owners are authenticated via Resend
+// magic-link, not via a pre-imported roster, so this list currently
+// serves no purpose. It stays relevant for next year IF TheStable starts
+// sending invite emails from this tool itself (then it needs to know who
+// to invite) — that's an open question for the post-season evaluation,
+// not decided now. Nothing is deleted: getOwnerRoster()/saveOwnerRoster()
+// and the whole import UI are untouched, just not rendered/linked to.
+// The Dashboard already degrades gracefully with an empty roster (shows
+// "Import an owner roster..." instead of a response-rate %), so hiding
+// this causes no broken state anywhere else.
+const SHOW_OWNER_ROSTER = false;
+
 // SALES/REAL_SALES are now derived from the "sales" block's own options
 // (see defaultQuestionSet() in questions.js) so that editing a sale's name
 // or adding a new one in Questions Builder updates every place that reads
@@ -1688,7 +1702,7 @@ function adminTabs() {
     ["dashboard", "Dashboard"],
     ["salehistory", "Sale History"],
     ["questions", "Questions Builder"],
-    ["owners", "Owner Roster"],
+    ...(SHOW_OWNER_ROSTER ? [["owners", "Owner Roster"]] : []),
     ["settings", "Settings"],
   ];
   return `<div class="admin-tabs">${tabs.map(([id, label]) => `<button class="admin-tab ${adminTab === id ? "active" : ""}" type="button" data-admin-tab="${id}">${label}</button>`).join("")}</div>`;
@@ -3240,7 +3254,7 @@ function renderAdmin() {
                     ? `${ownerCount} owner${ownerCount === 1 ? "" : "s"} responded so far`
                     : "No owners have responded yet"
               }</div>
-              <div class="d">${ownerCount ? `${bucketInterestPct}% of respondents want a bucket &middot; ${afterSaleOwnerCount} also interested in after-sale shares` : (invitedCount ? "No responses yet" : "Import an owner roster to see response rate as a % of invited owners")}</div>
+              <div class="d">${ownerCount ? `${bucketInterestPct}% of respondents want a bucket &middot; ${afterSaleOwnerCount} also interested in after-sale shares` : "No responses yet"}</div>
             </div>
           </div>
         </div>
