@@ -429,6 +429,7 @@ function defaultQuestionSet() {
         id: "specificShareSize",
         type: "single_select",
         label: "For individual horse shares after a sale, what share size would you usually consider?",
+        helpText: "This is the share size for one horse, not split across however many horses you picked above. If you'd take a share in more than one horse, this is the size you'd want in each of them.",
         sortOrder: 61,
         dependsOn: { blockId: "participation", op: "in", value: ["specific", "both"] },
         required: true,
