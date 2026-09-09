@@ -675,8 +675,25 @@ textarea.input {
   align-items: end;
 }
 
+.per-horse-share-row {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  border-bottom: 0;
+  padding: 13px;
+}
+
+.matrix-group h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.matrix-group h3 .text-link {
+  font-size: 12px;
+}
+
 @media (max-width: 640px) {
-  .price-tier-row {
+  .price-tier-row,
+  .per-horse-share-row {
     grid-template-columns: 1fr;
   }
 

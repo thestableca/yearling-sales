@@ -1139,34 +1139,36 @@ function perHorseSharesHtml(prefs) {
       : gaitForSex === "pacer" ? prefs.sexPacer === "both" || (!prefs.sexPacer && prefs.sex === "both")
       : prefs.sex === "both";
     return `
-      <div class="matrix-row per-horse-share-row">
-        <label>
-          Horse ${index + 1} share size
-          <input class="input matrix-input" inputmode="decimal" data-per-horse-share-field="percent" data-per-horse-share-index="${index}" data-target="${targetName}" value="${escapeHtml(row.percent)}" placeholder="e.g. 5">
-        </label>
-        ${needsGait ? `
-        <label>
-          Gait
-          <select class="input matrix-input" data-per-horse-share-field="gait" data-per-horse-share-index="${index}" data-target="${targetName}">
-            <option value="">Choose</option>
-            <option value="trotter" ${row.gait === "trotter" ? "selected" : ""}>Trotter</option>
-            <option value="pacer" ${row.gait === "pacer" ? "selected" : ""}>Pacer</option>
-          </select>
-        </label>` : ""}
-        ${needsSex ? `
-        <label>
-          Colt / filly
-          <select class="input matrix-input" data-per-horse-share-field="sex" data-per-horse-share-index="${index}" data-target="${targetName}">
-            <option value="">No preference</option>
-            <option value="colt" ${row.sex === "colt" ? "selected" : ""}>Colt</option>
-            <option value="filly" ${row.sex === "filly" ? "selected" : ""}>Filly</option>
-          </select>
-        </label>` : ""}
-        ${rows.length > 1 ? `<button class="btn" type="button" data-remove-per-horse-share-row="${index}" data-target="${targetName}" aria-label="Remove this horse">Remove</button>` : ""}
-      </div>
+      <section class="matrix-group">
+        <h3>Horse ${index + 1}${rows.length > 1 ? `<button class="text-link" type="button" data-remove-per-horse-share-row="${index}" data-target="${targetName}" aria-label="Remove this horse">Remove</button>` : ""}</h3>
+        <div class="matrix-row per-horse-share-row">
+          <label>
+            Percentage
+            <input class="input matrix-input" inputmode="decimal" data-per-horse-share-field="percent" data-per-horse-share-index="${index}" data-target="${targetName}" value="${escapeHtml(row.percent)}" placeholder="e.g. 5">
+          </label>
+          ${needsGait ? `
+          <label>
+            Gait
+            <select class="input matrix-input" data-per-horse-share-field="gait" data-per-horse-share-index="${index}" data-target="${targetName}">
+              <option value="">Choose</option>
+              <option value="trotter" ${row.gait === "trotter" ? "selected" : ""}>Trotter</option>
+              <option value="pacer" ${row.gait === "pacer" ? "selected" : ""}>Pacer</option>
+            </select>
+          </label>` : ""}
+          ${needsSex ? `
+          <label>
+            Colt / filly
+            <select class="input matrix-input" data-per-horse-share-field="sex" data-per-horse-share-index="${index}" data-target="${targetName}">
+              <option value="">No preference</option>
+              <option value="colt" ${row.sex === "colt" ? "selected" : ""}>Colt</option>
+              <option value="filly" ${row.sex === "filly" ? "selected" : ""}>Filly</option>
+            </select>
+          </label>` : ""}
+        </div>
+      </section>
     `;
   }).join("");
-  return `<div class="bucket-matrix"><div class="matrix-rows per-horse-share-rows">${rowHtml}</div><button class="btn" type="button" data-add-per-horse-share-row data-target="${targetName}">Add another horse</button></div>`;
+  return `<div class="bucket-matrix">${rowHtml}<button class="btn" type="button" data-add-per-horse-share-row data-target="${targetName}">Add another horse</button></div>`;
 }
 
 function perHorseSharesReady(prefs) {
