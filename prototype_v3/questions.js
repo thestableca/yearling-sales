@@ -130,6 +130,7 @@ function blockAnswered(block, answers) {
   const value = answers[block.id];
   if (block.type === "multi_select") return Array.isArray(value) && value.length > 0;
   if (block.type === "bucket_matrix" || block.type === "price_tier_matrix") return Boolean(value && value.ready);
+  if (block.type === "per_horse_shares") return Array.isArray(value) && value.length > 0 && value.every((v) => v);
   return value !== undefined && value !== null && value !== "";
 }
 
@@ -429,7 +430,7 @@ function defaultQuestionSet() {
         id: "specificShareSize",
         type: "single_select",
         label: "For individual horse shares after a sale, what share size would you usually consider?",
-        helpText: "If you'd take a share in more than one horse, this is the size you'd want in each of them.",
+        helpText: "If you'd take a share in more than one horse, this is the size you'd want in each of them by default. You can specify a different size per horse next, if you'd like.",
         sortOrder: 61,
         dependsOn: { blockId: "participation", op: "in", value: ["specific", "both"] },
         required: true,
@@ -439,8 +440,30 @@ function defaultQuestionSet() {
           { value: "2_5", label: "2% to 5%", help: "Medium share" },
           { value: "5_10", label: "5% to 10%", help: "Larger share" },
           { value: "10plus", label: "10% or more", help: "Major share" },
-          { value: "depends", label: "Depends on the horse", help: "Flexible" },
+          { value: "custom", label: "Custom percentage", help: "Enter your own" },
         ],
+      },
+      {
+        id: "specificShareSizePerHorse",
+        type: "yes_no",
+        label: "Does that share size apply to every horse, or would you like to set a different size for each one?",
+        sortOrder: 62,
+        dependsOn: { blockId: "specificHorseCount", op: "in", value: ["two", "three_plus"] },
+        required: true,
+        gatesProgress: false,
+        options: [
+          { value: "no", label: "Same size for all of them", help: "" },
+          { value: "yes", label: "Let me set a size per horse", help: "" },
+        ],
+      },
+      {
+        id: "specificShareSizesByHorse",
+        type: "per_horse_shares",
+        label: "What share size would you want in each horse?",
+        sortOrder: 63,
+        dependsOn: { blockId: "specificShareSizePerHorse", op: "equals", value: "yes" },
+        required: true,
+        gatesProgress: false,
       },
       defaultBucketConfig(),
     ],

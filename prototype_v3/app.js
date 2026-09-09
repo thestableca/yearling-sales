@@ -431,7 +431,11 @@ const emptyPrefs = {
   bucketMatrix: blankBucketMatrix(),
   priceTierMatrix: blankPriceTierMatrix(),
   specificHorseCount: "",
+  specificHorseCountExact: "",
   specificShareSize: "",
+  specificShareSizeCustom: "",
+  specificShareSizePerHorse: "",
+  specificShareSizesByHorse: [],
   note: "",
 };
 
@@ -601,6 +605,19 @@ function cleanPercent(value) {
   const num = Number(cleaned);
   if (cleaned !== "" && Number.isFinite(num) && num > 100) return "100";
   return cleaned;
+}
+
+// Turns specificHorseCount's answer into an actual number, for the
+// per-horse share size screen. "three_plus" needs the exact number the
+// owner typed in; falls back to 3 if that's somehow still blank.
+function specificHorseCountAsNumber(prefs) {
+  if (prefs.specificHorseCount === "one") return 1;
+  if (prefs.specificHorseCount === "two") return 2;
+  if (prefs.specificHorseCount === "three_plus") {
+    const n = Number(prefs.specificHorseCountExact);
+    return Number.isFinite(n) && n >= 3 ? n : 3;
+  }
+  return 0;
 }
 
 function saleById(id) {
@@ -871,7 +888,7 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
     return card(meta, "This question is no longer available", `<p class="notice">There's nothing left to answer here. Please contact TheStable to continue.</p><div class="actions single"><button class="btn" type="button" data-go="welcome">Start over</button></div>`, tag);
   }
   const blockTag = block.id === "participation" || block.id === "gait" || block.id === "sex" || block.id === "sexTrotter" || block.id === "sexPacer" ? tag
-    : block.dependsOn && (block.dependsOn.blockId === "participation") && block.id.startsWith("specific") ? "After-sale shares"
+    : block.id.startsWith("specific") ? "After-sale shares"
     : block.dependsOn && (block.dependsOn.blockId === "participation" || block.dependsOn.blockId === "bucketDetailMode") ? "Bucket"
     : "Question";
 
@@ -881,6 +898,10 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
 
   if (block.type === "price_tier_matrix") {
     return card(meta, block.label, `${block.helpText ? `<p class="prompt">${block.helpText}</p>` : ""}${priceTierMatrixHtml(prefs)}${actionsFn(priceTierMatrixReady(prefs))}`, blockTag);
+  }
+
+  if (block.type === "per_horse_shares") {
+    return card(meta, block.label, `${block.helpText ? `<p class="prompt">${block.helpText}</p>` : ""}${perHorseSharesHtml(prefs)}${actionsFn(perHorseSharesReady(prefs))}`, blockTag);
   }
 
   if (block.type === "text" || block.type === "number") {
@@ -910,9 +931,19 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
   // used for the value-style questions (maxYearlings, bucketLevel,
   // specificShareSize); radioOptions (simple list) for the rest.
   const value = prefs[block.id];
-  if (block.id === "maxYearlings" || block.id === "specificShareSize") {
+  if (block.id === "maxYearlings") {
     const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
     return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${actionsFn(Boolean(value))}`, blockTag);
+  }
+  if (block.id === "specificShareSize") {
+    const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
+    const customInput = value === "custom" ? `<div class="field-stack"><input class="input" id="specificShareSizeCustom" inputmode="decimal" value="${escapeHtml(prefs.specificShareSizeCustom)}" placeholder="Custom percentage, e.g. 7.5" data-target="${prefs === draft.defaultPrefs ? "default" : "sale"}"></div>` : "";
+    return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${customInput}${actionsFn(Boolean(value && (value !== "custom" || prefs.specificShareSizeCustom)))}`, blockTag);
+  }
+  if (block.id === "specificHorseCount") {
+    const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
+    const exactInput = value === "three_plus" ? `<div class="field-stack"><input class="input" id="specificHorseCountExact" inputmode="numeric" value="${escapeHtml(prefs.specificHorseCountExact)}" placeholder="Exact number, e.g. 5" data-target="${prefs === draft.defaultPrefs ? "default" : "sale"}"></div>` : "";
+    return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${exactInput}${actionsFn(Boolean(value && (value !== "three_plus" || prefs.specificHorseCountExact)))}`, blockTag);
   }
   if (block.id === "bucketLevel") {
     const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
@@ -1067,6 +1098,53 @@ function bucketMatrixHtml(prefs) {
   `).join("")}</div>`;
 }
 
+// One percentage input per horse, count driven by specificHorseCount
+// (or its typed-in exact number for "3 or more"). Pre-fills every row
+// with whatever was picked on the shared specificShareSize question, so
+// switching to "set a size per horse" starts from a sensible default
+// instead of blank boxes.
+function perHorseSharesHtml(prefs) {
+  const count = specificHorseCountAsNumber(prefs);
+  const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
+  const defaultValue = prefs.specificShareSize === "custom" ? prefs.specificShareSizeCustom : shareSizeMidpoint(prefs.specificShareSize);
+  // Actually fill in the array with the pre-filled default, not just
+  // display it — otherwise a row the owner never touches stays blank in
+  // draft state even though the input on screen shows a value, and the
+  // review screen (and the submitted response) would silently lose it.
+  const sizes = prefs.specificShareSizesByHorse ? [...prefs.specificShareSizesByHorse] : [];
+  for (let i = 0; i < count; i++) {
+    if (!sizes[i]) sizes[i] = defaultValue || "";
+  }
+  prefs.specificShareSizesByHorse = sizes;
+  const rows = Array.from({ length: count }, (_, index) => `
+      <div class="matrix-row per-horse-share-row">
+        <label>
+          Horse ${index + 1}
+          <input class="input matrix-input" inputmode="decimal" data-per-horse-share-index="${index}" data-target="${targetName}" value="${escapeHtml(sizes[index])}" placeholder="e.g. 5">
+        </label>
+      </div>
+    `).join("");
+  return `<div class="bucket-matrix"><div class="matrix-rows per-horse-share-rows">${rows}</div></div>`;
+}
+
+function shareSizeMidpoint(value) {
+  if (value === "1") return "1";
+  if (value === "2_5") return "3.5";
+  if (value === "5_10") return "7.5";
+  if (value === "10plus") return "10";
+  return "";
+}
+
+function perHorseSharesReady(prefs) {
+  const count = specificHorseCountAsNumber(prefs);
+  const sizes = prefs.specificShareSizesByHorse || [];
+  if (count === 0) return false;
+  for (let i = 0; i < count; i++) {
+    if (!sizes[i]) return false;
+  }
+  return true;
+}
+
 // Renders the owner's list of price-tier preferences for this sale: each
 // row is its own price tier + gait + sex combination, with an "Add
 // another preference" affordance so e.g. "Premium trotter colts" and
@@ -1159,7 +1237,24 @@ function bindOwner() {
   document.querySelectorAll("[data-add-tier-row]").forEach((button) => button.addEventListener("click", () => addPriceTierRow(button.dataset.target)));
   document.querySelectorAll("[data-remove-tier-row]").forEach((button) => button.addEventListener("click", () => removePriceTierRow(Number(button.dataset.removeTierRow), button.dataset.target)));
   document.querySelectorAll("[data-tier-row-field]").forEach((select) => select.addEventListener("change", () => setPriceTierRowValue(Number(select.dataset.tierRowIndex), select.dataset.tierRowField, select.value, select.dataset.target)));
+  document.querySelectorAll("[data-per-horse-share-index]").forEach((input) => input.addEventListener("input", () => {
+    const target = getTarget(input.dataset.target);
+    const index = Number(input.dataset.perHorseShareIndex);
+    const sizes = target.specificShareSizesByHorse ? [...target.specificShareSizesByHorse] : [];
+    sizes[index] = cleanPercent(input.value);
+    target.specificShareSizesByHorse = sizes;
+    saveDraft();
+    updateContinueState(getActivePrefs());
+  }));
   document.querySelector("#bucketAmount")?.addEventListener("input", () => {
+    saveInputs();
+    updateContinueState(getActivePrefs());
+  });
+  document.querySelector("#specificShareSizeCustom")?.addEventListener("input", () => {
+    saveInputs();
+    updateContinueState(getActivePrefs());
+  });
+  document.querySelector("#specificHorseCountExact")?.addEventListener("input", () => {
     saveInputs();
     updateContinueState(getActivePrefs());
   });
@@ -1349,6 +1444,12 @@ function setValue(field, value, targetName) {
     resetBucketDetails(target);
     draft.applyMode = "";
   }
+  // Changing how many horses, or switching back to one shared size,
+  // makes any already-typed per-horse percentages stale (wrong count of
+  // rows, or no longer relevant) — clear them so the next visit to that
+  // screen starts fresh instead of showing leftover numbers from a
+  // different horse count.
+  if (field === "specificHorseCount" || field === "specificShareSizePerHorse") target.specificShareSizesByHorse = [];
   saveInputs();
   saveDraft();
   render();
@@ -1432,6 +1533,9 @@ function updateContinueState(prefs) {
   if (!button) return;
   if (usesDetailedBuckets(prefs)) button.disabled = !bucketMatrixReady(prefs);
   else if (prefs.bucketLevel === "other") button.disabled = !prefs.bucketAmount;
+  else if (prefs.specificShareSize === "custom") button.disabled = !prefs.specificShareSizeCustom;
+  else if (prefs.specificHorseCount === "three_plus") button.disabled = !prefs.specificHorseCountExact;
+  else if (prefs.specificShareSizePerHorse === "yes") button.disabled = !perHorseSharesReady(prefs);
   else if (Array.isArray(prefs.priceTierMatrix)) button.disabled = !priceTierMatrixReady(prefs);
 }
 
@@ -1583,6 +1687,17 @@ function saveInputs() {
     if (draft.view === "defaults") draft.defaultPrefs.bucketAmount = cleanPercent(amount.value);
     else currentSaleResponse().bucketAmount = cleanPercent(amount.value);
   }
+  const shareSizeCustom = document.querySelector("#specificShareSizeCustom");
+  if (shareSizeCustom) {
+    if (draft.view === "defaults") draft.defaultPrefs.specificShareSizeCustom = cleanPercent(shareSizeCustom.value);
+    else currentSaleResponse().specificShareSizeCustom = cleanPercent(shareSizeCustom.value);
+  }
+  const horseCountExact = document.querySelector("#specificHorseCountExact");
+  if (horseCountExact) {
+    const cleaned = horseCountExact.value.replace(/[^\d]/g, "");
+    if (draft.view === "defaults") draft.defaultPrefs.specificHorseCountExact = cleaned;
+    else currentSaleResponse().specificHorseCountExact = cleaned;
+  }
 }
 
 // Block ids with dedicated, hand-written summary handling above/below.
@@ -1595,7 +1710,7 @@ const KNOWN_SUMMARY_BLOCK_IDS = new Set([
   "interest", "sales", "eligibility",
   "participation", "gait", "sex", "sexTrotter", "sexPacer",
   "priceTierMatrix",
-  "specificHorseCount", "specificShareSize",
+  "specificHorseCount", "specificShareSize", "specificShareSizePerHorse", "specificShareSizesByHorse",
 ]);
 
 function summarizeSale(response) {
@@ -1610,10 +1725,29 @@ function summarizeSale(response) {
     parts.push(summarizePriceTierMatrix(response));
   }
   if (hasSpecific(response)) {
-    parts.push(labelFor("specificHorseCount", response.specificHorseCount), labelFor("specificShareSize", response.specificShareSize));
+    parts.push(summarizeSpecificHorseCount(response), summarizeSpecificShareSize(response));
   }
   parts.push(...customAnswerSummaries(response));
   return parts.filter(Boolean).join(" | ");
+}
+
+function summarizeSpecificHorseCount(response) {
+  if (response.specificHorseCount === "three_plus" && response.specificHorseCountExact) {
+    return `${response.specificHorseCountExact} horses`;
+  }
+  return labelFor("specificHorseCount", response.specificHorseCount);
+}
+
+function summarizeSpecificShareSize(response) {
+  if (response.specificShareSizePerHorse === "yes" && (response.specificShareSizesByHorse || []).some(Boolean)) {
+    const count = specificHorseCountAsNumber(response);
+    const sizes = Array.from({ length: count }, (_, i) => response.specificShareSizesByHorse[i]).map((v) => (v ? `${v}%` : "?"));
+    return `${sizes.join(", ")} per horse`;
+  }
+  if (response.specificShareSize === "custom" && response.specificShareSizeCustom) {
+    return `${response.specificShareSizeCustom}% per horse`;
+  }
+  return labelFor("specificShareSize", response.specificShareSize);
 }
 
 function summarizePriceTierMatrix(response) {
