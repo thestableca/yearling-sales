@@ -766,7 +766,7 @@ function welcomeCard() {
   return card(
     "Welcome",
     "Tell us what you're looking for in 2026",
-    `<p class="prompt">Share your preferences for the 2026 yearling sales. TheStable uses this together with sale history to put together the actual buckets on offer. Use the email address you use with TheStable.ca. You can review your answers before submitting.</p>
+    `<p class="prompt">Share your preferences for the 2026 yearling sales. This is not a commitment. It just helps TheStable understand what owners are interested in before deciding on the actual buckets, using this together with sale history. Use the email address you use with TheStable.ca. You can review your answers before submitting.</p>
      <div class="actions single"><button class="btn primary" type="button" data-go="identify">Let's Get Started</button></div>`,
     "Welcome"
   );
