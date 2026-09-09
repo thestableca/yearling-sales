@@ -674,8 +674,10 @@ function defaultQuestions(prefs = draft.defaultPrefs) {
   const questions = blocks.map((block) => block.id);
   // applyMode is the final step, added only once the walk has reached
   // the natural end of the question set instead of stopping early on an
-  // unanswered gating question.
-  if (visible.length > 0 && questionSetComplete(allBlocks, prefs)) questions.push("applyMode");
+  // unanswered gating question. Skipped entirely with only one sale
+  // selected — "apply to all selected sales or customize each" has
+  // nothing to ask when there's only one sale to apply to.
+  if (visible.length > 0 && draft.selectedSales.length > 1 && questionSetComplete(allBlocks, prefs)) questions.push("applyMode");
   return questions;
 }
 
@@ -1444,6 +1446,15 @@ function defaultNext() {
     draft.questionIndex = 0;
   } else if (draft.defaultIndex < questions.length - 1) {
     draft.defaultIndex += 1;
+  } else if (draft.selectedSales.length === 1) {
+    // Only one sale selected, so applyMode was never asked (nothing to
+    // apply to besides that one sale) — go straight to review as if
+    // "all" had been chosen.
+    draft.applyMode = "all";
+    applyDefaultsToSales();
+    draft.view = "review";
+    draft.saleIndex = 0;
+    draft.questionIndex = 0;
   }
   saveDraft();
   render();
