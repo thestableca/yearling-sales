@@ -1099,12 +1099,8 @@ function bucketMatrixHtml(prefs) {
   `).join("")}</div>`;
 }
 
-function newPerHorseShareRow(prefs) {
-  return {
-    percent: "",
-    gait: prefs.gait !== "both" ? prefs.gait || "" : "",
-    sex: "",
-  };
+function newPerHorseShareRow() {
+  return { percent: "", gait: "", sex: "" };
 }
 
 // One row per horse, each with its own share size plus (only when the
@@ -1117,10 +1113,9 @@ function newPerHorseShareRow(prefs) {
 function perHorseSharesHtml(prefs) {
   const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
   if (!prefs.specificShareSizesByHorse || !prefs.specificShareSizesByHorse.length) {
-    prefs.specificShareSizesByHorse = [newPerHorseShareRow(prefs)];
+    prefs.specificShareSizesByHorse = [newPerHorseShareRow()];
   }
   const rows = prefs.specificShareSizesByHorse;
-  const needsGait = prefs.gait === "both";
   const rowHtml = rows.map((row, index) => {
     return `
       <section class="matrix-group">
@@ -1130,15 +1125,14 @@ function perHorseSharesHtml(prefs) {
             Percentage
             <input class="input matrix-input" inputmode="decimal" data-per-horse-share-field="percent" data-per-horse-share-index="${index}" data-target="${targetName}" value="${escapeHtml(row.percent)}" placeholder="e.g. 5">
           </label>
-          ${needsGait ? `
           <label>
             Gait
             <select class="input matrix-input" data-per-horse-share-field="gait" data-per-horse-share-index="${index}" data-target="${targetName}">
-              <option value="">Choose</option>
+              <option value="">No preference</option>
               <option value="trotter" ${row.gait === "trotter" ? "selected" : ""}>Trotter</option>
               <option value="pacer" ${row.gait === "pacer" ? "selected" : ""}>Pacer</option>
             </select>
-          </label>` : ""}
+          </label>
           <label>
             Colt / filly
             <select class="input matrix-input" data-per-horse-share-field="sex" data-per-horse-share-index="${index}" data-target="${targetName}">
@@ -1157,12 +1151,7 @@ function perHorseSharesHtml(prefs) {
 function perHorseSharesReady(prefs) {
   const rows = prefs.specificShareSizesByHorse || [];
   if (!rows.length) return false;
-  const needsGait = prefs.gait === "both";
-  return rows.every((row) => {
-    if (!row.percent) return false;
-    if (needsGait && !row.gait) return false;
-    return true;
-  });
+  return rows.every((row) => Boolean(row.percent));
 }
 
 // Renders the owner's list of price-tier preferences for this sale: each
@@ -1396,7 +1385,7 @@ function getTarget(targetName) {
 // the option already selected, and (b) something downstream was actually
 // answered yet to lose — re-clicking the same value, or changing a field
 // before anything downstream has been touched, needs no confirmation at all.
-const BRANCH_FIELDS_WITH_DEPENDENTS = new Set(["participation", "gait", "bucketDetailMode"]);
+const BRANCH_FIELDS_WITH_DEPENDENTS = new Set(["participation", "bucketDetailMode"]);
 
 function hasDownstreamAnswers(field, target) {
   if (field === "participation") {
@@ -1405,9 +1394,6 @@ function hasDownstreamAnswers(field, target) {
       target.specificShareSizesByHorse?.some((row) => row.percent) || bucketMatrixHasAnyEntry(target.bucketMatrix) ||
       priceTierMatrixHasAnyEntry(target.priceTierMatrix)
     );
-  }
-  if (field === "gait") {
-    return Boolean(target.specificShareSizesByHorse?.length);
   }
   if (field === "bucketDetailMode") {
     return Boolean(target.bucketTypes?.length || target.bucketLevel || target.bucketAmount || bucketMatrixHasAnyEntry(target.bucketMatrix));
@@ -1458,11 +1444,6 @@ function setValue(field, value, targetName) {
     resetBucketDetails(target);
     draft.applyMode = "";
   }
-  // Changing gait can make an already-filled-in per-horse gait choice
-  // stale (e.g. switching from "both" to a single gait removes the
-  // per-row gait picker entirely) — clear the rows so the next visit to
-  // that screen starts fresh instead of showing leftover choices.
-  if (field === "gait") target.specificShareSizesByHorse = [];
   saveInputs();
   saveDraft();
   render();
@@ -1539,7 +1520,7 @@ function setPriceTierRowValue(index, field, value, targetName) {
 
 function addPerHorseShareRow(targetName) {
   const target = getTarget(targetName);
-  target.specificShareSizesByHorse.push(newPerHorseShareRow(target));
+  target.specificShareSizesByHorse.push(newPerHorseShareRow());
   saveDraft();
   render();
 }
@@ -1736,7 +1717,7 @@ function summarizeSale(response) {
     labelFor("participation", response.participation),
   ];
   if (hasSpecific(response)) {
-    parts.push(labelFor("gait", response.gait), summarizeSpecificShareSizesByHorse(response));
+    parts.push(summarizeSpecificShareSizesByHorse(response));
   }
   parts.push(draft.eligibilityPreferences.map((item) => labelFor("eligibility", item)).join(", "));
   if (hasBucket(response)) {
@@ -1822,13 +1803,25 @@ function bucketSexLabel(response, gait) {
 // owner table) that show one line per sale: the shared value if every
 // horse that specified one agrees, "Mixed" if they don't, or blank if
 // no horse specified a preference at all.
+// The owner table's rows are flattened per price-tier row when a sale
+// has bucket preferences (see flattenResponses()); that flattened row
+// already carries its own bucket-tier gait/sex directly (row.gait,
+// row.sex), separate from any after-sale per-horse choices. Only fall
+// back to the per-horse rows (via _rawResponse, which always carries
+// the full, unflattened sale response) when the row itself has no
+// gait/sex of its own — i.e. this is a pure after-sale row.
+function gaitSummary(response) {
+  if (response.gait) return labelFor("gait", response.gait);
+  const rows = (response._rawResponse || response).specificShareSizesByHorse || [];
+  const choices = [...new Set(rows.map((row) => row.gait).filter(Boolean))];
+  if (choices.length === 0) return "";
+  if (choices.length === 1) return SINGULAR_GAIT_LABEL[choices[0]] || choices[0];
+  return "Mixed";
+}
+
 function sexSummary(response) {
-  // The owner table's rows are flattened per price-tier row when a sale
-  // has bucket preferences (see flattenResponses()), which strips the
-  // top-level specificShareSizesByHorse field off — _rawResponse always
-  // carries the full, unflattened sale response, so fall back to that.
-  const source = response.specificShareSizesByHorse ? response : response._rawResponse || response;
-  const rows = source.specificShareSizesByHorse || [];
+  if (response.sex) return labelFor("sex", response.sex);
+  const rows = (response._rawResponse || response).specificShareSizesByHorse || [];
   const choices = [...new Set(rows.map((row) => row.sex).filter(Boolean))];
   if (choices.length === 0) return "";
   if (choices.length === 1) return SINGULAR_SEX_LABEL[choices[0]] || choices[0];
@@ -3260,12 +3253,11 @@ function buildPreviewDataset() {
       saleResponses: {
         [sale]: {
           participation: alsoAfterSale ? "both" : "bucket",
-          gait: alsoAfterSale ? gait : "",
           priceTierMatrix,
           specificShareSizesByHorse: alsoAfterSale
             ? Array.from({ length: horseNum }, (_, h) => ({
                 percent: String(3 + ((i + h) % 8)),
-                gait: gait === "both" ? gaits[(i + h) % 2] : "",
+                gait: gaits[(i + h) % gaits.length] === "both" ? "" : gaits[(i + h) % gaits.length],
                 sex: sexes[(i + h) % sexes.length],
               }))
             : [],
@@ -3784,14 +3776,14 @@ function refOwnerTableRows(rows) {
   const filtered = rows.filter((row) => {
     if (ownerTableFilters.sale && row.sale !== ownerTableFilters.sale) return false;
     if (ownerTableFilters.type && !row.bucketTypes.some((item) => labelFor("priceTiers", item) === ownerTableFilters.type)) return false;
-    if (ownerTableFilters.gait && labelFor("gait", row.gait) !== ownerTableFilters.gait) return false;
+    if (ownerTableFilters.gait && gaitSummary(row) !== ownerTableFilters.gait) return false;
     if (ownerTableFilters.sex && sexSummary(row) !== ownerTableFilters.sex) return false;
     if (search && !row.name.toLowerCase().includes(search) && !row.email.toLowerCase().includes(search)) return false;
     return true;
   });
   const saleOptions = [...new Map(rows.map((row) => [row.sale, row.saleLabel])).entries()];
   const typeOptions = [...new Set(rows.flatMap((row) => row.bucketTypes.map((item) => labelFor("priceTiers", item))))].filter(Boolean);
-  const gaitOptions = [...new Set(rows.map((row) => labelFor("gait", row.gait)))].filter(Boolean);
+  const gaitOptions = [...new Set(rows.map((row) => gaitSummary(row)))].filter(Boolean);
   const sexOptions = [...new Set(rows.map((row) => sexSummary(row)))].filter(Boolean);
   return `<div class="scroll-hint table-wrap"><table><thead><tr>
       <th>Owner<input class="col-filter" id="ownerSearch" type="search" placeholder="Search name or email" value="${escapeHtml(ownerTableFilters.search)}"></th>
@@ -3801,7 +3793,7 @@ function refOwnerTableRows(rows) {
       <th>Colt / Filly<select class="col-filter" id="ownerSexFilter"><option value="">All</option>${sexOptions.map((s) => `<option value="${escapeHtml(s)}" ${ownerTableFilters.sex === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select></th>
       ${customColumns.map((block) => `<th>${escapeHtml(block.label)}</th>`).join("")}
     </tr></thead><tbody>
-      ${filtered.length ? filtered.map((row) => `<tr><td><div class="owner-name">${escapeHtml(row.name)}</div><div class="owner-email">${escapeHtml(row.email)}</div></td><td>${escapeHtml(row.saleLabel)}</td><td>${row.bucketTypes.map((item) => escapeHtml(labelFor("priceTiers", item))).join(", ")}</td><td>${escapeHtml(labelFor("gait", row.gait))}</td><td>${escapeHtml(sexSummary(row))}</td>${customColumns.map((block) => `<td>${escapeHtml(customColumnValue(row, block))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${5 + customColumns.length}">${rows.length ? "No owners match your filters." : "No owner data yet."}</td></tr>`}
+      ${filtered.length ? filtered.map((row) => `<tr><td><div class="owner-name">${escapeHtml(row.name)}</div><div class="owner-email">${escapeHtml(row.email)}</div></td><td>${escapeHtml(row.saleLabel)}</td><td>${row.bucketTypes.map((item) => escapeHtml(labelFor("priceTiers", item))).join(", ")}</td><td>${escapeHtml(gaitSummary(row))}</td><td>${escapeHtml(sexSummary(row))}</td>${customColumns.map((block) => `<td>${escapeHtml(customColumnValue(row, block))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${5 + customColumns.length}">${rows.length ? "No owners match your filters." : "No owner data yet."}</td></tr>`}
     </tbody></table></div>
     <div class="foot-note">Showing ${filtered.length} of ${rows.length} owner row${rows.length === 1 ? "" : "s"}. Use the filters above to refine.</div>`;
 }
@@ -4089,8 +4081,8 @@ function exportCsv(rows) {
     row.saleLabel,
     labelFor("participation", row.participation),
     (row.bucketTypes || []).map((item) => labelFor("priceTiers", item)).join("; "),
-    labelFor("gait", row.gait),
-    labelFor("sex", row.sex),
+    gaitSummary(row),
+    sexSummary(row),
     row.eligibility.map((item) => labelFor("eligibility", item)).join("; "),
     ...customBlocks.map((block) => {
       const value = row._rawResponse?.[block.id];
