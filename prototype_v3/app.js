@@ -1034,12 +1034,14 @@ function doneCard() {
 
 function radioOptions(field, value, options, target = null) {
   const targetName = target === draft.defaultPrefs ? "default" : target ? "sale" : "draft";
-  return `<div class="options">${options.map(([id, label, help]) => {
+  const anyArmed = options.some(([id]) => armedBranchChange === `${field}:${id}:${targetName}`);
+  const banner = anyArmed ? `<p class="confirm-banner">Click the highlighted option one more time to confirm this change. It will clear your answers to the questions after this one.</p>` : "";
+  return `${banner}<div class="options">${options.map(([id, label, help]) => {
     const isArmed = armedBranchChange === `${field}:${id}:${targetName}`;
     return `
     <button class="option ${value === id ? "selected" : ""} ${isArmed ? "armed-confirm" : ""}" data-radio="${field}" data-value="${id}" data-target="${targetName}" type="button">
       <span class="mark radio"></span>
-      <span><strong>${label}</strong>${isArmed ? `<small class="confirm-hint">This will clear your answers below. Click again to confirm.</small>` : help ? `<small>${help}</small>` : ""}</span>
+      <span><strong>${label}</strong>${isArmed ? `<small class="confirm-hint">Click again to confirm</small>` : help ? `<small>${help}</small>` : ""}</span>
     </button>
   `;
   }).join("")}</div>`;
@@ -1461,7 +1463,7 @@ function setValue(field, value, targetName) {
     if (armedBranchChange !== armKey) {
       armedBranchChange = armKey;
       clearTimeout(armedBranchChangeTimer);
-      armedBranchChangeTimer = setTimeout(() => { armedBranchChange = null; render(); }, 4000);
+      armedBranchChangeTimer = setTimeout(() => { armedBranchChange = null; render(); }, 8000);
       render();
       return;
     }
