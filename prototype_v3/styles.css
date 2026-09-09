@@ -1189,10 +1189,19 @@ th .col-filter option {
 }
 
 @media (max-width: 640px) {
+  .qb-block-head {
+    flex-wrap: wrap;
+  }
+  .qb-block-title {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    flex: 1 1 100%;
+  }
   .qb-block-title strong {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
+    flex: 1 1 100%;
   }
 }
 
