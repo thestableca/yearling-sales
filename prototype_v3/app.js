@@ -2274,6 +2274,10 @@ function questionBlockEditor(block) {
         <input class="input" data-block-label="${block.id}" value="${escapeHtml(block.label || "")}">
       </label>
       <label class="qb-field">
+        <span class="qb-field-label">Short title for the Dashboard (optional)</span>
+        <input class="input" data-block-short-title="${block.id}" value="${escapeHtml(block.shortTitle || "")}" placeholder="e.g. Repeat buyer? A few words, not the full question">
+      </label>
+      <label class="qb-field">
         <span class="qb-field-label">Help text (optional)</span>
         <input class="input" data-block-help="${block.id}" value="${escapeHtml(block.helpText || "")}">
       </label>
@@ -2440,6 +2444,16 @@ function bindQuestionsAdmin(questionSet) {
       updateQuestionSet((set) => {
         const block = set.blocks.find((b) => b.id === id);
         if (block) block.label = el.value;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-block-short-title]").forEach((el) => {
+    el.addEventListener("change", () => {
+      const id = el.getAttribute("data-block-short-title");
+      updateQuestionSet((set) => {
+        const block = set.blocks.find((b) => b.id === id);
+        if (block) block.shortTitle = el.value;
       });
     });
   });
@@ -3792,7 +3806,7 @@ function customQuestionPanels(rows) {
     if (block.type === "text" || block.type === "number") {
       const distinctAnswers = [...new Set(answered.map((row) => String(row._rawResponse[block.id]).trim()).filter(Boolean))];
       return `<div class="ref-panel">
-        <div class="panel-head"><h2>${escapeHtml(block.label)}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Free-text question added in Questions Builder. Showing distinct answers given so far.</span></span></div>
+        <div class="panel-head"><h2>${escapeHtml(shortTitleFor(block))}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Free-text question added in Questions Builder: "${escapeHtml(block.label)}". Showing distinct answers given so far.</span></span></div>
         <div class="panel-body">${distinctAnswers.length ? `<p class="quiet" style="line-height:1.7;">${distinctAnswers.map((a) => escapeHtml(a)).join(" &middot; ")}</p>` : `<p class="quiet">No answers yet.</p>`}</div>
       </div>`;
     }
@@ -3801,7 +3815,7 @@ function customQuestionPanels(rows) {
       return Array.isArray(value) ? value.map((v) => labelFor(block.id, v) || v).join(", ") : (labelFor(block.id, value) || value);
     });
     return `<div class="ref-panel">
-      <div class="panel-head"><h2>${escapeHtml(block.label)}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Question added in Questions Builder. Shown here automatically. A purpose-built chart like the bucket suggestions above needs custom design work instead.</span></span></div>
+      <div class="panel-head"><h2>${escapeHtml(shortTitleFor(block))}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Question added in Questions Builder: "${escapeHtml(block.label)}". Shown here automatically. A purpose-built chart like the bucket suggestions above needs custom design work instead.</span></span></div>
       <div class="panel-body">${refBarList(demand)}</div>
     </div>`;
   });
@@ -4150,6 +4164,18 @@ const FALLBACK_LABELS = {
   bucketTypes: { premium: "Premium", value: "Value Buy", balanced: "Balanced" },
   priceTiers: Object.fromEntries(PRICE_TIERS.map(([id, label]) => [id, label])),
 };
+
+// A custom question's Dashboard card needs a short heading, not its full
+// question text (which can be a whole sentence). Anthony can set one
+// explicitly in Questions Builder; without one, this falls back to a
+// trimmed version of the question text so a new custom question still
+// looks reasonable on the Dashboard before anyone edits it.
+function shortTitleFor(block) {
+  if (block.shortTitle) return block.shortTitle;
+  const text = block.label || "";
+  if (text.length <= 40) return text;
+  return `${text.slice(0, 40).trim()}…`;
+}
 
 // bucket_config is the single source of truth for bucket names — see
 // bucketConfigOptionRows(). bucketTypes must resolve labels from there
