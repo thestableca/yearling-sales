@@ -351,10 +351,20 @@ function defaultQuestionSet() {
         ],
       },
       {
+        id: "priceTierMatrix",
+        type: "price_tier_matrix",
+        label: "What would you like TheStable to consider for your pre-sale bucket at this sale?",
+        helpText: "You aren't choosing a bucket that already exists. Add each price range that interests you at this sale, along with your gait and sex preference. You can add more than one preference within the same price range. TheStable builds the actual bucket for this sale afterward based on demand like yours plus historical sale data, then reaches out separately once it's ready to ask how much you'd like to invest.",
+        sortOrder: 20,
+        dependsOn: { blockId: "participation", op: "in", value: ["bucket", "both"] },
+        required: true,
+        gatesProgress: false,
+      },
+      {
         id: "gait",
         type: "single_select",
         label: "For after-sale individual shares, which gait should TheStable consider for you?",
-        sortOrder: 20,
+        sortOrder: 30,
         dependsOn: { blockId: "participation", op: "in", value: ["specific", "both"] },
         required: true,
         options: [
@@ -367,7 +377,7 @@ function defaultQuestionSet() {
         id: "sex",
         type: "single_select",
         label: "For after-sale individual shares, which colt / filly preference should TheStable consider for you?",
-        sortOrder: 30,
+        sortOrder: 40,
         dependsOn: [{ blockId: "participation", op: "in", value: ["specific", "both"] }, { blockId: "gait", op: "in", value: ["trotter", "pacer"] }],
         required: true,
         options: [
@@ -380,7 +390,7 @@ function defaultQuestionSet() {
         id: "sexTrotter",
         type: "single_select",
         label: "For after-sale trotters, which colt / filly preference should TheStable consider for you?",
-        sortOrder: 31,
+        sortOrder: 41,
         dependsOn: [{ blockId: "participation", op: "in", value: ["specific", "both"] }, { blockId: "gait", op: "equals", value: "both" }],
         required: true,
         options: [
@@ -393,7 +403,7 @@ function defaultQuestionSet() {
         id: "sexPacer",
         type: "single_select",
         label: "For after-sale pacers, which colt / filly preference should TheStable consider for you?",
-        sortOrder: 32,
+        sortOrder: 42,
         dependsOn: [{ blockId: "participation", op: "in", value: ["specific", "both"] }, { blockId: "gait", op: "equals", value: "both" }],
         required: true,
         options: [
@@ -401,16 +411,6 @@ function defaultQuestionSet() {
           { value: "filly", label: "Fillies", help: "" },
           { value: "both", label: "Both colts and fillies", help: "" },
         ],
-      },
-      {
-        id: "priceTierMatrix",
-        type: "price_tier_matrix",
-        label: "What would you like TheStable to consider for your pre-sale bucket at this sale?",
-        helpText: "You aren't choosing a bucket that already exists. Add each price range that interests you at this sale, along with your gait and sex preference. You can add more than one preference within the same price range. TheStable builds the actual bucket for this sale afterward based on demand like yours plus historical sale data, then reaches out separately once it's ready to ask how much you'd like to invest.",
-        sortOrder: 40,
-        dependsOn: { blockId: "participation", op: "in", value: ["bucket", "both"] },
-        required: true,
-        gatesProgress: false,
       },
       {
         id: "specificHorseCount",
