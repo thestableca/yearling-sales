@@ -710,11 +710,29 @@ function currentSaleResponse() {
   return draft.saleResponses[saleId];
 }
 
+// The "defaults" walk's question count isn't fixed: which questions are
+// even visible depends on answers given earlier in that same walk (e.g.
+// sexTrotter/sexPacer only exist once gait="both" is answered), so it
+// can grow or shrink as an owner moves through it — and it changes again
+// whenever Anthony edits the question set in Questions Builder. A fixed
+// "X% per question" step used to hit its ceiling early on a longer walk,
+// then jump straight to review's fixed number; scaling by the count at
+// each step instead made the bar occasionally move backwards, since that
+// count itself moves. Approaching (never reaching) the ceiling with a
+// shrinking-step curve sidesteps both: always forward, never overshoots,
+// and naturally slows down the more questions there turn out to be.
+function approachCeiling(start, ceiling, index, softness = 4) {
+  return Math.round(start + (ceiling - start) * (1 - softness / (index + softness + 1)));
+}
+
 function progressPercent() {
   const order = ["welcome", "identify", "interest", "sales", "eligibility", "defaults", "customChoice", "saleDetail", "review", "done"];
-  if (draft.view === "defaults") return Math.min(80, 35 + draft.defaultIndex * 6);
-  if (draft.view === "customChoice" || draft.view === "saleDetail") return Math.min(92, 78 + draft.saleIndex * 4 + draft.questionIndex);
-  if (draft.view === "review") return 96;
+  if (draft.view === "defaults") return approachCeiling(35, 88, draft.defaultIndex, 2);
+  if (draft.view === "customChoice" || draft.view === "saleDetail") {
+    const stepsDone = draft.saleIndex * 4 + draft.questionIndex;
+    return approachCeiling(78, 92, stepsDone, 2);
+  }
+  if (draft.view === "review") return 90;
   if (draft.view === "done") return 100;
   return Math.max(5, (order.indexOf(draft.view) + 1) * 6);
 }
