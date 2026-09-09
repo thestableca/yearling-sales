@@ -903,11 +903,35 @@ textarea.input {
   background: #fff;
 }
 
+/* Scroll-shadow hint: shows a soft shadow on whichever edge still has
+   more table content to scroll to, so a horizontally-scrollable table
+   doesn't just look cut off on a narrow screen. Pure CSS (background-
+   attachment: local tracks scroll position automatically), no JS. */
+.table-wrap,
+.scroll-hint {
+  background:
+    linear-gradient(to right, #fff 30%, rgba(255,255,255,0)),
+    linear-gradient(to right, rgba(255,255,255,0), #fff 70%) 100% 0,
+    radial-gradient(farthest-side at 0 50%, rgba(20,30,55,0.18), rgba(20,30,55,0)),
+    radial-gradient(farthest-side at 100% 50%, rgba(20,30,55,0.18), rgba(20,30,55,0)) 100% 0;
+  background-repeat: no-repeat;
+  background-color: #fff;
+  background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+.scroll-hint { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
 table {
   width: 100%;
-  min-width: 980px;
   border-collapse: collapse;
   font-size: 13px;
+}
+
+/* Only the dense, many-column owner/roster tables need a wide minimum
+   (so their columns don't get crushed illegibly) — the shorter Sale
+   History comparison tables size to their own content instead. */
+.table-wrap table {
+  min-width: 980px;
 }
 
 th,
@@ -1525,7 +1549,9 @@ th .col-filter option {
    the reference's .page-tab pill look; markup/JS stay app.js's own
    adminTabs()/bindAdminTabs(), only the visual rules are ported) */
 .topbar-right { display: flex; align-items: center; gap: 16px; }
-.admin-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin-tabs { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.admin-tabs::-webkit-scrollbar { display: none; }
+.admin-tab { flex-shrink: 0; }
 .admin-tab { font-family: "Inter", sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.01em; color: var(--ink-soft, #445069); background: #fff; border: 1px solid var(--line, #d8dee8); border-radius: 999px; padding: 9px 18px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
 .admin-tab:hover { border-color: var(--gold-light, #c9a13f); color: var(--navy-deep, #071429); }
 .admin-tab.active { background: var(--navy-deep, #071429); border-color: var(--navy-deep, #071429); color: #fff; }

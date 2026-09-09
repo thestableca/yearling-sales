@@ -718,7 +718,7 @@ function hero(title, subtitle = "") {
 }
 
 function renderOwner() {
-  app.innerHTML = `${hero("2026 Yearling Sale Planning", "Set your preferences once, then choose whether they apply to all selected sales.")}${ownerLayout()}`;
+  app.innerHTML = `${hero("2026 Yearling Sale Planning", "Set your preferences once, then choose whether they apply to all selected sales or specify each sale separately.")}${ownerLayout()}`;
   bindOwner();
 }
 
@@ -2665,7 +2665,7 @@ function renderSaleHistory() {
         <h2 class="section-title">Does this pattern hold at every sale, or does it differ by venue?</h2>
         <p class="section-lead">Lexington, Harrisburg, and Ohio are three different sales with different buyers and different horses. This checks whether the price pattern above holds true at each one individually, or whether one sale behaves differently.</p>
         <div class="ref-panel">
-          <div style="overflow-x:auto;">
+          <div class="scroll-hint">
             <table>
               <thead><tr><th>Sale</th><th>Under ${shMoney(38626, 30000)}</th><th>${shMoney(38626, 30000)}&ndash;${shMoney(64376, 50000)}</th><th>${shMoney(64376, 50000)}&ndash;${shMoney(96564, 75000)}</th><th>${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}</th><th>${shMoney(128752, 100000, "k", "+")}</th></tr></thead>
               <tbody>
@@ -2676,7 +2676,7 @@ function renderSaleHistory() {
             </table>
           </div>
           <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale at that specific price range).</p>
-          <div style="overflow-x:auto; margin-top:20px;">
+          <div class="scroll-hint" style="margin-top:20px;">
             <table>
               <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th></tr></thead>
               <tbody>
@@ -2954,7 +2954,7 @@ function renderOwnerRosterAdmin() {
             <p>${roster.length ? `${[...respondedEmails].filter((email) => roster.some((o) => o.email === email)).length} of ${roster.length} have responded so far.` : "No owners imported yet."}</p>
           </div>
         </div>
-        <div style="overflow-x:auto;">
+        <div class="scroll-hint table-wrap">
           ${roster.length ? `
           <table>
             <thead><tr><th>Owner</th><th>Email</th><th>Responded</th><th></th></tr></thead>
@@ -3106,7 +3106,7 @@ function buildPreviewDataset() {
 
 function renderAdmin() {
   if (!isAdminSignedIn()) {
-    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Bucket Planning Login</h2><form id="loginForm"><div class="field-stack"><input class="input" id="adminEmail" type="email" placeholder="Email" autocomplete="username" autofocus><input class="input" id="adminPassword" type="password" placeholder="Password" autocomplete="current-password"></div><p class="notice hidden" id="loginError">Incorrect email or password.</p><div class="actions single"><button class="btn primary" type="submit" id="loginButton">Login</button></div></form><button class="text-link" type="button" id="forgotPasswordLink" style="margin-top:12px;">Forgot password?</button><p class="notice hidden" id="forgotPasswordStatus"></p></div></article>`;
+    app.innerHTML = `<article class="card login-card"><div class="card-body"><span class="tag">Admin</span><h2>Administrator Login</h2><form id="loginForm"><div class="field-stack"><input class="input" id="adminEmail" type="email" placeholder="Email" autocomplete="username" autofocus><input class="input" id="adminPassword" type="password" placeholder="Password" autocomplete="current-password"></div><p class="notice hidden" id="loginError">Incorrect email or password.</p><div class="actions single"><button class="btn primary" type="submit" id="loginButton">Login</button></div></form><button class="text-link" type="button" id="forgotPasswordLink" style="margin-top:12px;">Forgot password?</button><p class="notice hidden" id="forgotPasswordStatus"></p></div></article>`;
     document.querySelector("#loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = document.querySelector("#adminEmail").value.trim();
@@ -3606,7 +3606,7 @@ function refOwnerTableRows(rows) {
   const typeOptions = [...new Set(rows.flatMap((row) => row.bucketTypes.map((item) => labelFor("priceTiers", item))))].filter(Boolean);
   const gaitOptions = [...new Set(rows.map((row) => labelFor("gait", row.gait)))].filter(Boolean);
   const sexOptions = [...new Set(rows.map((row) => sexSummary(row)))].filter(Boolean);
-  return `<div style="overflow-x:auto;"><table><thead><tr>
+  return `<div class="scroll-hint table-wrap"><table><thead><tr>
       <th>Owner<input class="col-filter" id="ownerSearch" type="search" placeholder="Search name or email" value="${escapeHtml(ownerTableFilters.search)}"></th>
       <th>Sale<select class="col-filter" id="ownerSaleFilter"><option value="">All sales</option>${saleOptions.map(([id, label]) => `<option value="${id}" ${ownerTableFilters.sale === id ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></th>
       <th>Price tier<select class="col-filter" id="ownerTypeFilter"><option value="">All tiers</option>${typeOptions.map((t) => `<option value="${escapeHtml(t)}" ${ownerTableFilters.type === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select></th>
