@@ -1098,35 +1098,6 @@ function bucketMatrixHtml(prefs) {
   `).join("")}</div>`;
 }
 
-// One percentage input per horse, count driven by specificHorseCount
-// (or its typed-in exact number for "3 or more"). Pre-fills every row
-// with whatever was picked on the shared specificShareSize question, so
-// switching to "set a size per horse" starts from a sensible default
-// instead of blank boxes.
-function perHorseSharesHtml(prefs) {
-  const count = specificHorseCountAsNumber(prefs);
-  const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
-  const defaultValue = prefs.specificShareSize === "custom" ? prefs.specificShareSizeCustom : shareSizeMidpoint(prefs.specificShareSize);
-  // Actually fill in the array with the pre-filled default, not just
-  // display it — otherwise a row the owner never touches stays blank in
-  // draft state even though the input on screen shows a value, and the
-  // review screen (and the submitted response) would silently lose it.
-  const sizes = prefs.specificShareSizesByHorse ? [...prefs.specificShareSizesByHorse] : [];
-  for (let i = 0; i < count; i++) {
-    if (!sizes[i]) sizes[i] = defaultValue || "";
-  }
-  prefs.specificShareSizesByHorse = sizes;
-  const rows = Array.from({ length: count }, (_, index) => `
-      <div class="matrix-row per-horse-share-row">
-        <label>
-          Horse ${index + 1}
-          <input class="input matrix-input" inputmode="decimal" data-per-horse-share-index="${index}" data-target="${targetName}" value="${escapeHtml(sizes[index])}" placeholder="e.g. 5">
-        </label>
-      </div>
-    `).join("");
-  return `<div class="bucket-matrix"><div class="matrix-rows per-horse-share-rows">${rows}</div></div>`;
-}
-
 function shareSizeMidpoint(value) {
   if (value === "1") return "1";
   if (value === "2_5") return "3.5";
@@ -1135,14 +1106,76 @@ function shareSizeMidpoint(value) {
   return "";
 }
 
-function perHorseSharesReady(prefs) {
-  const count = specificHorseCountAsNumber(prefs);
-  const sizes = prefs.specificShareSizesByHorse || [];
-  if (count === 0) return false;
-  for (let i = 0; i < count; i++) {
-    if (!sizes[i]) return false;
+function newPerHorseShareRow(prefs) {
+  return {
+    percent: prefs.specificShareSize === "custom" ? prefs.specificShareSizeCustom : shareSizeMidpoint(prefs.specificShareSize),
+    gait: prefs.gait !== "both" ? prefs.gait || "" : "",
+    sex: "",
+  };
+}
+
+// One row per horse, each with its own share size plus (only when the
+// owner picked "both" earlier) its own gait and colt/filly choice — same
+// pattern as the price-tier matrix, so "3 trotter colts at 5% and 2
+// pacer fillies at 8%" can be entered as five distinct rows instead of
+// one shared count/percentage that can't tell them apart. Starts
+// pre-filled with rows matching specificHorseCount (or its typed exact
+// number), each defaulting to whatever was picked on the shared
+// share-size question, so switching to "set a size per horse" begins
+// from a sensible starting point instead of a blank list.
+function perHorseSharesHtml(prefs) {
+  const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
+  if (!prefs.specificShareSizesByHorse || !prefs.specificShareSizesByHorse.length) {
+    const startCount = Math.max(1, specificHorseCountAsNumber(prefs));
+    prefs.specificShareSizesByHorse = Array.from({ length: startCount }, () => newPerHorseShareRow(prefs));
   }
-  return true;
+  const rows = prefs.specificShareSizesByHorse;
+  const needsGait = prefs.gait === "both";
+  const rowHtml = rows.map((row, index) => {
+    const gaitForSex = needsGait ? row.gait : prefs.gait;
+    const needsSex = gaitForSex === "trotter" ? prefs.sexTrotter === "both" || (!prefs.sexTrotter && prefs.sex === "both")
+      : gaitForSex === "pacer" ? prefs.sexPacer === "both" || (!prefs.sexPacer && prefs.sex === "both")
+      : prefs.sex === "both";
+    return `
+      <div class="matrix-row per-horse-share-row">
+        <label>
+          Horse ${index + 1} share size
+          <input class="input matrix-input" inputmode="decimal" data-per-horse-share-field="percent" data-per-horse-share-index="${index}" data-target="${targetName}" value="${escapeHtml(row.percent)}" placeholder="e.g. 5">
+        </label>
+        ${needsGait ? `
+        <label>
+          Gait
+          <select class="input matrix-input" data-per-horse-share-field="gait" data-per-horse-share-index="${index}" data-target="${targetName}">
+            <option value="">Choose</option>
+            <option value="trotter" ${row.gait === "trotter" ? "selected" : ""}>Trotter</option>
+            <option value="pacer" ${row.gait === "pacer" ? "selected" : ""}>Pacer</option>
+          </select>
+        </label>` : ""}
+        ${needsSex ? `
+        <label>
+          Colt / filly
+          <select class="input matrix-input" data-per-horse-share-field="sex" data-per-horse-share-index="${index}" data-target="${targetName}">
+            <option value="">No preference</option>
+            <option value="colt" ${row.sex === "colt" ? "selected" : ""}>Colt</option>
+            <option value="filly" ${row.sex === "filly" ? "selected" : ""}>Filly</option>
+          </select>
+        </label>` : ""}
+        ${rows.length > 1 ? `<button class="btn" type="button" data-remove-per-horse-share-row="${index}" data-target="${targetName}" aria-label="Remove this horse">Remove</button>` : ""}
+      </div>
+    `;
+  }).join("");
+  return `<div class="bucket-matrix"><div class="matrix-rows per-horse-share-rows">${rowHtml}</div><button class="btn" type="button" data-add-per-horse-share-row data-target="${targetName}">Add another horse</button></div>`;
+}
+
+function perHorseSharesReady(prefs) {
+  const rows = prefs.specificShareSizesByHorse || [];
+  if (!rows.length) return false;
+  const needsGait = prefs.gait === "both";
+  return rows.every((row) => {
+    if (!row.percent) return false;
+    if (needsGait && !row.gait) return false;
+    return true;
+  });
 }
 
 // Renders the owner's list of price-tier preferences for this sale: each
@@ -1237,15 +1270,17 @@ function bindOwner() {
   document.querySelectorAll("[data-add-tier-row]").forEach((button) => button.addEventListener("click", () => addPriceTierRow(button.dataset.target)));
   document.querySelectorAll("[data-remove-tier-row]").forEach((button) => button.addEventListener("click", () => removePriceTierRow(Number(button.dataset.removeTierRow), button.dataset.target)));
   document.querySelectorAll("[data-tier-row-field]").forEach((select) => select.addEventListener("change", () => setPriceTierRowValue(Number(select.dataset.tierRowIndex), select.dataset.tierRowField, select.value, select.dataset.target)));
-  document.querySelectorAll("[data-per-horse-share-index]").forEach((input) => input.addEventListener("input", () => {
-    const target = getTarget(input.dataset.target);
-    const index = Number(input.dataset.perHorseShareIndex);
-    const sizes = target.specificShareSizesByHorse ? [...target.specificShareSizesByHorse] : [];
-    sizes[index] = cleanPercent(input.value);
-    target.specificShareSizesByHorse = sizes;
-    saveDraft();
-    updateContinueState(getActivePrefs());
-  }));
+  document.querySelectorAll("[data-per-horse-share-field]").forEach((el) => {
+    const isSelect = el.tagName === "SELECT";
+    // A gait change can reveal or hide that row's colt/filly dropdown
+    // (see perHorseSharesHtml's needsSex), so it needs a real re-render,
+    // not just updateContinueState — unlike the percent input, which
+    // stays a plain text box either way and would lose cursor focus on
+    // every keystroke if it re-rendered too.
+    el.addEventListener(isSelect ? "change" : "input", () => setPerHorseShareRowValue(Number(el.dataset.perHorseShareIndex), el.dataset.perHorseShareField, isSelect ? el.value : cleanPercent(el.value), el.dataset.target, isSelect));
+  });
+  document.querySelectorAll("[data-add-per-horse-share-row]").forEach((button) => button.addEventListener("click", () => addPerHorseShareRow(button.dataset.target)));
+  document.querySelectorAll("[data-remove-per-horse-share-row]").forEach((button) => button.addEventListener("click", () => removePerHorseShareRow(Number(button.dataset.removePerHorseShareRow), button.dataset.target)));
   document.querySelector("#bucketAmount")?.addEventListener("input", () => {
     saveInputs();
     updateContinueState(getActivePrefs());
@@ -1449,7 +1484,7 @@ function setValue(field, value, targetName) {
   // rows, or no longer relevant) — clear them so the next visit to that
   // screen starts fresh instead of showing leftover numbers from a
   // different horse count.
-  if (field === "specificHorseCount" || field === "specificShareSizePerHorse") target.specificShareSizesByHorse = [];
+  if (field === "specificHorseCount" || field === "specificShareSizePerHorse" || field === "gait" || field === "specificShareSize") target.specificShareSizesByHorse = [];
   saveInputs();
   saveDraft();
   render();
@@ -1522,6 +1557,31 @@ function setPriceTierRowValue(index, field, value, targetName) {
   row[field] = value;
   saveDraft();
   updateContinueState(target);
+}
+
+function addPerHorseShareRow(targetName) {
+  const target = getTarget(targetName);
+  target.specificShareSizesByHorse.push(newPerHorseShareRow(target));
+  saveDraft();
+  render();
+}
+
+function removePerHorseShareRow(index, targetName) {
+  const target = getTarget(targetName);
+  target.specificShareSizesByHorse.splice(index, 1);
+  saveDraft();
+  render();
+}
+
+function setPerHorseShareRowValue(index, field, value, targetName, shouldRender = false) {
+  const target = getTarget(targetName);
+  const row = target.specificShareSizesByHorse[index];
+  if (!row) return;
+  row[field] = value;
+  if (field === "gait") row.sex = ""; // that row's colt/filly choice no longer necessarily applies
+  saveDraft();
+  if (shouldRender) render();
+  else updateContinueState(target);
 }
 
 function getActivePrefs() {
@@ -1732,17 +1792,27 @@ function summarizeSale(response) {
 }
 
 function summarizeSpecificHorseCount(response) {
+  if (response.specificShareSizePerHorse === "yes" && (response.specificShareSizesByHorse || []).length) {
+    return `${response.specificShareSizesByHorse.length} horses`;
+  }
   if (response.specificHorseCount === "three_plus" && response.specificHorseCountExact) {
     return `${response.specificHorseCountExact} horses`;
   }
   return labelFor("specificHorseCount", response.specificHorseCount);
 }
 
+const SINGULAR_GAIT_LABEL = { trotter: "Trotter", pacer: "Pacer" };
+const SINGULAR_SEX_LABEL = { colt: "Colt", filly: "Filly" };
+
 function summarizeSpecificShareSize(response) {
-  if (response.specificShareSizePerHorse === "yes" && (response.specificShareSizesByHorse || []).some(Boolean)) {
-    const count = specificHorseCountAsNumber(response);
-    const sizes = Array.from({ length: count }, (_, i) => response.specificShareSizesByHorse[i]).map((v) => (v ? `${v}%` : "?"));
-    return `${sizes.join(", ")} per horse`;
+  if (response.specificShareSizePerHorse === "yes" && (response.specificShareSizesByHorse || []).length) {
+    const parts = response.specificShareSizesByHorse.map((row) => {
+      const bits = [row.percent ? `${row.percent}%` : "?"];
+      if (row.gait) bits.push(SINGULAR_GAIT_LABEL[row.gait] || row.gait);
+      if (row.sex) bits.push(SINGULAR_SEX_LABEL[row.sex] || row.sex);
+      return bits.join(" ");
+    });
+    return parts.join(", ");
   }
   if (response.specificShareSize === "custom" && response.specificShareSizeCustom) {
     return `${response.specificShareSizeCustom}% per horse`;
