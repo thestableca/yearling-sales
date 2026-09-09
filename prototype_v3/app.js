@@ -652,8 +652,12 @@ function priceTierMatrixReady(prefs) {
   return (prefs.priceTierMatrix || []).some((row) => row?.tier && row?.gait);
 }
 
+// Not just "the array isn't empty" — priceTierMatrix now always starts
+// with one blank row (see priceTierMatrixHtml()) so an owner can fill
+// it in immediately instead of clicking "Add" first, which means an
+// empty, untouched row shouldn't count as a real answer here.
 function priceTierMatrixHasAnyEntry(matrix) {
-  return Array.isArray(matrix) && matrix.length > 0;
+  return Array.isArray(matrix) && matrix.some((row) => row?.tier || row?.gait || row?.sex);
 }
 
 // Question order/branching now comes from the active question set's
@@ -1168,10 +1172,12 @@ function perHorseSharesReady(prefs) {
 // of one row per tier forcing a single combination. No percentage/amount
 // is asked here — see blankPriceTierMatrix() for why.
 function priceTierMatrixHtml(prefs) {
-  const rows = prefs.priceTierMatrix || [];
+  if (!prefs.priceTierMatrix || !prefs.priceTierMatrix.length) {
+    prefs.priceTierMatrix = [newPriceTierRow()];
+  }
+  const rows = prefs.priceTierMatrix;
   const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
-  const rowHtml = rows.length
-    ? rows.map((row, index) => `
+  const rowHtml = rows.map((row, index) => `
       <div class="matrix-row price-tier-row">
         <label>
           Price tier
@@ -1198,10 +1204,9 @@ function priceTierMatrixHtml(prefs) {
             <option value="both" ${row.sex === "both" ? "selected" : ""}>Both</option>
           </select>
         </label>
-        <button class="btn" type="button" data-remove-tier-row="${index}" data-target="${targetName}" aria-label="Remove this preference">Remove</button>
+        ${rows.length > 1 ? `<button class="btn" type="button" data-remove-tier-row="${index}" data-target="${targetName}" aria-label="Remove this preference">Remove</button>` : ""}
       </div>
-    `).join("")
-    : `<p class="notice">No preferences added yet.</p>`;
+    `).join("");
   return `<div class="bucket-matrix"><div class="matrix-rows price-tier-rows">${rowHtml}</div><button class="btn" type="button" data-add-tier-row data-target="${targetName}">Add another preference</button></div>`;
 }
 
