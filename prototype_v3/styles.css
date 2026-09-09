@@ -811,6 +811,8 @@ textarea.input {
 .review-item .text-link {
   font-size: 13px;
   white-space: nowrap;
+  padding: 12px 4px;
+  margin: -12px -4px;
 }
 
 .admin-grid {
@@ -1407,7 +1409,7 @@ th .col-filter option {
 .refskin .dash-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 4px rgba(201, 161, 63, 0.18); }
 
 .refskin .dash-grid { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.refskin .dash-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; }
+.refskin .dash-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; min-width: 0; }
 .refskin .dash-card .dc-label { font-size: 11px; color: #93a1bf; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; margin-bottom: 10px; }
 
 /* Price curve card */
@@ -1471,7 +1473,7 @@ th .col-filter option {
 
 /* Totals versus */
 .refskin .totals-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-.refskin .totals-card { background: var(--ivory); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.refskin .totals-card { background: var(--ivory); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
 .refskin .totals-card .ttl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 12px; }
 .refskin .versus-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
 .refskin .versus-side { text-align: center; }
@@ -1493,7 +1495,7 @@ th .col-filter option {
 
 /* Bucket cards */
 .refskin .bucket-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.refskin .bucket-card { background: var(--ivory); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 18px; }
+.refskin .bucket-card { background: var(--ivory); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 18px; min-width: 0; }
 .refskin .bucket-card .ttl { font-family: "Fraunces", serif; font-weight: 600; font-size: 16px; color: var(--navy-deep); margin-bottom: 12px; }
 .refskin .split-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
 .refskin .split-row:last-child { border-bottom: 0; }
@@ -1515,6 +1517,7 @@ th .col-filter option {
 
 @media (max-width: 900px) {
   .refskin .bucket-grid, .refskin .totals-grid, .refskin .dash-grid { grid-template-columns: 1fr; }
+  .refskin .dash-grid [style*="grid-column"] { grid-column: auto !important; }
   .refskin .meta-strip { grid-template-columns: repeat(2, 1fr); }
 }
 
