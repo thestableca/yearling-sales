@@ -607,19 +607,6 @@ function cleanPercent(value) {
   return cleaned;
 }
 
-// Turns specificHorseCount's answer into an actual number, for the
-// per-horse share size screen. "three_plus" needs the exact number the
-// owner typed in; falls back to 3 if that's somehow still blank.
-function specificHorseCountAsNumber(prefs) {
-  if (prefs.specificHorseCount === "one") return 1;
-  if (prefs.specificHorseCount === "two") return 2;
-  if (prefs.specificHorseCount === "three_plus") {
-    const n = Number(prefs.specificHorseCountExact);
-    return Number.isFinite(n) && n >= 3 ? n : 3;
-  }
-  return 0;
-}
-
 function saleById(id) {
   return SALES().find((sale) => sale.id === id);
 }
@@ -946,22 +933,12 @@ function preferenceQuestionCard(meta, question, prefs, actionsFn, tag) {
   }
 
   // single_select: choiceOptions (grid, with an amount/help column) is
-  // used for the value-style questions (maxYearlings, bucketLevel,
-  // specificShareSize); radioOptions (simple list) for the rest.
+  // used for the value-style questions (maxYearlings, bucketLevel);
+  // radioOptions (simple list) for the rest.
   const value = prefs[block.id];
   if (block.id === "maxYearlings") {
     const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
     return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${actionsFn(Boolean(value))}`, blockTag);
-  }
-  if (block.id === "specificShareSize") {
-    const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
-    const customInput = value === "custom" ? `<div class="field-stack"><input class="input" id="specificShareSizeCustom" inputmode="decimal" value="${escapeHtml(prefs.specificShareSizeCustom)}" placeholder="Custom percentage, e.g. 7.5" data-target="${prefs === draft.defaultPrefs ? "default" : "sale"}"></div>` : "";
-    return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${customInput}${actionsFn(Boolean(value && (value !== "custom" || prefs.specificShareSizeCustom)))}`, blockTag);
-  }
-  if (block.id === "specificHorseCount") {
-    const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
-    const exactInput = value === "three_plus" ? `<div class="field-stack"><input class="input" id="specificHorseCountExact" inputmode="numeric" value="${escapeHtml(prefs.specificHorseCountExact)}" placeholder="Exact number, e.g. 5" data-target="${prefs === draft.defaultPrefs ? "default" : "sale"}"></div>` : "";
-    return card(meta, block.label, `${helpText(block)}${choiceOptions(block.id, value, gridRows, prefs)}${exactInput}${actionsFn(Boolean(value && (value !== "three_plus" || prefs.specificHorseCountExact)))}`, blockTag);
   }
   if (block.id === "bucketLevel") {
     const gridRows = (block.options || []).map((o) => [o.value, o.label, o.help || "", ""]);
@@ -1118,44 +1095,29 @@ function bucketMatrixHtml(prefs) {
   `).join("")}</div>`;
 }
 
-function shareSizeMidpoint(value) {
-  if (value === "1") return "1";
-  if (value === "2_5") return "3.5";
-  if (value === "5_10") return "7.5";
-  if (value === "10plus") return "10";
-  return "";
-}
-
 function newPerHorseShareRow(prefs) {
   return {
-    percent: prefs.specificShareSize === "custom" ? prefs.specificShareSizeCustom : shareSizeMidpoint(prefs.specificShareSize),
+    percent: "",
     gait: prefs.gait !== "both" ? prefs.gait || "" : "",
     sex: "",
   };
 }
 
 // One row per horse, each with its own share size plus (only when the
-// owner picked "both" earlier) its own gait and colt/filly choice — same
-// pattern as the price-tier matrix, so "3 trotter colts at 5% and 2
-// pacer fillies at 8%" can be entered as five distinct rows instead of
-// one shared count/percentage that can't tell them apart. Starts
-// pre-filled with rows matching specificHorseCount (or its typed exact
-// number), each defaulting to whatever was picked on the shared
-// share-size question, so switching to "set a size per horse" begins
-// from a sensible starting point instead of a blank list.
+// owner picked "both" earlier) its own gait and colt/filly choice — so
+// "3 trotter colts at 5% and 2 pacer fillies at 8%" can be entered as
+// five distinct rows instead of one shared answer that can't tell them
+// apart. Starts with a single blank row (most owners just want one
+// share size), with an "Add another horse" button for anyone who wants
+// to specify more.
 function perHorseSharesHtml(prefs) {
   const targetName = prefs === draft.defaultPrefs ? "default" : "sale";
   if (!prefs.specificShareSizesByHorse || !prefs.specificShareSizesByHorse.length) {
-    const startCount = Math.max(1, specificHorseCountAsNumber(prefs));
-    prefs.specificShareSizesByHorse = Array.from({ length: startCount }, () => newPerHorseShareRow(prefs));
+    prefs.specificShareSizesByHorse = [newPerHorseShareRow(prefs)];
   }
   const rows = prefs.specificShareSizesByHorse;
   const needsGait = prefs.gait === "both";
   const rowHtml = rows.map((row, index) => {
-    const gaitForSex = needsGait ? row.gait : prefs.gait;
-    const needsSex = gaitForSex === "trotter" ? prefs.sexTrotter === "both" || (!prefs.sexTrotter && prefs.sex === "both")
-      : gaitForSex === "pacer" ? prefs.sexPacer === "both" || (!prefs.sexPacer && prefs.sex === "both")
-      : prefs.sex === "both";
     return `
       <section class="matrix-group">
         <h3>Horse ${index + 1}${rows.length > 1 ? `<button class="text-link" type="button" data-remove-per-horse-share-row="${index}" data-target="${targetName}" aria-label="Remove this horse">Remove</button>` : ""}</h3>
@@ -1173,7 +1135,6 @@ function perHorseSharesHtml(prefs) {
               <option value="pacer" ${row.gait === "pacer" ? "selected" : ""}>Pacer</option>
             </select>
           </label>` : ""}
-          ${needsSex ? `
           <label>
             Colt / filly
             <select class="input matrix-input" data-per-horse-share-field="sex" data-per-horse-share-index="${index}" data-target="${targetName}">
@@ -1181,7 +1142,7 @@ function perHorseSharesHtml(prefs) {
               <option value="colt" ${row.sex === "colt" ? "selected" : ""}>Colt</option>
               <option value="filly" ${row.sex === "filly" ? "selected" : ""}>Filly</option>
             </select>
-          </label>` : ""}
+          </label>
         </div>
       </section>
     `;
@@ -1307,14 +1268,6 @@ function bindOwner() {
     saveInputs();
     updateContinueState(getActivePrefs());
   });
-  document.querySelector("#specificShareSizeCustom")?.addEventListener("input", () => {
-    saveInputs();
-    updateContinueState(getActivePrefs());
-  });
-  document.querySelector("#specificHorseCountExact")?.addEventListener("input", () => {
-    saveInputs();
-    updateContinueState(getActivePrefs());
-  });
   document.querySelectorAll("[data-text-field]").forEach((input) => {
     input.addEventListener("input", () => {
       const target = getTarget(input.dataset.target);
@@ -1429,8 +1382,8 @@ function getTarget(targetName) {
 }
 
 // Fields whose value change wipes other, already-answered fields further
-// down the flow (see resetBranchAnswers/resetSexAnswers/resetBucketDetails
-// below) — changing your mind on one of these after already answering
+// down the flow (see resetBranchAnswers/resetBucketDetails below) —
+// changing your mind on one of these after already answering
 // later questions (e.g. going back and switching participation from
 // "bucket" to "specific" after already filling in bucket percentages)
 // silently discarded that later work with no warning. Only actually
@@ -1444,12 +1397,12 @@ function hasDownstreamAnswers(field, target) {
   if (field === "participation") {
     return Boolean(
       target.bucketDetailMode || target.bucketTypes?.length || target.bucketLevel || target.bucketAmount ||
-      target.specificHorseCount || target.specificShareSize || bucketMatrixHasAnyEntry(target.bucketMatrix) ||
+      target.specificShareSizesByHorse?.some((row) => row.percent) || bucketMatrixHasAnyEntry(target.bucketMatrix) ||
       priceTierMatrixHasAnyEntry(target.priceTierMatrix)
     );
   }
   if (field === "gait") {
-    return Boolean(target.sex || target.sexTrotter || target.sexPacer);
+    return Boolean(target.specificShareSizesByHorse?.length);
   }
   if (field === "bucketDetailMode") {
     return Boolean(target.bucketTypes?.length || target.bucketLevel || target.bucketAmount || bucketMatrixHasAnyEntry(target.bucketMatrix));
@@ -1496,17 +1449,15 @@ function setValue(field, value, targetName) {
     resetBranchAnswers(target);
     draft.applyMode = "";
   }
-  if (field === "gait") resetSexAnswers(target);
   if (field === "bucketDetailMode") {
     resetBucketDetails(target);
     draft.applyMode = "";
   }
-  // Changing how many horses, or switching back to one shared size,
-  // makes any already-typed per-horse percentages stale (wrong count of
-  // rows, or no longer relevant) — clear them so the next visit to that
-  // screen starts fresh instead of showing leftover numbers from a
-  // different horse count.
-  if (field === "specificHorseCount" || field === "specificShareSizePerHorse" || field === "gait" || field === "specificShareSize") target.specificShareSizesByHorse = [];
+  // Changing gait can make an already-filled-in per-horse gait choice
+  // stale (e.g. switching from "both" to a single gait removes the
+  // per-row gait picker entirely) — clear the rows so the next visit to
+  // that screen starts fresh instead of showing leftover choices.
+  if (field === "gait") target.specificShareSizesByHorse = [];
   saveInputs();
   saveDraft();
   render();
@@ -1615,9 +1566,7 @@ function updateContinueState(prefs) {
   if (!button) return;
   if (usesDetailedBuckets(prefs)) button.disabled = !bucketMatrixReady(prefs);
   else if (prefs.bucketLevel === "other") button.disabled = !prefs.bucketAmount;
-  else if (prefs.specificShareSize === "custom") button.disabled = !prefs.specificShareSizeCustom;
-  else if (prefs.specificHorseCount === "three_plus") button.disabled = !prefs.specificHorseCountExact;
-  else if (prefs.specificShareSizePerHorse === "yes") button.disabled = !perHorseSharesReady(prefs);
+  else if (Array.isArray(prefs.specificShareSizesByHorse) && prefs.specificShareSizesByHorse.length) button.disabled = !perHorseSharesReady(prefs);
   else if (Array.isArray(prefs.priceTierMatrix)) button.disabled = !priceTierMatrixReady(prefs);
 }
 
@@ -1745,8 +1694,7 @@ function resetBranchAnswers(target) {
   target.bucketAmount = "";
   target.bucketMatrix = blankBucketMatrix();
   target.priceTierMatrix = blankPriceTierMatrix();
-  target.specificHorseCount = "";
-  target.specificShareSize = "";
+  target.specificShareSizesByHorse = [];
 }
 
 function resetBucketDetails(target) {
@@ -1757,28 +1705,11 @@ function resetBucketDetails(target) {
   target.bucketMatrix = blankBucketMatrix();
 }
 
-function resetSexAnswers(target) {
-  target.sex = "";
-  target.sexTrotter = "";
-  target.sexPacer = "";
-}
-
 function saveInputs() {
   const amount = document.querySelector("#bucketAmount");
   if (amount) {
     if (draft.view === "defaults") draft.defaultPrefs.bucketAmount = cleanPercent(amount.value);
     else currentSaleResponse().bucketAmount = cleanPercent(amount.value);
-  }
-  const shareSizeCustom = document.querySelector("#specificShareSizeCustom");
-  if (shareSizeCustom) {
-    if (draft.view === "defaults") draft.defaultPrefs.specificShareSizeCustom = cleanPercent(shareSizeCustom.value);
-    else currentSaleResponse().specificShareSizeCustom = cleanPercent(shareSizeCustom.value);
-  }
-  const horseCountExact = document.querySelector("#specificHorseCountExact");
-  if (horseCountExact) {
-    const cleaned = horseCountExact.value.replace(/[^\d]/g, "");
-    if (draft.view === "defaults") draft.defaultPrefs.specificHorseCountExact = cleaned;
-    else currentSaleResponse().specificHorseCountExact = cleaned;
   }
 }
 
@@ -1790,9 +1721,9 @@ function saveInputs() {
 // shown back to them on the review screen before they submit.
 const KNOWN_SUMMARY_BLOCK_IDS = new Set([
   "interest", "sales", "eligibility",
-  "participation", "gait", "sex", "sexTrotter", "sexPacer",
+  "participation", "gait",
   "priceTierMatrix",
-  "specificHorseCount", "specificShareSize", "specificShareSizePerHorse", "specificShareSizesByHorse",
+  "specificShareSizesByHorse",
 ]);
 
 function summarizeSale(response) {
@@ -1800,46 +1731,31 @@ function summarizeSale(response) {
     labelFor("participation", response.participation),
   ];
   if (hasSpecific(response)) {
-    parts.push(labelFor("gait", response.gait), sexSummary(response));
+    parts.push(labelFor("gait", response.gait), summarizeSpecificShareSizesByHorse(response));
   }
   parts.push(draft.eligibilityPreferences.map((item) => labelFor("eligibility", item)).join(", "));
   if (hasBucket(response)) {
     parts.push(summarizePriceTierMatrix(response));
   }
-  if (hasSpecific(response)) {
-    parts.push(summarizeSpecificHorseCount(response), summarizeSpecificShareSize(response));
-  }
   parts.push(...customAnswerSummaries(response));
   return parts.filter(Boolean).join(" | ");
-}
-
-function summarizeSpecificHorseCount(response) {
-  if (response.specificShareSizePerHorse === "yes" && (response.specificShareSizesByHorse || []).length) {
-    return `${response.specificShareSizesByHorse.length} horses`;
-  }
-  if (response.specificHorseCount === "three_plus" && response.specificHorseCountExact) {
-    return `${response.specificHorseCountExact} horses`;
-  }
-  return labelFor("specificHorseCount", response.specificHorseCount);
 }
 
 const SINGULAR_GAIT_LABEL = { trotter: "Trotter", pacer: "Pacer" };
 const SINGULAR_SEX_LABEL = { colt: "Colt", filly: "Filly" };
 
-function summarizeSpecificShareSize(response) {
-  if (response.specificShareSizePerHorse === "yes" && (response.specificShareSizesByHorse || []).length) {
-    const parts = response.specificShareSizesByHorse.map((row) => {
-      const bits = [row.percent ? `${row.percent}%` : "?"];
-      if (row.gait) bits.push(SINGULAR_GAIT_LABEL[row.gait] || row.gait);
-      if (row.sex) bits.push(SINGULAR_SEX_LABEL[row.sex] || row.sex);
-      return bits.join(" ");
-    });
-    return parts.join(", ");
-  }
-  if (response.specificShareSize === "custom" && response.specificShareSizeCustom) {
-    return `${response.specificShareSizeCustom}% per horse`;
-  }
-  return labelFor("specificShareSize", response.specificShareSize);
+// One entry per horse, e.g. "5% Trotter Colt, 8% Pacer Filly" — the
+// count of horses is implicit in how many entries there are, no
+// separate "how many horses" answer to also summarize alongside it.
+function summarizeSpecificShareSizesByHorse(response) {
+  const rows = response.specificShareSizesByHorse || [];
+  if (!rows.length) return "";
+  return rows.map((row) => {
+    const bits = [row.percent ? `${row.percent}%` : "?"];
+    if (row.gait) bits.push(SINGULAR_GAIT_LABEL[row.gait] || row.gait);
+    if (row.sex) bits.push(SINGULAR_SEX_LABEL[row.sex] || row.sex);
+    return bits.join(" ");
+  }).join(", ");
 }
 
 function summarizePriceTierMatrix(response) {
@@ -1856,7 +1772,7 @@ function selectedPriceTierRows(response) {
 
 function customAnswerSummaries(response) {
   const customBlocks = currentQuestionSet().blocks.filter(
-    (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
+    (block) => block.type !== "bucket_config" && !block.archived && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
   );
   return customBlocks.map((block) => {
     const value = response[block.id];
@@ -1893,11 +1809,25 @@ function bucketSexLabel(response, gait) {
   return labelFor("sex", bucketSexValue(response, gait));
 }
 
+// Colt/filly is only ever chosen per horse now (on the per-horse share
+// screen), not as a single upfront answer — asking for one general
+// preference and then letting an owner override it per horse created
+// two answers that could contradict each other. This rolls the
+// per-horse choices back into one label for places (review screen,
+// owner table) that show one line per sale: the shared value if every
+// horse that specified one agrees, "Mixed" if they don't, or blank if
+// no horse specified a preference at all.
 function sexSummary(response) {
-  if (response.gait === "both") {
-    return [response.sexTrotter ? `Trotters: ${labelFor("sex", response.sexTrotter)}` : "", response.sexPacer ? `Pacers: ${labelFor("sex", response.sexPacer)}` : ""].filter(Boolean).join(", ");
-  }
-  return labelFor("sex", response.sex);
+  // The owner table's rows are flattened per price-tier row when a sale
+  // has bucket preferences (see flattenResponses()), which strips the
+  // top-level specificShareSizesByHorse field off — _rawResponse always
+  // carries the full, unflattened sale response, so fall back to that.
+  const source = response.specificShareSizesByHorse ? response : response._rawResponse || response;
+  const rows = source.specificShareSizesByHorse || [];
+  const choices = [...new Set(rows.map((row) => row.sex).filter(Boolean))];
+  if (choices.length === 0) return "";
+  if (choices.length === 1) return SINGULAR_SEX_LABEL[choices[0]] || choices[0];
+  return "Mixed";
 }
 
 async function submitResponse() {
@@ -2333,10 +2263,8 @@ const CORE_QUESTION_DASHBOARD_IMPACT = {
   sales: "the \"Interest by sale\" panel and every sale-scoped figure on the Dashboard",
   participation: "the \"Suggested buckets to offer\" panel and the pre-sale/after-sale split",
   gait: "the \"Trotter vs. Pacer\" panel and the Gait column in Owner detail",
-  sex: "the \"Colt / Filly\" panel and the Colt/Filly column in Owner detail",
   priceTierMatrix: "the \"Price tier mix\" panel and \"Suggested buckets to offer\"",
-  specificHorseCount: "the \"After-sale individual shares\" panel",
-  specificShareSize: "the \"Share size\" and \"After-sale individual shares\" panels",
+  specificShareSizesByHorse: "the \"After-sale individual shares\" panel and the Colt/Filly column in Owner detail",
   eligibility: "the \"Requested jurisdictions\" panel",
 };
 
@@ -3301,10 +3229,8 @@ function buildPreviewDataset() {
   const salesPool = REAL_SALES().map((s) => s.id);
   const tierPool = [["premium"], ["mid"], ["budget"], ["premium", "mid"], ["budget"], ["mid"]];
   const gaits = ["trotter", "pacer", "both"];
-  const sexes = ["colt", "filly", "both"];
+  const sexes = ["colt", "filly", ""];
   const eligibilityPool = ["kentucky", "ohio", "ontario", "pennsylvania", "new_york"];
-  const horseCounts = ["one", "two", "three_plus"];
-  const shareSizes = ["1", "2_5", "5_10", "10plus", "depends"];
 
   const responses = [];
   for (let i = 0; i < 42; i++) {
@@ -3316,6 +3242,9 @@ function buildPreviewDataset() {
     const alsoAfterSale = i % 4 === 0;
     const tiers = tierPool[i % tierPool.length];
     const priceTierMatrix = tiers.map((tier, idx) => ({ tier, gait: idx % 2 === 0 ? gait : gaits[(i + idx) % gaits.length], sex: sexes[i % sexes.length] }));
+    // 1 to 3 horses, each with its own percentage/gait/colt-filly, same
+    // free-form shape a real owner fills in on the per-horse screen.
+    const horseNum = 1 + (i % 3);
     responses.push({
       id: "preview_" + i,
       ownerId: null,
@@ -3327,12 +3256,14 @@ function buildPreviewDataset() {
         [sale]: {
           participation: alsoAfterSale ? "both" : "bucket",
           gait: alsoAfterSale ? gait : "",
-          sex: alsoAfterSale ? sexes[i % sexes.length] : "",
-          sexTrotter: "",
-          sexPacer: "",
           priceTierMatrix,
-          specificHorseCount: alsoAfterSale ? horseCounts[i % horseCounts.length] : "",
-          specificShareSize: alsoAfterSale ? shareSizes[i % shareSizes.length] : "",
+          specificShareSizesByHorse: alsoAfterSale
+            ? Array.from({ length: horseNum }, (_, h) => ({
+                percent: String(3 + ((i + h) % 8)),
+                gait: gait === "both" ? gaits[(i + h) % 2] : "",
+                sex: sexes[(i + h) % sexes.length],
+              }))
+            : [],
           note: "",
         },
       },
@@ -3651,11 +3582,11 @@ function renderAdmin() {
           <div class="grid-3">
             <div>
               <h3 style="font-size:13px; margin:0 0 8px; color:var(--ink-soft);">How many horses</h3>
-              ${refBarList(groupDemand(afterSaleRows, (row) => labelFor("specificHorseCount", row.specificHorseCount)))}
+              ${refBarList(groupDemand(afterSaleRows, (row) => horseCountLabel((row.specificShareSizesByHorse || []).length)))}
             </div>
             <div>
               <h3 style="font-size:13px; margin:0 0 8px; color:var(--ink-soft);">Typical share size</h3>
-              ${refBarList(groupDemand(afterSaleRows, (row) => labelFor("specificShareSize", row.specificShareSize)))}
+              ${refBarList(groupDemand(afterSaleRows.flatMap((row) => row.specificShareSizesByHorse || []), (share) => shareSizeBandLabel(share.percent)))}
             </div>
             <div>
               <h3 style="font-size:13px; margin:0 0 8px; color:var(--ink-soft);">Preferred jurisdictions</h3>
@@ -3832,7 +3763,7 @@ function customQuestionPanels(rows) {
 // changes anywhere else to show up in the owner table.
 function customTableColumns() {
   return currentQuestionSet().blocks.filter(
-    (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
+    (block) => block.type !== "bucket_config" && !block.archived && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
   );
 }
 
@@ -3935,6 +3866,26 @@ function shareBandDollarLabel(bandLabel, bucketPrice) {
   const loAmt = money((lo / 100) * bucketPrice);
   const hiAmt = money((hi / 100) * bucketPrice);
   return lo === hi ? loAmt : `${loAmt} – ${hiAmt}`;
+}
+
+// Groups an owner's per-horse share rows into the same broad buckets the
+// old fixed-choice specificHorseCount/specificShareSize questions used
+// to offer, so the Dashboard's "how many horses" / "typical share size"
+// panels keep reading the same way now that those are free-form instead.
+function horseCountLabel(count) {
+  if (count <= 0) return "None";
+  if (count === 1) return "One horse only";
+  if (count === 2) return "Up to 2 horses";
+  return "3 or more horses";
+}
+
+function shareSizeBandLabel(percent) {
+  const n = Number(percent);
+  if (!Number.isFinite(n) || n <= 0) return "Not specified";
+  if (n <= 1) return "Around 1%";
+  if (n <= 5) return "2% to 5%";
+  if (n <= 10) return "5% to 10%";
+  return "10% or more";
 }
 
 // Round 1 rows carry no percentage (see flattenResponses()'s comment), so
@@ -4057,8 +4008,7 @@ function buildAfterSaleRows(responses) {
       saleLabel: saleById(saleId)?.label || saleId,
       eligibility: response.eligibilityPreferences || [],
       participation: saleResponse.participation,
-      specificHorseCount: saleResponse.specificHorseCount,
-      specificShareSize: saleResponse.specificShareSize,
+      specificShareSizesByHorse: saleResponse.specificShareSizesByHorse || [],
     }];
   }));
 }
@@ -4125,7 +4075,7 @@ function exportCsv(rows) {
   // current label, so admin-added questions aren't silently dropped
   // from the export.
   const customBlocks = currentQuestionSet().blocks.filter(
-    (block) => block.type !== "bucket_config" && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
+    (block) => block.type !== "bucket_config" && !block.archived && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id)
   );
   const header = ["name", "email", "sale", "participation", "price_tier", "gait", "sex", "eligibility", ...customBlocks.map((b) => b.label)];
   const csv = [header.join(","), ...rows.map((row) => [
@@ -4154,9 +4104,9 @@ function exportCsv(rows) {
 
 // Fallback labels for fields that aren't part of the block-based question
 // set (sales/eligibility choices are asked earlier in the flow, outside
-// currentQuestionSet()). Block-backed fields (participation, gait, sex,
-// bucketTypes, maxYearlings, specificHorseCount, specificShareSize, ...)
-// resolve their option labels from the live question set below instead,
+// currentQuestionSet()). Block-backed fields (participation, gait,
+// bucketTypes, maxYearlings, ...) resolve their option labels from the
+// live question set below instead,
 // so a label Anthony edits in the Questions admin tab is reflected here
 // and in CSV exports without needing a matching code change.
 const FALLBACK_LABELS = {
