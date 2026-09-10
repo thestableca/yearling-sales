@@ -1464,7 +1464,16 @@ function toggleValue(field, value, targetName) {
       toggleInArray(draft.eligibilityPreferences, value);
     }
   } else {
-    toggleInArray(getTarget(targetName)[field], value);
+    // A custom multi_select question added via Questions Builder has no
+    // entry in emptyPrefs (that object only knows about the fixed,
+    // built-in fields), so the first time an owner clicks one of its
+    // options, target[field] is still undefined here. Without this,
+    // toggleInArray(undefined, value) throws, crashing the click.
+    // Initialize it to an empty array on first use, same shape a
+    // multi_select field would have had if it were built in.
+    const target = getTarget(targetName);
+    if (target[field] === undefined) target[field] = [];
+    toggleInArray(target[field], value);
   }
   saveDraft();
   render();
@@ -2036,7 +2045,7 @@ function renderQuestionsAdmin() {
         </div>
         <div class="panel-body">
           <div class="qb-block-list">
-            ${orderedBlocks.map((block, index) => questionBlockRow(block, index, orderedBlocks.length)).join("") || `<p class="notice">No blocks yet. Add one below.</p>`}
+            ${orderedBlocks.map((block) => questionBlockRow(block, reorderableBlocks(questionSet.blocks))).join("") || `<p class="notice">No blocks yet. Add one below.</p>`}
           </div>
           <div class="qb-add-row">
             <span>Add a block:</span>
@@ -2150,7 +2159,7 @@ function renderAdminSettings() {
   }
 }
 
-function questionBlockRow(block, index, total) {
+function questionBlockRow(block, reorderable) {
   const expanded = questionsEditorState.expandedBlockId === block.id;
   const dashboardImpact = CORE_QUESTION_DASHBOARD_IMPACT[block.id];
   const archiveTitle = dashboardImpact
@@ -2159,11 +2168,23 @@ function questionBlockRow(block, index, total) {
   // interest/sales/eligibility always run first, in that fixed order —
   // later parts of the flow depend on it — so they can't be reordered or
   // archived here, only their question text/help/options edited.
-  const controls = block.fixedPosition
-    ? `<span class="qb-fixed-flag" title="This question always appears first, in a fixed order. Its text and options can be edited, but not its position.">Fixed position</span>`
-    : `<button class="btn" type="button" data-move-block="${block.id}" data-dir="up" ${index === 0 ? "disabled" : ""} title="Move up">&uarr;</button>
-       <button class="btn" type="button" data-move-block="${block.id}" data-dir="down" ${index === total - 1 ? "disabled" : ""} title="Move down">&darr;</button>
+  let controls;
+  if (block.fixedPosition) {
+    controls = `<span class="qb-fixed-flag" title="This question always appears first, in a fixed order. Its text and options can be edited, but not its position.">Fixed position</span>`;
+  } else {
+    const index = reorderable.findIndex((b) => b.id === block.id);
+    // Disabled not just at the array ends, but also right at a
+    // dependency boundary — e.g. "priceTierMatrix" can't move above
+    // "participation" (the question it depends on) even though
+    // participation isn't fixedPosition, since owners would then never
+    // see it (see blockSwapAllowed()). Without this the arrow looked
+    // clickable but silently did nothing at that boundary.
+    const upDisabled = index <= 0 || !blockSwapAllowed(reorderable, index, index - 1);
+    const downDisabled = index === -1 || index >= reorderable.length - 1 || !blockSwapAllowed(reorderable, index, index + 1);
+    controls = `<button class="btn" type="button" data-move-block="${block.id}" data-dir="up" ${upDisabled ? "disabled" : ""} title="Move up">&uarr;</button>
+       <button class="btn" type="button" data-move-block="${block.id}" data-dir="down" ${downDisabled ? "disabled" : ""} title="Move down">&darr;</button>
        <button class="btn red" type="button" data-remove-block="${block.id}" title="${escapeHtml(archiveTitle)}">Archive</button>`;
+  }
   return `
     <div class="qb-block ${expanded ? "expanded" : ""}">
       <div class="qb-block-head" data-toggle-block="${block.id}">
@@ -2284,6 +2305,50 @@ function restoreQuestionBlock(id) {
   });
 }
 
+// The reorderable subset used by the up/down arrows: excludes
+// bucket_config (always pinned last, sortOrder 100, no arrows of its
+// own) and fixedPosition blocks (interest/sales/eligibility — always
+// first, no arrows of their own either). Keeping both out of this list
+// means a move can never accidentally swap sortOrder with one of them.
+function reorderableBlocks(blocks) {
+  return [...blocks].filter((b) => b.type !== "bucket_config" && !b.fixedPosition && !b.archived).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function blockDependsOnIds(block) {
+  if (!block.dependsOn) return [];
+  const conditions = Array.isArray(block.dependsOn) ? block.dependsOn : [block.dependsOn];
+  return conditions.map((c) => c.blockId);
+}
+
+// A block can only ever be shown to an owner after the block(s) it
+// dependsOn — see blockReachable() in questions.js, which requires the
+// parent to already be visible (i.e. earlier in sortOrder) before a
+// dependent block can appear at all. Swapping two positions in the
+// Questions Builder must never let a block end up ahead of something
+// it depends on (it would silently stop appearing to owners, with no
+// error anywhere) or behind something that depends on it (same problem,
+// the other direction). Checked against the *whole* reorderable list,
+// not just the two blocks trading places, since a block further down
+// the list can depend on either one of them.
+function blockSwapAllowed(ordered, index, swapWith) {
+  // Simulate the swap on a copy and check every block's dependsOn is
+  // still satisfied position-wise (its parent(s) still come before it).
+  const simulated = [...ordered];
+  [simulated[index], simulated[swapWith]] = [simulated[swapWith], simulated[index]];
+  const positionOf = new Map(simulated.map((block, i) => [block.id, i]));
+  return simulated.every((block) => {
+    const parentIds = blockDependsOnIds(block);
+    return parentIds.every((parentId) => {
+      const parentPos = positionOf.get(parentId);
+      // A parent outside the reorderable set (fixedPosition, e.g.
+      // "participation" never depends on one of those today, but stay
+      // safe) is always earlier by construction — nothing to check.
+      if (parentPos === undefined) return true;
+      return parentPos < positionOf.get(block.id);
+    });
+  });
+}
+
 function updateQuestionSet(mutator) {
   const questionSet = currentQuestionSet();
   mutator(questionSet);
@@ -2309,14 +2374,31 @@ function bindQuestionsAdmin(questionSet) {
       event.stopPropagation();
       const id = el.getAttribute("data-move-block");
       const dir = el.getAttribute("data-dir");
-      updateQuestionSet((set) => {
-        const ordered = [...set.blocks].filter((b) => b.type !== "bucket_config").sort((a, b) => a.sortOrder - b.sortOrder);
-        const index = ordered.findIndex((b) => b.id === id);
-        const swapWith = dir === "up" ? index - 1 : index + 1;
-        if (swapWith < 0 || swapWith >= ordered.length) return;
-        const tmp = ordered[index].sortOrder;
-        ordered[index].sortOrder = ordered[swapWith].sortOrder;
-        ordered[swapWith].sortOrder = tmp;
+      // The bounds/dependency check runs here, BEFORE updateQuestionSet
+      // is even called, rather than as an early-return inside its
+      // mutator — updateQuestionSet always writes to the database once
+      // its mutator has run, whether or not that mutator actually
+      // changed anything. Calling it for a no-op move would still fire
+      // a real (if harmless) background save, which only wastes a
+      // write in normal use but can race a legitimate save landing
+      // right after it (e.g. an admin's next action, or a test/QA
+      // script restoring a known state) since neither one is awaited
+      // against the other.
+      const ordered = reorderableBlocks(currentQuestionSet().blocks);
+      const index = ordered.findIndex((b) => b.id === id);
+      const swapWith = dir === "up" ? index - 1 : index + 1;
+      if (index === -1 || swapWith < 0 || swapWith >= ordered.length) return;
+      if (!blockSwapAllowed(ordered, index, swapWith)) return;
+      updateQuestionSet(() => {
+        [ordered[index], ordered[swapWith]] = [ordered[swapWith], ordered[index]];
+        // Always renumber to clean, unique sequential values instead of
+        // swapping sortOrder numbers in place — swapping alone is a no-op
+        // whenever two blocks already share a sortOrder (which has
+        // happened before), silently leaving the up/down arrow doing
+        // nothing. Renumbering after every move also makes ties
+        // impossible going forward. Starts at 10 (not 0) to stay clear
+        // of fixedPosition blocks' negative sortOrders.
+        ordered.forEach((block, i) => { block.sortOrder = (i + 1) * 10; });
       });
     });
   });
