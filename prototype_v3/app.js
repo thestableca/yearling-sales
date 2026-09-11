@@ -337,8 +337,15 @@ const PRICE_TIER_GAIT_SEX_VENUE_ODDS = {
 // actually a different, less specific kind of figure. The UI is
 // responsible for making clear which is which.
 function priceTierGaitSexOdds(saleId, tier, gait, sex) {
-  const venueCell = PRICE_TIER_GAIT_SEX_VENUE_ODDS[saleId]?.[tier]?.[gait]?.[sex] || null;
-  const pooledCell = PRICE_TIER_GAIT_SEX_ODDS[tier]?.[gait]?.[sex] || null;
+  // sex is optional on the bucket price-tier question ("No preference"
+  // saves it as "") — the odds tables below only have colt/filly/both
+  // cells, so an owner who picked no preference has to be looked up
+  // under "both" (which already means "either sex" there), or every
+  // no-preference row would silently show no odds at all in either
+  // column, not just the per-venue one.
+  const sexKey = sex || "both";
+  const venueCell = PRICE_TIER_GAIT_SEX_VENUE_ODDS[saleId]?.[tier]?.[gait]?.[sexKey] || null;
+  const pooledCell = PRICE_TIER_GAIT_SEX_ODDS[tier]?.[gait]?.[sexKey] || null;
   return { venue: venueCell, pooled: pooledCell };
 }
 
@@ -1739,6 +1746,28 @@ function summarizeSale(response) {
 const SINGULAR_GAIT_LABEL = { trotter: "Trotter", pacer: "Pacer" };
 const SINGULAR_SEX_LABEL = { colt: "Colt", filly: "Filly" };
 
+// gait/sex used to be their own question blocks, so labelFor("gait",
+// value) / labelFor("sex", value) resolved a label from that block's
+// options. Both blocks were removed from the question set once gait
+// and colt/filly became per-row fields (on priceTierMatrix and the
+// after-sale per-horse screen) instead of standalone questions —
+// labelFor() falls back to a block lookup that no longer exists for
+// either field, so it now silently returns "" for every value. These
+// two literal maps are the replacement: every place that used to read
+// a bucket-context gait/sex value via labelFor() needs one of these
+// instead, not a block-backed lookup.
+const GAIT_LABEL = { trotter: "Trotter", pacer: "Pacer", both: "Trotter or Pacer" };
+// "either" is Confirmed Buckets' own spelling for the same "no sex
+// preference" concept priceTierMatrix/after-sale rows call "both" —
+// both map to the same label here.
+const SEX_LABEL = { colt: "Colt", filly: "Filly", both: "Colt or Filly", either: "Colt or Filly" };
+function gaitLabel(value) {
+  return value ? GAIT_LABEL[value] || value : "";
+}
+function sexLabel(value) {
+  return value ? SEX_LABEL[value] || value : "";
+}
+
 // One entry per horse, e.g. "5% Trotter Colt, 8% Pacer Filly" — the
 // count of horses is implicit in how many entries there are, no
 // separate "how many horses" answer to also summarize alongside it.
@@ -1755,9 +1784,9 @@ function summarizeSpecificShareSizesByHorse(response) {
 
 function summarizePriceTierMatrix(response) {
   return selectedPriceTierRows(response).map((row) => {
-    const gaitLabel = row.gait ? labelFor("gait", row.gait) : "any gait";
-    const sexLabel = row.sex ? labelFor("sex", row.sex) : "any sex";
-    return `${labelFor("priceTiers", row.tier)}: ${gaitLabel}, ${sexLabel}`;
+    const rowGaitLabel = row.gait ? gaitLabel(row.gait) : "any gait";
+    const rowSexLabel = row.sex ? sexLabel(row.sex) : "any sex";
+    return `${labelFor("priceTiers", row.tier)}: ${rowGaitLabel}, ${rowSexLabel}`;
   }).join("; ");
 }
 
@@ -1820,7 +1849,7 @@ function bucketSexLabel(response, gait) {
 // the full, unflattened sale response) when the row itself has no
 // gait/sex of its own — i.e. this is a pure after-sale row.
 function gaitSummary(response) {
-  if (response.gait) return labelFor("gait", response.gait);
+  if (response.gait) return gaitLabel(response.gait);
   const rows = (response._rawResponse || response).specificShareSizesByHorse || [];
   const choices = [...new Set(rows.map((row) => row.gait).filter(Boolean))];
   if (choices.length === 0) return "";
@@ -1829,7 +1858,7 @@ function gaitSummary(response) {
 }
 
 function sexSummary(response) {
-  if (response.sex) return labelFor("sex", response.sex);
+  if (response.sex) return sexLabel(response.sex);
   const rows = (response._rawResponse || response).specificShareSizesByHorse || [];
   const choices = [...new Set(rows.map((row) => row.sex).filter(Boolean))];
   if (choices.length === 0) return "";
@@ -3516,8 +3545,8 @@ function renderAdmin() {
   const afterSaleOwnerCount = new Set(afterSaleRows.map((row) => row.email)).size;
   const saleDemand = groupDemand(bucketRows, (row) => row.saleLabel);
   const bucketDemand = groupDemand(bucketRows, (row) => labelFor("priceTiers", row.bucketTypes[0]));
-  const gaitDemand = groupDemand(bucketRows, (row) => labelFor("gait", row.gait));
-  const sexDemand = groupDemand(bucketRows, (row) => labelFor("sex", row.sex));
+  const gaitDemand = groupDemand(bucketRows, (row) => gaitLabel(row.gait));
+  const sexDemand = groupDemand(bucketRows, (row) => sexLabel(row.sex));
   const eligibilityDemand = groupMultiDemand(bucketRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
   const afterSaleEligibility = groupMultiDemand(afterSaleRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
   const suggestions = buildBucketSuggestions(bucketRows);
@@ -3638,7 +3667,7 @@ function renderAdmin() {
           <div class="confirmed-bucket-card">
             <div class="cbc-name">${escapeHtml(b.name)}</div>
             <div class="cbc-price">${b.price != null ? money(b.price) : "No price set"}</div>
-            <div class="cbc-criteria">${[b.gait !== "any" ? labelFor("gait", b.gait) : null, b.sex !== "any" ? labelFor("sex", b.sex) : null].filter(Boolean).join(" &middot; ") || "Open to any gait/sex"}</div>
+            <div class="cbc-criteria">${[b.gait !== "any" ? gaitLabel(b.gait) : null, b.sex !== "any" ? sexLabel(b.sex) : null].filter(Boolean).join(" &middot; ") || "Open to any gait/sex"}</div>
             ${b.note ? `<div class="cbc-note">${escapeHtml(b.note)}</div>` : ""}
           </div>`).join("")}</div>` : `<p class="quiet" style="padding:6px 4px;">No buckets confirmed yet. Review demand below, then set the final lineup in Questions Builder &rarr; Confirmed buckets.</p>`}
         </div>
@@ -3668,7 +3697,7 @@ function renderAdmin() {
             <div class="sugg-row">
               <div>
                 <span class="status ${row.status.toLowerCase()}">${suggIcon(row.status)}${row.status}</span>
-                <div class="sugg-title">${escapeHtml(labelFor("priceTiers", row.bucketType))} &middot; ${escapeHtml(labelFor("gait", row.gait))} &middot; ${escapeHtml(labelFor("sex", row.sex))}</div>
+                <div class="sugg-title">${escapeHtml(labelFor("priceTiers", row.bucketType))} &middot; ${escapeHtml(gaitLabel(row.gait))} &middot; ${escapeHtml(row.sex ? sexLabel(row.sex) : "any sex")}</div>
                 <div class="sugg-sub">${row.eligibility.length ? row.eligibility.map((item) => escapeHtml(item.label)).join(", ") : "No jurisdiction preference captured"}</div>
               </div>
               <div class="stat-block"><div class="num">${row.ownerCount}</div><div class="lbl repeat-lbl">owner${row.ownerCount === 1 ? "" : "s"}</div></div>
