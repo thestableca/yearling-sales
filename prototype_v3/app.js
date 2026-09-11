@@ -696,8 +696,24 @@ function defaultQuestions(prefs = draft.defaultPrefs) {
   return questions;
 }
 
+// "Customize this sale" re-runs the same question walk as the shared
+// defaults phase, since priceTierMatrix/specificShareSizesByHorse
+// (dependsOn: participation) are meant to be genuinely re-editable per
+// sale — an owner might want a different bucket at Ohio than at
+// Lexington. Every other question describes the owner, not the sale
+// (participation itself included, plus any custom question added in
+// Questions Builder, whatever position it's placed at), so re-asking
+// it here would just repeat something already answered once during
+// defaults with no way for the answer to differ. Filtered out by
+// isSaleSpecificBlock() rather than dropped from the walk itself — the
+// full block list, participation included, still has to feed
+// defaultQuestions()'s reachability check or priceTierMatrix/
+// specificShareSizesByHorse would never become reachable at all.
 function saleDetailQuestions(response = currentSaleResponse()) {
-  return defaultQuestions(response).filter((question) => question !== "applyMode");
+  const allBlocks = currentQuestionSet().blocks.filter((b) => !b.archived && !b.fixedPosition);
+  return defaultQuestions(response)
+    .filter((question) => question !== "applyMode")
+    .filter((question) => isSaleSpecificBlock(allBlocks.find((b) => b.id === question), allBlocks));
 }
 
 function currentSaleResponse() {

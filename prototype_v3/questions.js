@@ -173,6 +173,39 @@ function questionSetComplete(blocks, answers) {
   return walkBlocks(blocks, answers).complete;
 }
 
+// A block counts as "sale-specific" — genuinely able to differ from one
+// sale to the next, and so worth re-asking during "customize this
+// sale" — only if it (transitively) dependsOn "participation", the one
+// question that decides bucket vs. after-sale vs. both. That's true
+// today for priceTierMatrix and specificShareSizesByHorse: an owner
+// might reasonably want a different bucket at Ohio than at Lexington.
+// Everything else — participation itself, and any other question,
+// built-in or added later in Questions Builder — describes the owner,
+// not the sale, so it can only ever have one answer and must not be
+// asked a second time once "customize this sale" starts a fresh walk
+// through the same question set. Used by saleDetailQuestions() in
+// app.js to filter what actually gets asked again, while the full
+// block list (participation included) still has to go into the walk
+// itself so priceTierMatrix/specificShareSizesByHorse stay reachable —
+// blockReachable() requires a dependency's parent to already be in the
+// walk's visible set, not just present in the answers object.
+function isSaleSpecificBlock(block, allBlocks) {
+  const byId = new Map(allBlocks.map((b) => [b.id, b]));
+  let current = block;
+  const seen = new Set();
+  while (current) {
+    if (seen.has(current.id)) return false; // guard against a cyclical dependsOn, which should never exist but must not infinite-loop if it somehow does
+    seen.add(current.id);
+    const parentIds = current.dependsOn
+      ? (Array.isArray(current.dependsOn) ? current.dependsOn : [current.dependsOn]).map((c) => c.blockId)
+      : [];
+    if (parentIds.includes("participation")) return true;
+    if (parentIds.length !== 1) return false; // multiple parents or none — not a simple chain back to participation
+    current = byId.get(parentIds[0]);
+  }
+  return false;
+}
+
 function walkBlocks(blocks, answers) {
   const sorted = [...blocks].sort((a, b) => a.sortOrder - b.sortOrder);
   const visible = [];
