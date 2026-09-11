@@ -2084,7 +2084,7 @@ function questionSetTestModeBanner() {
   const savedAt = new Date(backup.savedAt);
   const savedAtLabel = Number.isNaN(savedAt.getTime()) ? "" : savedAt.toLocaleString();
   return `<div class="test-mode-banner">
-    <div class="test-mode-text"><strong>Test mode is on</strong><span>Owners can see whatever you change here right now. Your original questions were saved${savedAtLabel ? ` at ${escapeHtml(savedAtLabel)}` : ""} — click "Restore original questions" any time to undo every test change in one step, back to exactly how it was.</span></div>
+    <div class="test-mode-text"><strong>Test mode is on</strong><span>Owners can see whatever you change here right now. Your original questions were saved${savedAtLabel ? ` at ${escapeHtml(savedAtLabel)}` : ""}. Click "Restore original questions" any time to undo every test change in one step, back to exactly how it was.</span></div>
     <button class="btn red" type="button" id="restoreQuestionSetBackup" title="Click again to confirm">Restore original questions</button>
   </div>`;
 }
@@ -3034,8 +3034,8 @@ function renderSaleHistory() {
               </tbody>
             </table>
           </div>
-          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column. Amber = fewer than 150 horses behind that number &mdash; too small a sample to trust the way the other cells can be trusted, shown anyway for completeness rather than left blank.</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;">Ohio Jug specifically: it sells very few horses above $75,000 USD (34 horses in each of the top two bands here, versus 600&ndash;1,245 at Lexington and 738&ndash;1,165 at Harrisburg for the same bands). Its 11.8% figure at $75k&ndash;$100k and 2.9% at $100k+ are each a handful of top performers out of just 34 horses &mdash; a single horse's outcome swings that rate by roughly 3 percentage points. Treat those two Ohio cells as noise, not as evidence Ohio out- or under-performs at that price point specifically.</p>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column. Amber = fewer than 150 horses behind that number. That's too small a sample to trust the way the other cells can be trusted. Shown anyway for completeness rather than left blank.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;">Ohio Jug specifically: it sells very few horses above $75,000 USD (34 horses in each of the top two bands here, versus 600&ndash;1,245 at Lexington and 738&ndash;1,165 at Harrisburg for the same bands). Its 11.8% figure at $75k&ndash;$100k and 2.9% at $100k+ are each a handful of top performers out of just 34 horses. A single horse's outcome swings that rate by roughly 3 percentage points. Treat those two Ohio cells as noise, not as evidence Ohio out- or under-performs at that price point specifically.</p>
           <div class="scroll-hint" style="margin-top:20px;">
             <table>
               <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th><th>Total horses</th></tr></thead>
@@ -3047,7 +3047,7 @@ function renderSaleHistory() {
             </table>
           </div>
           <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale for that specific colt/filly/trotter/pacer group). Every cell here has at least 1,200 horses behind it, so unlike the price-band table above, none of these are a small-sample concern.</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Lexington has the highest rate in every single column here: colts, fillies, trotters, and pacers alike. Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio sells about a third as many horses overall as Lexington and about a sixth as many as Harrisburg &mdash; a smaller but still reliable sample here (unlike its thin high-price bands above).</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Lexington has the highest rate in every single column here: colts, fillies, trotters, and pacers alike. Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio sells about a third as many horses overall as Lexington and about a sixth as many as Harrisburg. That's a smaller but still reliable sample here, unlike its thin high-price bands above.</p>
         </div>
       </section>
 
