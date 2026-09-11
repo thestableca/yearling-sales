@@ -3546,7 +3546,12 @@ function renderAdmin() {
   const saleDemand = groupDemand(bucketRows, (row) => row.saleLabel);
   const bucketDemand = groupDemand(bucketRows, (row) => labelFor("priceTiers", row.bucketTypes[0]));
   const gaitDemand = groupDemand(bucketRows, (row) => gaitLabel(row.gait));
-  const sexDemand = groupDemand(bucketRows, (row) => sexLabel(row.sex));
+  // sex is optional on the bucket price-tier question ("No preference"
+  // saves it as "") — groupDemand() would otherwise fall back to
+  // "Unknown" for that, which reads as missing/bad data rather than
+  // the real, valid answer it is. Treated as "both" here, same as the
+  // odds lookup already does (see priceTierGaitSexOdds()).
+  const sexDemand = groupDemand(bucketRows, (row) => sexLabel(row.sex || "both"));
   const eligibilityDemand = groupMultiDemand(bucketRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
   const afterSaleEligibility = groupMultiDemand(afterSaleRows, (row) => row.eligibility.map((item) => labelFor("eligibility", item)));
   const suggestions = buildBucketSuggestions(bucketRows);
