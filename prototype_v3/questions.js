@@ -31,6 +31,19 @@ async function setSetting(key, value) {
   if (error) console.error(`setSetting(${key}) failed:`, error.message);
 }
 
+// admin_settings.value is jsonb NOT NULL — setSetting(key, null) would
+// violate that constraint and fail silently (setSetting only logs the
+// error, it doesn't throw), leaving the old value in place while the
+// in-memory cache already moved on to null. Deleting the row is the
+// correct way to clear a setting; getSetting()'s fallback then applies
+// exactly as if it had never been set.
+async function deleteSetting(key) {
+  delete adminSettingsCache[key];
+  const { error } = await supabaseAsAdmin().from("admin_settings").delete().eq("key", key);
+  if (error) console.error(`deleteSetting(${key}) failed:`, error.message);
+  return !error;
+}
+
 // ----- Exchange rate -----
 // The single source of truth for CAD -> USD conversion, used by both the
 // Sale History currency toggle and the Dashboard's capital figure. Stored
@@ -250,6 +263,46 @@ async function saveQuestionSet(saleYearId, questionSet) {
   const sets = loadQuestionSets();
   sets[saleYearId] = questionSet;
   await saveQuestionSets(sets);
+}
+
+// ----- Question set test mode -----
+// The Questions Builder always edits the one real, live question set
+// (there's no separate sandbox/staging question set) — so an admin
+// freely experimenting there (adding test questions, reordering
+// things) is editing what real owners see on the live intake form
+// right now. This gives a safety net for that: "Start test mode"
+// snapshots the current set before any test edits happen, and
+// "Restore original questions" puts that exact snapshot straight
+// back, undoing every test edit in one step regardless of how many
+// were made. Persisted (not just an in-memory flag) so the banner and
+// the ability to restore survive a refresh or a closed tab mid-test.
+function loadQuestionSetBackup() {
+  return getSetting("question_sets_backup", null);
+}
+
+async function startQuestionSetTestMode() {
+  const backup = loadQuestionSetBackup();
+  // Only snapshot once — starting test mode again while a backup
+  // already exists must never overwrite it with mid-test edits, or
+  // "restore" would restore the wrong thing.
+  if (!backup) {
+    // loadQuestionSets() returns adminSettingsCache's "question_sets"
+    // entry BY REFERENCE, not a copy — storing that reference directly
+    // as the backup means the very next saveQuestionSet() call (which
+    // mutates that same cached object in place via sets[saleYearId] =
+    // ...) silently corrupts the backup too, with no edit having
+    // touched the backup on purpose. Deep-cloning here is what actually
+    // makes this a snapshot rather than a second name for the live data.
+    const sets = JSON.parse(JSON.stringify(loadQuestionSets()));
+    await setSetting("question_sets_backup", { savedAt: new Date().toISOString(), sets });
+  }
+}
+
+async function restoreQuestionSetBackup() {
+  const backup = loadQuestionSetBackup();
+  if (!backup) return false;
+  await saveQuestionSets(backup.sets);
+  return await deleteSetting("question_sets_backup");
 }
 
 // ----- Default preset: reproduces today's live question set exactly -----

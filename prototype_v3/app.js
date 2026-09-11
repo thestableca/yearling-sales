@@ -2019,6 +2019,31 @@ function newBlockId(prefix) {
   return `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// The Questions Builder always edits the one real, live question set —
+// there's no separate sandbox to experiment in. This banner (and the
+// backup/restore it drives) is the safety net for that: "Start test
+// mode" snapshots the live set before any test edits, then any number
+// of adds/reorders/archives can be tried freely, and "Restore original
+// questions" puts that exact snapshot straight back in one step.
+// Whether a backup exists (not a separate in-memory flag) is the
+// single source of truth for whether test mode is "on", so the banner
+// and the ability to restore both survive a page refresh.
+function questionSetTestModeBanner() {
+  const backup = loadQuestionSetBackup();
+  if (!backup) {
+    return `<div class="test-mode-banner" style="background:#eef3ff;border-color:#3a5a9c;color:#1f3a6b;">
+      <div class="test-mode-text"><strong>Not in test mode</strong><span>Right now, any change here goes live immediately for real owners. Click "Start test mode" first if you just want to try things out.</span></div>
+      <button class="btn" type="button" id="startTestMode">Start test mode</button>
+    </div>`;
+  }
+  const savedAt = new Date(backup.savedAt);
+  const savedAtLabel = Number.isNaN(savedAt.getTime()) ? "" : savedAt.toLocaleString();
+  return `<div class="test-mode-banner">
+    <div class="test-mode-text"><strong>Test mode is on</strong><span>Owners can see whatever you change here right now. Your original questions were saved${savedAtLabel ? ` at ${escapeHtml(savedAtLabel)}` : ""} — click "Restore original questions" any time to undo every test change in one step, back to exactly how it was.</span></div>
+    <button class="btn red" type="button" id="restoreQuestionSetBackup" title="Click again to confirm">Restore original questions</button>
+  </div>`;
+}
+
 function renderQuestionsAdmin() {
   const questionSet = currentQuestionSet();
   const blocks = [...questionSet.blocks].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -2034,6 +2059,8 @@ function renderQuestionsAdmin() {
       ${adminMasthead("Questions Builder")}
 
       <p class="dek">Compose the owner intake questionnaire from ready-made question blocks. Changes apply to the intake form immediately.</p>
+
+      ${questionSetTestModeBanner()}
 
       <div class="ref-panel" style="margin-top: 22px;">
         <div class="panel-head">
@@ -2361,6 +2388,19 @@ function updateQuestionSet(mutator) {
 }
 
 function bindQuestionsAdmin(questionSet) {
+  document.querySelector("#startTestMode")?.addEventListener("click", async () => {
+    await startQuestionSetTestMode();
+    render();
+  });
+
+  const restoreButton = document.querySelector("#restoreQuestionSetBackup");
+  if (restoreButton) {
+    armDestructiveButton(restoreButton, "Click again to confirm", async () => {
+      await restoreQuestionSetBackup();
+      render();
+    });
+  }
+
   document.querySelectorAll("[data-toggle-block]").forEach((el) => {
     el.addEventListener("click", () => {
       const id = el.getAttribute("data-toggle-block");
@@ -3484,6 +3524,8 @@ function renderAdmin() {
       <div class="refskin-topbar">${adminTabs()}<div class="topbar-right">${previewToggleButton()}${resetDemoDataButton()}${backToSiteLink()}</div></div>
 
       ${preview ? `<div class="preview-banner">Previewing with fictional demo data. No real responses were touched. <button type="button" id="previewOff">Show my real data</button></div>` : ""}
+
+      ${loadQuestionSetBackup() ? `<div class="test-mode-banner"><div class="test-mode-text"><strong>Test mode is on</strong><span>The questions owners see right now include your test changes. Go to Questions Builder to restore the originals when you're done.</span></div></div>` : ""}
 
       ${adminMasthead("Response Dashboard", `
           <div class="as-of light">Responses as of <strong>${asOf}</strong></div>

@@ -491,6 +491,24 @@ textarea.input {
   margin: 0 0 14px;
 }
 
+.test-mode-banner {
+  background: #fff4e0;
+  border: 2px solid #b3720e;
+  color: #6b4a05;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin: 0 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.test-mode-banner .test-mode-text { flex: 1; min-width: 220px; }
+.test-mode-banner .test-mode-text strong { display: block; font-size: 15px; margin-bottom: 2px; }
+.test-mode-banner .test-mode-text span { font-weight: 400; font-size: 13px; }
+
 .mark {
   width: 16px;
   height: 16px;
