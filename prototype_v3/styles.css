@@ -1661,6 +1661,7 @@ th .col-filter option {
    looks identical everywhere, not just on the Dashboard tab. */
 .refskin.dashboard-page .grid-2 { display: grid; grid-template-columns: 1.55fr 1fr; gap: 18px; margin-top: 18px; }
 .refskin.dashboard-page .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.refskin.dashboard-page .grid-3 h3 { font-size: 13px; margin: 0 0 10px; padding-bottom: 8px; color: var(--ink-soft); border-bottom: 1px solid var(--line); }
 .refskin .ref-panel:has(.panel-head) { background: var(--ivory); padding: 0; overflow: hidden; }
 .refskin .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px 16px; border-bottom: 1px solid var(--line); }
 .refskin .panel-head h2 { font-family: "Fraunces", serif; font-weight: 600; font-size: 18px; margin: 0; color: var(--ink); letter-spacing: -0.005em; }

@@ -1775,7 +1775,7 @@ function customAnswerSummaries(response) {
     const answerText = Array.isArray(value)
       ? value.map((item) => labelFor(block.id, item) || item).join(", ")
       : labelFor(block.id, value) || value;
-    return `${block.label}: ${answerText}`;
+    return `${shortTitleFor(block)}: ${answerText}`;
   }).filter(Boolean);
 }
 
@@ -2067,7 +2067,7 @@ function renderQuestionsAdmin() {
           <div>
             <div class="tag">Blocks</div>
             <h2>Question blocks</h2>
-            <p>Shown to owners in this order. A block only appears once its dependency question has been answered.</p>
+            <p>Shown to owners in this order. A block only appears once its dependency question has been answered. "Fixed position" and "Custom-built panel" are automatic labels, not something you set yourself: "Fixed position" means the question is built into the very start of the flow (interest, sales, jurisdictions) and can't be moved. "Custom-built panel" means a specifically-built Dashboard chart reads that exact question by name (like the Trotter/Pacer comparison), so archiving it empties that particular chart. Every question, including ones you add yourself, still shows up on the Dashboard automatically in its own generic panel — "Custom-built panel" only flags the handful with a purpose-built chart instead of that generic one.</p>
           </div>
         </div>
         <div class="panel-body">
@@ -2218,7 +2218,7 @@ function questionBlockRow(block, reorderable) {
         <div class="qb-block-title">
           <strong>${escapeHtml(block.label || "(untitled question)")}</strong>
           <span class="qb-block-type">${blockTypeLabel(block.type)}</span>
-          ${dashboardImpact ? `<span class="qb-core-flag" title="Drives ${escapeHtml(dashboardImpact)} on the Dashboard">Drives a Dashboard panel</span>` : ""}
+          ${dashboardImpact ? `<span class="qb-core-flag" title="A specifically-built Dashboard chart reads this exact question: ${escapeHtml(dashboardImpact)}. Archiving it empties that chart, unlike a question you added yourself, which always gets its own generic panel automatically.">Custom-built panel</span>` : ""}
         </div>
         <div class="qb-block-controls">
           ${controls}
@@ -3338,6 +3338,34 @@ function renderOwnerRosterAdmin() {
   });
 }
 
+// Any question Anthony adds himself in Questions Builder has no place
+// in the hand-written fields below — this fills in a plausible fake
+// answer for one, by type, so a newly-added question's Dashboard panel
+// isn't stuck showing "no answers yet" while still in preview/test
+// mode. Deterministic on i (see buildPreviewDataset()'s own note on
+// why), and skips roughly 1 in 5 owners entirely so a custom panel's
+// "no answers yet" empty state can still be checked for real too.
+function fabricateCustomAnswer(block, i) {
+  if (i % 5 === 4) return undefined;
+  const options = block.options || [];
+  switch (block.type) {
+    case "single_select":
+    case "yes_no":
+      return options.length ? options[i % options.length].value : undefined;
+    case "multi_select": {
+      if (!options.length) return undefined;
+      const count = 1 + (i % Math.min(2, options.length));
+      return Array.from({ length: count }, (_, k) => options[(i + k) % options.length].value);
+    }
+    case "number":
+      return String(1 + (i % 10));
+    case "text":
+      return ["Looking forward to this season", "No particular preference", "First time trying this", "Would like an update when ready"][i % 4];
+    default:
+      return undefined;
+  }
+}
+
 // Builds a fictional dataset shaped like real intake responses, purely to
 // preview a busy dashboard. Deterministic (no Math.random) so the preview
 // looks the same every time instead of jittering on every render. Never
@@ -3351,6 +3379,9 @@ function buildPreviewDataset() {
   const gaits = ["trotter", "pacer", "both"];
   const sexes = ["colt", "filly", ""];
   const eligibilityPool = ["kentucky", "ohio", "ontario", "pennsylvania", "new_york"];
+  const customBlocks = currentQuestionSet().blocks.filter(
+    (block) => block.type !== "bucket_config" && !block.archived && !KNOWN_SUMMARY_BLOCK_IDS.has(block.id) && !block.fixedPosition
+  );
 
   const responses = [];
   for (let i = 0; i < 42; i++) {
@@ -3365,6 +3396,11 @@ function buildPreviewDataset() {
     // 1 to 3 horses, each with its own percentage/gait/colt-filly, same
     // free-form shape a real owner fills in on the per-horse screen.
     const horseNum = 1 + (i % 3);
+    const customAnswers = {};
+    customBlocks.forEach((block) => {
+      const value = fabricateCustomAnswer(block, i);
+      if (value !== undefined) customAnswers[block.id] = value;
+    });
     responses.push({
       id: "preview_" + i,
       ownerId: null,
@@ -3384,6 +3420,7 @@ function buildPreviewDataset() {
               }))
             : [],
           note: "",
+          ...customAnswers,
         },
       },
       submittedAt: new Date(Date.now() - i * 3600000).toISOString(),
@@ -3702,15 +3739,15 @@ function renderAdmin() {
           ${afterSaleRows.length ? `
           <div class="grid-3">
             <div>
-              <h3 style="font-size:13px; margin:0 0 8px; color:var(--ink-soft);">How many horses</h3>
+              <h3>How many horses</h3>
               ${refBarList(groupDemand(afterSaleRows, (row) => horseCountLabel((row.specificShareSizesByHorse || []).length)))}
             </div>
             <div>
-              <h3 style="font-size:13px; margin:0 0 8px; color:var(--ink-soft);">Typical share size</h3>
+              <h3>Typical share size</h3>
               ${refBarList(groupDemand(afterSaleRows.flatMap((row) => row.specificShareSizesByHorse || []), (share) => shareSizeBandLabel(share.percent)))}
             </div>
             <div>
-              <h3 style="font-size:13px; margin:0 0 8px; color:var(--ink-soft);">Preferred jurisdictions</h3>
+              <h3>Preferred jurisdictions</h3>
               ${refBarList(afterSaleEligibility)}
             </div>
           </div>` : `<p class="quiet" style="padding:6px 4px;">No after-sale interest captured yet.</p>`}
