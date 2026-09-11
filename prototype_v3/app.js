@@ -2096,7 +2096,7 @@ function renderQuestionsAdmin() {
           <div>
             <div class="tag">Blocks</div>
             <h2>Question blocks</h2>
-            <p>Shown to owners in this order. A block only appears once its dependency question has been answered. "Fixed position" and "Custom-built panel" are automatic labels, not something you set yourself: "Fixed position" means the question is built into the very start of the flow (interest, sales, jurisdictions) and can't be moved. "Custom-built panel" means a specifically-built Dashboard chart reads that exact question by name (like the Trotter/Pacer comparison), so archiving it empties that particular chart. Every question, including ones you add yourself, still shows up on the Dashboard automatically in its own generic panel — "Custom-built panel" only flags the handful with a purpose-built chart instead of that generic one.</p>
+            <p style="max-width: none;">Shown to owners in this order. A block only appears once its dependency question has been answered. "Fixed position" and "Custom-built panel" are automatic labels, not something you set yourself. "Fixed position": always first (interest, sales, jurisdictions), can't be moved. "Custom-built panel": a specific Dashboard chart reads that exact question by name (e.g. Trotter/Pacer), so archiving it empties that chart. Every question still gets its own generic Dashboard panel automatically either way.</p>
           </div>
         </div>
         <div class="panel-body">
@@ -2354,10 +2354,26 @@ function archiveQuestionBlock(id) {
   });
 }
 
+// Restoring only ever flipped `archived` back to false, leaving the
+// block's sortOrder exactly as it was the moment it got archived —
+// whatever that happened to be (e.g. a low or even negative value from
+// whenever it was first created, well before ever being archived).
+// That could restore it back in among, or even before, the
+// fixedPosition blocks, which must always stay first — restoring a
+// question should never be able to displace those. Now it's placed at
+// the end of the reorderable list instead (the same safe default a
+// brand new block gets — see the "Add a block" handler below), then
+// the whole list is renumbered to clean sequential values, same
+// pattern the move handler already uses.
 function restoreQuestionBlock(id) {
   updateQuestionSet((set) => {
     const block = set.blocks.find((b) => b.id === id);
-    if (block) block.archived = false;
+    if (!block) return;
+    block.archived = false;
+    const ordered = reorderableBlocks(set.blocks);
+    const withoutRestored = ordered.filter((b) => b.id !== id);
+    withoutRestored.push(block);
+    withoutRestored.forEach((b, i) => { b.sortOrder = (i + 1) * 10; });
   });
 }
 
@@ -2749,7 +2765,6 @@ function renderSaleHistory() {
       <div class="intro-block">
         <p class="dek">This page looks back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, and checks which of them later became a top performer. The goal: help TheStable.ca decide how many horses to put in a bucket, and at what price range, based on real past results instead of gut feel alone. The same numbers apply to after-sale horses sold individually at a similar price. Important: this shows patterns in the past. It is not a prediction about any specific 2026 yearling.</p>
         <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after it was sold. Nothing more, nothing less. It doesn't matter how much that horse earned or how old it was when it first got there. This is a simple yes/no flag, checked carefully so a horse with the same name sold in a different year is never counted by mistake. This dataset has 1,858 reused horse names, so that check matters.</div>
-        <p class="currency-note">Original sale prices were recorded in USD. CAD figures on this page use the real Bank of Canada exchange rate for each horse's actual sale year, not one rate applied everywhere. The rate moved from about 1.10 to about 1.35 between 2014 and 2023, so using a single rate would distort older years. Use the CAD / USD switch above to see figures either way.</p>
       </div>
 
       <div class="dash-panel">
@@ -2995,27 +3010,28 @@ function renderSaleHistory() {
         <div class="ref-panel">
           <div class="scroll-hint">
             <table>
-              <thead><tr><th>Sale</th><th>Under ${shMoney(38626, 30000)}</th><th>${shMoney(38626, 30000)}&ndash;${shMoney(64376, 50000)}</th><th>${shMoney(64376, 50000)}&ndash;${shMoney(96564, 75000)}</th><th>${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}</th><th>${shMoney(128752, 100000, "k", "+")}</th></tr></thead>
+              <thead><tr><th>Sale</th><th>Under ${shMoney(38626, 30000)}</th><th>${shMoney(38626, 30000)}&ndash;${shMoney(64376, 50000)}</th><th>${shMoney(64376, 50000)}&ndash;${shMoney(96564, 75000)}</th><th>${shMoney(96564, 75000)}&ndash;${shMoney(128752, 100000)}</th><th>${shMoney(128752, 100000, "k", "+")}</th><th>Total horses</th></tr></thead>
               <tbody>
-                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">1.7%</td><td>3.2%</td><td>6.3%</td><td>6.4%</td><td class="win-cell">9.3%</td></tr>
-                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td>0.7%</td><td>2.0%</td><td>3.1%</td><td>3.1%</td><td>7.0%</td></tr>
-                <tr><td class="venue-name">Ohio Jug</td><td>1.7%</td><td class="win-cell">3.4%</td><td class="win-cell">7.2%</td><td class="win-cell">11.8%</td><td>2.9%</td></tr>
+                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">1.7% <span class="n-note">(n=2,864)</span></td><td>3.2% <span class="n-note">(n=1,470)</span></td><td>6.3% <span class="n-note">(n=1,192)</span></td><td>6.4% <span class="n-note">(n=607)</span></td><td class="win-cell">9.3% <span class="n-note">(n=1,245)</span></td><td class="venue-total">7,378</td></tr>
+                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td>0.7% <span class="n-note">(n=8,468)</span></td><td>2.0% <span class="n-note">(n=2,748)</span></td><td>3.1% <span class="n-note">(n=1,582)</span></td><td>3.1% <span class="n-note">(n=738)</span></td><td>7.0% <span class="n-note">(n=1,165)</span></td><td class="venue-total">14,701</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td>1.7% <span class="n-note">(n=2,006)</span></td><td class="win-cell">3.4% <span class="n-note">(n=384)</span></td><td class="low-n-cell">7.2% <span class="n-note">(n=139)</span></td><td class="low-n-cell">11.8% <span class="n-note">(n=34)</span></td><td>2.9% <span class="n-note">(n=34)</span></td><td class="venue-total">2,597</td></tr>
               </tbody>
             </table>
           </div>
-          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale at that specific price range).</p>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column. Amber = fewer than 150 horses behind that number &mdash; too small a sample to trust the way the other cells can be trusted, shown anyway for completeness rather than left blank.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:8px 0 0; line-height:1.6;">Ohio Jug specifically: it sells very few horses above $75,000 USD (34 horses in each of the top two bands here, versus 600&ndash;1,245 at Lexington and 738&ndash;1,165 at Harrisburg for the same bands). Its 11.8% figure at $75k&ndash;$100k and 2.9% at $100k+ are each a handful of top performers out of just 34 horses &mdash; a single horse's outcome swings that rate by roughly 3 percentage points. Treat those two Ohio cells as noise, not as evidence Ohio out- or under-performs at that price point specifically.</p>
           <div class="scroll-hint" style="margin-top:20px;">
             <table>
-              <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th></tr></thead>
+              <thead><tr><th>Sale</th><th>Colt</th><th>Filly</th><th>Trotter</th><th>Pacer</th><th>Total horses</th></tr></thead>
               <tbody>
-                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">5.1%</td><td class="win-cell">3.7%</td><td class="win-cell">4.5%</td><td class="win-cell">4.4%</td></tr>
-                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td>2.4%</td><td>1.6%</td><td>1.9%</td><td>2.0%</td></tr>
-                <tr><td class="venue-name">Ohio Jug</td><td>2.5%</td><td>2.3%</td><td>2.7%</td><td>2.1%</td></tr>
+                <tr><td class="venue-name">Lexington Selected</td><td class="win-cell">5.1% <span class="n-note">(n=3,855)</span></td><td class="win-cell">3.7% <span class="n-note">(n=3,517)</span></td><td class="win-cell">4.5% <span class="n-note">(n=3,971)</span></td><td class="win-cell">4.4% <span class="n-note">(n=3,328)</span></td><td class="venue-total">7,378</td></tr>
+                <tr><td class="venue-name">Harrisburg Book 1&amp;2</td><td>2.4% <span class="n-note">(n=5,911)</span></td><td>1.6% <span class="n-note">(n=7,917)</span></td><td>1.9% <span class="n-note">(n=6,766)</span></td><td>2.0% <span class="n-note">(n=7,116)</span></td><td class="venue-total">14,701</td></tr>
+                <tr><td class="venue-name">Ohio Jug</td><td>2.5% <span class="n-note">(n=1,361)</span></td><td>2.3% <span class="n-note">(n=1,231)</span></td><td>2.7% <span class="n-note">(n=1,238)</span></td><td>2.1% <span class="n-note">(n=1,359)</span></td><td class="venue-total">2,597</td></tr>
               </tbody>
             </table>
           </div>
-          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale for that specific colt/filly/trotter/pacer group).</p>
-          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Lexington has the highest rate in every single column here: colts, fillies, trotters, and pacers alike. Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio has far fewer horses overall than Lexington or Harrisburg, so treat Ohio's figures generally as a weaker signal than the other two.</p>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin:10px 0 0;">Green = the highest rate in that column (i.e. the best-performing sale for that specific colt/filly/trotter/pacer group). Every cell here has at least 1,200 horses behind it, so unlike the price-band table above, none of these are a small-sample concern.</p>
+          <p style="font-size:13px; color:var(--ink-soft); margin:16px 0 0; line-height:1.6;">Lexington has the highest rate in every single column here: colts, fillies, trotters, and pacers alike. Colts beat fillies at every sale, without exception. Trotters beat pacers at Lexington and Ohio, but at Harrisburg it's pacers that edge ahead. Ohio sells about a third as many horses overall as Lexington and about a sixth as many as Harrisburg &mdash; a smaller but still reliable sample here (unlike its thin high-price bands above).</p>
         </div>
       </section>
 
@@ -3936,6 +3952,20 @@ function customQuestionPanels(rows) {
     const demand = groupDemand(answered, (row) => {
       const value = row._rawResponse[block.id];
       return Array.isArray(value) ? value.map((v) => labelFor(block.id, v) || v).join(", ") : (labelFor(block.id, value) || value);
+    });
+    // groupDemand()'s sort only orders by count, so two answers tied on
+    // owner count (e.g. an even Yes/No split) fall back to Map
+    // insertion order — effectively whichever answer the first owner
+    // in the data happened to pick, not the order the admin actually
+    // defined the options in (Yes before No, etc). Break ties by that
+    // original option order instead, which is deterministic and
+    // matches what the admin already chose when building the question.
+    const optionOrder = new Map((block.options || []).map((opt, i) => [opt.label, i]));
+    demand.sort((a, b) => {
+      if (b.ownerCount !== a.ownerCount) return b.ownerCount - a.ownerCount;
+      const aOrder = optionOrder.has(a.label) ? optionOrder.get(a.label) : Infinity;
+      const bOrder = optionOrder.has(b.label) ? optionOrder.get(b.label) : Infinity;
+      return aOrder - bOrder;
     });
     return `<div class="ref-panel">
       <div class="panel-head"><h2>${escapeHtml(shortTitleFor(block))}</h2><span class="ref-info-dot" tabindex="0">i<span class="tip">Question added in Questions Builder: "${escapeHtml(block.label)}". Shown here automatically. A purpose-built chart like the bucket suggestions above needs custom design work instead.</span></span></div>
