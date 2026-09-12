@@ -1476,6 +1476,13 @@ th .col-filter option {
 .refskin h1 { font-family: "Fraunces", serif; font-weight: 600; font-size: 32px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.01em; color: var(--navy-deep); }
 .refskin .dek { font-size: 16px; color: var(--ink-soft); max-width: 72ch; line-height: 1.6; margin: 0 0 16px; }
 .refskin .intro-block { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+/* Sale History's intro sits above full-width panels (the dark "short
+   version" band, tables further down), so capping its text at 72ch like
+   every other .dek/.definition-card leaves a lopsided gap on the right
+   at wider screens. Scoped to .intro-block only, so narrower contexts
+   (Questions Builder, Settings) keep their readable line length. */
+.refskin .intro-block .dek,
+.refskin .intro-block .definition-card { max-width: none; }
 .refskin .definition-card { background: var(--ivory); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 10px; padding: 14px 18px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; max-width: 72ch; }
 .refskin .definition-card b { color: var(--navy-deep); }
 .refskin .currency-note { font-size: 12px; color: var(--muted); max-width: 72ch; line-height: 1.5; }
