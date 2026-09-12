@@ -2105,8 +2105,6 @@ function renderQuestionsAdmin() {
 
       <p class="dek">Compose the owner intake questionnaire from ready-made question blocks. Changes apply to the intake form immediately.</p>
 
-      ${questionSetTestModeBanner()}
-
       <div class="ref-panel" style="margin-top: 22px;">
         <div class="panel-head">
           <div>
