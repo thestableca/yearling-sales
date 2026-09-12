@@ -266,7 +266,18 @@ function loadQuestionSets() {
   return stored && typeof stored === "object" ? stored : {};
 }
 
-async function saveQuestionSets(sets) {
+// skipCacheUpdate: when true, writes to the database WITHOUT touching
+// adminSettingsCache — used by updateQuestionSet() in app.js when a
+// newer local edit has already moved the cache forward past what this
+// particular save call is writing; overwriting the cache here would
+// silently erase that newer edit from what's rendered (see its own,
+// longer comment for the full race this closes).
+async function saveQuestionSets(sets, { skipCacheUpdate = false } = {}) {
+  if (skipCacheUpdate) {
+    const { error } = await supabaseAsAdmin().from("admin_settings").upsert({ key: "question_sets", value: sets, updated_at: new Date().toISOString() });
+    if (error) console.error("saveQuestionSets(skipCacheUpdate) failed:", error.message);
+    return;
+  }
   await setSetting("question_sets", sets);
 }
 
@@ -292,10 +303,81 @@ function getQuestionSet(saleYearId) {
   return defaultQuestionSet();
 }
 
-async function saveQuestionSet(saleYearId, questionSet) {
+async function saveQuestionSet(saleYearId, questionSet, options = {}) {
   const sets = loadQuestionSets();
   sets[saleYearId] = questionSet;
-  await saveQuestionSets(sets);
+  await saveQuestionSets(sets, options);
+}
+
+// A fresh read of just the question_sets row, straight from the
+// database rather than the (possibly stale) in-memory cache — updates
+// the cache as a side effect too, so a subsequent loadQuestionSets()
+// sees it. Exists specifically for updateQuestionSet() below: two
+// admins (Robert, or later Anthony/Kelly) editing Questions Builder in
+// separate sessions each hold their own in-memory copy of the set:
+// without re-reading here immediately before applying an edit,
+// whichever admin's save reaches the database SECOND would overwrite
+// the first admin's edit entirely (saveQuestionSet always writes the
+// complete blocks array, there's no partial/diff update) - the first
+// edit would be silently gone, with no error anywhere. Re-reading
+// fresh right before mutating means each edit is applied on top of
+// whatever the other admin most recently saved, so both edits survive
+// as long as they don't touch the exact same block/field.
+//
+// Also returns the row's current updated_at timestamp as a version
+// token — updateQuestionSetsIfUnchanged() below uses it to detect
+// whether ANOTHER session (not just another turn in this session's own
+// queue) has written in between this read and this session's own save,
+// which a purely in-process queue can never see on its own.
+// Deliberately does NOT write its result into adminSettingsCache. This
+// is called mid-flight inside updateQuestionSet(), which may run while
+// the cache already holds a newer, not-yet-saved local edit from a
+// LATER updateQuestionSet() call in the same session (queued behind
+// this one) - overwriting the cache with what's currently in the
+// database here would silently erase that newer local edit before it
+// ever gets its own turn to save, the same "lost update" bug this
+// whole mechanism exists to prevent, just moved one level down.
+// Callers that want the fresh value get it as a return value instead.
+async function loadQuestionSetsFresh() {
+  const { data, error } = await supabaseAsAdmin().from("admin_settings").select("value, updated_at").eq("key", "question_sets").maybeSingle();
+  if (error) {
+    console.error("loadQuestionSetsFresh failed, falling back to cached value:", error.message);
+    return { sets: loadQuestionSets(), updatedAt: null };
+  }
+  const sets = data?.value && typeof data.value === "object" ? data.value : {};
+  return { sets, updatedAt: data?.updated_at ?? null };
+}
+
+// Optimistic-concurrency write: succeeds only if the row's updated_at
+// is STILL exactly what it was when this session read it (expectedUpdatedAt).
+// If another session (a different browser/tab, so a different in-process
+// queue that this session's own queue cannot see) saved in between this
+// session's read and this write, the WHERE clause matches zero rows, the
+// write is a no-op, and this returns {ok: false} so the caller can re-read
+// fresh and retry the whole mutate-and-save cycle against the newest data
+// instead of blindly overwriting it. When no row exists yet (fresh install,
+// expectedUpdatedAt === null), falls back to a plain insert.
+async function saveQuestionSetsIfUnchanged(sets, expectedUpdatedAt) {
+  const nowIso = new Date().toISOString();
+  if (expectedUpdatedAt === null) {
+    const { error } = await supabaseAsAdmin().from("admin_settings").insert({ key: "question_sets", value: sets, updated_at: nowIso });
+    if (error) {
+      // Someone else's insert may have landed first (unique key conflict) — that's also a "changed since we read" case.
+      return { ok: false };
+    }
+    return { ok: true };
+  }
+  const { data, error } = await supabaseAsAdmin()
+    .from("admin_settings")
+    .update({ value: sets, updated_at: nowIso })
+    .eq("key", "question_sets")
+    .eq("updated_at", expectedUpdatedAt)
+    .select("key");
+  if (error) {
+    console.error("saveQuestionSetsIfUnchanged failed:", error.message);
+    return { ok: false, error };
+  }
+  return { ok: data && data.length > 0 };
 }
 
 // ----- Question set test mode -----

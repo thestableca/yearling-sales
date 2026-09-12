@@ -2437,15 +2437,72 @@ function blockSwapAllowed(ordered, index, swapWith) {
   });
 }
 
+// Applies mutator to a FRESH read of the question set and saves it back
+// with an optimistic-concurrency check (see saveQuestionSetsIfUnchanged
+// in questions.js), retrying the whole read-mutate-save cycle if the
+// database row changed underneath it. Two admin sessions (Robert, or
+// later Anthony/Kelly) editing Questions Builder at the same time each
+// hold their own in-memory copy AND their own independent in-process
+// queue (see below) — neither session can see the other session's
+// queue, so serializing turns only within one session's queue is not
+// enough on its own: both sessions can read-fresh before either has
+// saved. Confirmed directly with a real two-tab test (test_11d) that
+// this exact scenario silently lost one tab's edit even after the
+// in-process queue below was added. The fix has to be enforced by the
+// database itself, not by anything either browser tab can decide alone
+// — hence the conditional update keyed on admin_settings.updated_at:
+// it only succeeds if updated_at is STILL exactly what this turn read,
+// i.e. nothing else wrote in between. If another session's save landed
+// first, the conditional write matches zero rows, this turn re-reads
+// the newest data and reruns the mutator against THAT, and retries —
+// so both edits survive as long as they don't touch the exact same
+// block/field (two admins each adding their own new question both end
+// up in the final set; two admins editing the SAME block's label at
+// the exact same instant still has one win, since that's a genuine
+// conflict with no correct merge, but that's a much narrower window
+// than silently losing an entire unrelated edit).
+//
+// This requires every mutator passed here to read/write only through
+// its `set` parameter, never close over blocks from an outer
+// currentQuestionSet() call, and to be safe to run MORE THAN ONCE (a
+// retry re-invokes it against newer data) — see the move-block handler
+// above for why that matters, and why newBlockId() calls were moved
+// outside every mutator (Math.random()-based, so calling it inside a
+// mutator that might retry would generate a different id each time).
+//
+// Per-session turns are still serialized through a local queue on top
+// of this, purely so that several rapid clicks in the SAME tab (e.g.
+// clicking "add block" five times fast) apply and render in the order
+// they were clicked instead of their retries interleaving unpredictably
+// — the cross-session correctness comes entirely from the database
+// check above, not from this queue.
+let questionSetSaveQueue = Promise.resolve();
+
+async function saveQuestionSetWithRetry(mutator, attemptsLeft = 5) {
+  const { sets: freshSets, updatedAt } = await loadQuestionSetsFresh();
+  const freshQuestionSet = freshSets["default"] ? withFixedPositionBlocksBackfilled(freshSets["default"]) : defaultQuestionSet();
+  mutator(freshQuestionSet);
+  const sets = { ...freshSets, default: freshQuestionSet };
+  const result = await saveQuestionSetsIfUnchanged(sets, updatedAt);
+  if (result.ok) {
+    adminSettingsCache["question_sets"] = sets;
+    render();
+    return;
+  }
+  if (attemptsLeft <= 1) {
+    console.error("saveQuestionSetWithRetry: giving up after repeated concurrent-write conflicts");
+    adminSettingsCache["question_sets"] = sets;
+    render();
+    return;
+  }
+  await saveQuestionSetWithRetry(mutator, attemptsLeft - 1);
+}
+
 function updateQuestionSet(mutator) {
-  const questionSet = currentQuestionSet();
-  mutator(questionSet);
-  // saveQuestionSet updates the in-memory settings cache synchronously
-  // (before its internal await), so calling it before render() here means
-  // render() already sees the new value even though the database write
-  // itself is still in flight in the background.
-  saveQuestionSet("default", questionSet).catch((err) => console.error("Failed to save question set:", err));
-  render();
+  questionSetSaveQueue = questionSetSaveQueue
+    .catch(() => {}) // a previous failure must not block this turn from even attempting
+    .then(() => saveQuestionSetWithRetry(mutator))
+    .catch((err) => console.error("Failed to save question set:", err));
 }
 
 function bindQuestionsAdmin(questionSet) {
@@ -2484,13 +2541,30 @@ function bindQuestionsAdmin(questionSet) {
       // write in normal use but can race a legitimate save landing
       // right after it (e.g. an admin's next action, or a test/QA
       // script restoring a known state) since neither one is awaited
-      // against the other.
-      const ordered = reorderableBlocks(currentQuestionSet().blocks);
-      const index = ordered.findIndex((b) => b.id === id);
-      const swapWith = dir === "up" ? index - 1 : index + 1;
-      if (index === -1 || swapWith < 0 || swapWith >= ordered.length) return;
-      if (!blockSwapAllowed(ordered, index, swapWith)) return;
-      updateQuestionSet(() => {
+      // against the other. This check runs against the current
+      // (possibly soon-to-be-stale) local copy purely to decide whether
+      // to show the confirmation at all — updateQuestionSet's mutator
+      // below re-derives everything from the block being moved by id,
+      // not from this outer `ordered` array, so it stays correct even
+      // if a concurrent edit from another admin session lands between
+      // this check and the actual save (see updateQuestionSet's own
+      // comment for why that matters).
+      const orderedForCheck = reorderableBlocks(currentQuestionSet().blocks);
+      const checkIndex = orderedForCheck.findIndex((b) => b.id === id);
+      const checkSwapWith = dir === "up" ? checkIndex - 1 : checkIndex + 1;
+      if (checkIndex === -1 || checkSwapWith < 0 || checkSwapWith >= orderedForCheck.length) return;
+      if (!blockSwapAllowed(orderedForCheck, checkIndex, checkSwapWith)) return;
+      updateQuestionSet((set) => {
+        const ordered = reorderableBlocks(set.blocks);
+        const index = ordered.findIndex((b) => b.id === id);
+        const swapWith = dir === "up" ? index - 1 : index + 1;
+        // Re-validated against whatever set this mutator actually ends
+        // up running against (the fresh, just-re-read one) - a
+        // concurrent edit from another session could have archived this
+        // block, moved it, or changed what it dependsOn since the
+        // check above ran.
+        if (index === -1 || swapWith < 0 || swapWith >= ordered.length) return;
+        if (!blockSwapAllowed(ordered, index, swapWith)) return;
         [ordered[index], ordered[swapWith]] = [ordered[swapWith], ordered[index]];
         // Always renumber to clean, unique sequential values instead of
         // swapping sortOrder numbers in place — swapping alone is a no-op
@@ -2517,9 +2591,17 @@ function bindQuestionsAdmin(questionSet) {
   document.querySelectorAll("[data-add-block-type]").forEach((el) => {
     el.addEventListener("click", () => {
       const type = el.getAttribute("data-add-block-type");
+      // Generated ONCE, outside the mutator: updateQuestionSet() now
+      // runs its mutator twice (once against the local copy for an
+      // instant render, once against a freshly-read copy right before
+      // saving — see its own comment for why). newBlockId() is random,
+      // so calling it a second time inside the mutator would give the
+      // saved block a different id than the one just rendered locally,
+      // silently desyncing the UI (questionsEditorState.expandedBlockId
+      // below, and the id itself) from what's actually in the database.
+      const id = newBlockId(type);
       updateQuestionSet((set) => {
         const maxSort = Math.max(0, ...set.blocks.filter((b) => b.type !== "bucket_config").map((b) => b.sortOrder));
-        const id = newBlockId(type);
         const block = {
           id,
           type,
@@ -2647,10 +2729,13 @@ function bindQuestionsAdmin(questionSet) {
   const addBucketButton = document.querySelector("[data-add-bucket]");
   if (addBucketButton) {
     addBucketButton.addEventListener("click", () => {
+      // Generated once, outside the mutator - same reason as the
+      // "add block" handler above (newBlockId() is random).
+      const newBucketKey = newBlockId("bucket");
       updateQuestionSet((set) => {
         const bucketConfig = set.blocks.find((b) => b.type === "bucket_config");
         if (!bucketConfig) return;
-        bucketConfig.buckets.push({ key: newBlockId("bucket"), name: "New bucket", help: "", price: null, suggestedPrice: null });
+        bucketConfig.buckets.push({ key: newBucketKey, name: "New bucket", help: "", price: null, suggestedPrice: null });
       });
     });
   }
