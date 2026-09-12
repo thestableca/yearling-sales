@@ -1982,8 +1982,13 @@ function armDestructiveButton(button, confirmText, onConfirm) {
 // button only clears the local in-progress intake draft in this browser.
 // Clearing real data is an admin-database action, not a local browser
 // reset, and isn't exposed here on purpose.
+// Hidden from every admin screen ahead of launch (per request) - the
+// underlying mechanism (the #resetDemoData click handler in
+// bindAdminTabs, which clears DRAFT_KEY from localStorage) is untouched
+// and still fully functional, just with no visible button anywhere
+// right now. Have this return the real markup again if it's ever needed.
 function resetDemoDataButton() {
-  return `<button class="back-to-site" type="button" id="resetDemoData" title="Clears the local in-progress intake draft in this browser. Does not delete real data.">Reset local draft</button>`;
+  return "";
 }
 
 // Only shown on the Dashboard tab, where preview mode actually changes
