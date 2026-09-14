@@ -2863,11 +2863,11 @@ function renderSaleHistory() {
           </div>`)}
 
       <div class="page-title-row">
-        <h1>What past sales tell us about building a bucket</h1>
+        <h1>Using past sales to guide purchase decisions</h1>
         <div class="as-of">Analysis run <strong>Sep 3, 2026</strong></div>
       </div>
       <div class="intro-block">
-        <p class="dek">This page looks back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, and checks which of them later became a top performer. The goal: help TheStable.ca decide how many horses to put in a bucket, and at what price range, based on real past results instead of gut feel alone. The same numbers apply to after-sale horses sold individually at a similar price. Important: this shows patterns in the past. It is not a prediction about any specific 2026 yearling.</p>
+        <p class="dek">This page looks back at every yearling sold at Lexington Selected, Harrisburg Book 1&amp;2, and Ohio Jug from 2014 through 2023, and checks which of them later became a top performer. The goal: help TheStable.ca make purchase decisions based on real past results instead of gut feel alone, whether that's how many horses to put in a bucket and at what price range, or which individual horse to buy for after-sale shares. Important: this shows patterns in the past. It is not a prediction about any specific 2026 yearling.</p>
         <div class="definition-card"><b>What counts as a "top performer" here:</b> a horse that appeared on a season top-earner leaderboard as a 2- or 3-year-old, in the correct season after it was sold. Nothing more, nothing less. It doesn't matter how much that horse earned or how old it was when it first got there. This is a simple yes/no flag, checked carefully so a horse with the same name sold in a different year is never counted by mistake. This dataset has 1,858 reused horse names, so that check matters.</div>
       </div>
 
