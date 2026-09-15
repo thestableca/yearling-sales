@@ -1,0 +1,373 @@
+{
+  "overall": {
+    "toppers": 658,
+    "total": 24424,
+    "rate": 2.69,
+    "one_in": 37
+  },
+  "price_bands_8": {
+    "Under $15,000": {
+      "toppers": 35,
+      "total": 6404,
+      "rate": 0.55
+    },
+    "$15,000-$30,000": {
+      "toppers": 111,
+      "total": 6901,
+      "rate": 1.61
+    },
+    "$30,000-$50,000": {
+      "toppers": 114,
+      "total": 4570,
+      "rate": 2.49
+    },
+    "$50,000-$75,000": {
+      "toppers": 134,
+      "total": 2863,
+      "rate": 4.68
+    },
+    "$75,000-$100,000": {
+      "toppers": 66,
+      "total": 1346,
+      "rate": 4.9
+    },
+    "$100,000-$125,000": {
+      "toppers": 58,
+      "total": 911,
+      "rate": 6.37
+    },
+    "$125,000-$150,000": {
+      "toppers": 27,
+      "total": 340,
+      "rate": 7.94
+    },
+    "$150,000+": {
+      "toppers": 113,
+      "total": 1089,
+      "rate": 10.38
+    }
+  },
+  "sex": {
+    "Colt": {
+      "toppers": 371,
+      "total": 11078,
+      "rate": 3.35
+    },
+    "Filly": {
+      "toppers": 287,
+      "total": 12501,
+      "rate": 2.3
+    }
+  },
+  "sex_share": {
+    "Colt": 56.4,
+    "Filly": 43.6
+  },
+  "gait": {
+    "Trotter": {
+      "toppers": 344,
+      "total": 11850,
+      "rate": 2.9
+    },
+    "Pacer": {
+      "toppers": 314,
+      "total": 11676,
+      "rate": 2.69
+    }
+  },
+  "gait_share": {
+    "Trotter": 52.3,
+    "Pacer": 47.7
+  },
+  "crosstab": {
+    "UNDER $30K": {
+      "trotter_colt": {
+        "toppers": 41,
+        "total": 2938,
+        "rate": 1.4
+      },
+      "trotter_filly": {
+        "toppers": 33,
+        "total": 3156,
+        "rate": 1.05
+      },
+      "pacer_colt": {
+        "toppers": 42,
+        "total": 2473,
+        "rate": 1.7
+      },
+      "pacer_filly": {
+        "toppers": 30,
+        "total": 3514,
+        "rate": 0.85
+      }
+    },
+    "$30K-$50K": {
+      "trotter_colt": {
+        "toppers": 32,
+        "total": 1024,
+        "rate": 3.12
+      },
+      "trotter_filly": {
+        "toppers": 26,
+        "total": 1113,
+        "rate": 2.34
+      },
+      "pacer_colt": {
+        "toppers": 29,
+        "total": 1061,
+        "rate": 2.73
+      },
+      "pacer_filly": {
+        "toppers": 27,
+        "total": 1124,
+        "rate": 2.4
+      }
+    },
+    "$50K-$75K": {
+      "trotter_colt": {
+        "toppers": 34,
+        "total": 625,
+        "rate": 5.44
+      },
+      "trotter_filly": {
+        "toppers": 31,
+        "total": 712,
+        "rate": 4.35
+      },
+      "pacer_colt": {
+        "toppers": 36,
+        "total": 725,
+        "rate": 4.97
+      },
+      "pacer_filly": {
+        "toppers": 33,
+        "total": 692,
+        "rate": 4.77
+      }
+    },
+    "$75K-$100K": {
+      "trotter_colt": {
+        "toppers": 13,
+        "total": 287,
+        "rate": 4.53
+      },
+      "trotter_filly": {
+        "toppers": 13,
+        "total": 326,
+        "rate": 3.99
+      },
+      "pacer_colt": {
+        "toppers": 27,
+        "total": 387,
+        "rate": 6.98
+      },
+      "pacer_filly": {
+        "toppers": 13,
+        "total": 293,
+        "rate": 4.44
+      }
+    },
+    "$100K-$150K": {
+      "trotter_colt": {
+        "toppers": 30,
+        "total": 321,
+        "rate": 9.35
+      },
+      "trotter_filly": {
+        "toppers": 17,
+        "total": 309,
+        "rate": 5.5
+      },
+      "pacer_colt": {
+        "toppers": 23,
+        "total": 352,
+        "rate": 6.53
+      },
+      "pacer_filly": {
+        "toppers": 15,
+        "total": 248,
+        "rate": 6.05
+      }
+    },
+    "$150K+": {
+      "trotter_colt": {
+        "toppers": 39,
+        "total": 314,
+        "rate": 12.42
+      },
+      "trotter_filly": {
+        "toppers": 35,
+        "total": 365,
+        "rate": 9.59
+      },
+      "pacer_colt": {
+        "toppers": 25,
+        "total": 218,
+        "rate": 11.47
+      },
+      "pacer_filly": {
+        "toppers": 14,
+        "total": 182,
+        "rate": 7.69
+      }
+    }
+  },
+  "venue_price_bands": {
+    "Lexington Selected": {
+      "total": 7378,
+      "Under $30k": {
+        "toppers": 49,
+        "total": 2864,
+        "rate": 1.71
+      },
+      "$30k-$50k": {
+        "toppers": 47,
+        "total": 1470,
+        "rate": 3.2
+      },
+      "$50k-$75k": {
+        "toppers": 75,
+        "total": 1192,
+        "rate": 6.29
+      },
+      "$75k-$100k": {
+        "toppers": 39,
+        "total": 607,
+        "rate": 6.43
+      },
+      "$100k+": {
+        "toppers": 116,
+        "total": 1245,
+        "rate": 9.32
+      }
+    },
+    "Harrisburg Book 1&2": {
+      "total": 14449,
+      "Under $30k": {
+        "toppers": 63,
+        "total": 8435,
+        "rate": 0.75
+      },
+      "$30k-$50k": {
+        "toppers": 54,
+        "total": 2716,
+        "rate": 1.99
+      },
+      "$50k-$75k": {
+        "toppers": 49,
+        "total": 1532,
+        "rate": 3.2
+      },
+      "$75k-$100k": {
+        "toppers": 23,
+        "total": 705,
+        "rate": 3.26
+      },
+      "$100k+": {
+        "toppers": 81,
+        "total": 1061,
+        "rate": 7.63
+      }
+    },
+    "Ohio Jug": {
+      "total": 2597,
+      "Under $30k": {
+        "toppers": 34,
+        "total": 2006,
+        "rate": 1.69
+      },
+      "$30k-$50k": {
+        "toppers": 13,
+        "total": 384,
+        "rate": 3.39
+      },
+      "$50k-$75k": {
+        "toppers": 10,
+        "total": 139,
+        "rate": 7.19
+      },
+      "$75k-$100k": {
+        "toppers": 4,
+        "total": 34,
+        "rate": 11.76
+      },
+      "$100k+": {
+        "toppers": 1,
+        "total": 34,
+        "rate": 2.94
+      }
+    }
+  },
+  "venue_sex_gait": {
+    "Lexington Selected": {
+      "total": 7378,
+      "Colt": {
+        "toppers": 197,
+        "total": 3855,
+        "rate": 5.11
+      },
+      "Filly": {
+        "toppers": 129,
+        "total": 3517,
+        "rate": 3.67
+      },
+      "Trotter": {
+        "toppers": 180,
+        "total": 3971,
+        "rate": 4.53
+      },
+      "Pacer": {
+        "toppers": 146,
+        "total": 3328,
+        "rate": 4.39
+      }
+    },
+    "Harrisburg Book 1&2": {
+      "total": 14449,
+      "Colt": {
+        "toppers": 140,
+        "total": 5862,
+        "rate": 2.39
+      },
+      "Filly": {
+        "toppers": 130,
+        "total": 7753,
+        "rate": 1.68
+      },
+      "Trotter": {
+        "toppers": 131,
+        "total": 6641,
+        "rate": 1.97
+      },
+      "Pacer": {
+        "toppers": 139,
+        "total": 6989,
+        "rate": 1.99
+      }
+    },
+    "Ohio Jug": {
+      "total": 2597,
+      "Colt": {
+        "toppers": 34,
+        "total": 1361,
+        "rate": 2.5
+      },
+      "Filly": {
+        "toppers": 28,
+        "total": 1231,
+        "rate": 2.27
+      },
+      "Trotter": {
+        "toppers": 33,
+        "total": 1238,
+        "rate": 2.67
+      },
+      "Pacer": {
+        "toppers": 29,
+        "total": 1359,
+        "rate": 2.13
+      }
+    }
+  }
+}

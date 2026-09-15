@@ -37,9 +37,64 @@ def normalize_name(name):
     name = re.sub(r"[^A-Z0-9]", "", name)
     return name
 
+# --- Book 2 re-sold-horse exclusion (added 2026-09-15) ---
+# A small number of yearling_book2 rows are not actually first-time
+# yearlings: they're older, already-campaigned horses being resold, which
+# would otherwise silently inflate the sale population with horses that
+# were never really "at risk" of becoming a top performer for the first
+# time in the window this page measures. See HANDOFF_BOOK2_CORRECTION.md
+# in this folder for the full investigation (verified independently
+# against juveniq.db, not just trusted from the handoff).
+#
+# IMPORTANT: the exclusion rule requires a genuinely SINGLE sale_results
+# appearance for the "small gap" branch below. The handoff doc's own
+# example code checked `gap <= 1` without first checking
+# `len(appearances) == 1`, which silently excluded 2 extra rows for a
+# horse with 3 appearances and 2 different sires (a name collision, not
+# a confirmed resale) - one of which was wrongly in lexington_selected,
+# contradicting the handoff's own "Lexington: zero change" finding.
+# Fixed here: the small-gap exclusion only fires when there is truly
+# only one sale_results appearance to reason about.
+def load_exclusion_checker(conn):
+    tp_earliest = {}
+    for row in conn.execute(
+        "select horse_name, season_year from top_performers where age_category in ('2yo','3yo','aged')"
+    ):
+        key = normalize_name(row["horse_name"])
+        if key not in tp_earliest or row["season_year"] < tp_earliest[key]:
+            tp_earliest[key] = row["season_year"]
+
+    name_to_appearances = {}
+    for row in conn.execute(
+        """select sale_year, horse_name, sire from sale_results
+           where status='sold' and sale_price is not null and sale_price > 0
+             and sale_type in ('yearling_book1','yearling_book2','lexington_selected','ohio_jug')"""
+    ):
+        key = normalize_name(row["horse_name"])
+        name_to_appearances.setdefault(key, []).append((row["sale_year"], row["sire"]))
+
+    def should_exclude(sale_year, horse_name):
+        key = normalize_name(horse_name)
+        earliest = tp_earliest.get(key)
+        if earliest is None or earliest > sale_year:
+            return False  # no prior race record -- genuine yearling, keep
+        appearances = name_to_appearances.get(key, [])
+        sires = set(s for _, s in appearances if s)
+        if len(appearances) > 1 and len(sires) == 1:
+            return True  # confirmed: same horse re-listed (consistent sire every time)
+        if len(appearances) == 1:
+            gap = sale_year - earliest
+            if gap <= 1:
+                return True  # genuinely single appearance, small gap -- plausible same-year resale
+        return False  # multiple appearances with inconsistent/unconfirmed sires, or a large gap -- likely a name collision, keep
+
+    return should_exclude
+
 def main():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+
+    should_exclude = load_exclusion_checker(conn)
 
     # Load top performers keyed by (normalized_name, season_year, age_category)
     # so matching can be scoped to the exact expected season.
@@ -92,9 +147,13 @@ def main():
 
     horses = []
     matched_count = 0
+    excluded_count = 0
     for r in rows:
-        norm_name = normalize_name(r["horse_name"])
         sale_year = r["sale_year"]
+        if should_exclude(sale_year, r["horse_name"]):
+            excluded_count += 1
+            continue
+        norm_name = normalize_name(r["horse_name"])
         # A yearling is sold at age 1; it is 2yo the following calendar
         # year and 3yo the year after that. Only a top_performers entry
         # in EXACTLY one of those two seasons counts as a match — never
@@ -113,11 +172,12 @@ def main():
             "is_top_performer": is_top_performer,
         })
 
-    print(f"Matched {matched_count} of {len(rows)} sold yearlings to a CORRECTLY-TIMED top-performer appearance ({matched_count/len(rows)*100:.2f}%)")
+    print(f"Excluded {excluded_count} rows as confirmed-or-plausible resold (not first-time-yearling) Book 2 horses — see HANDOFF_BOOK2_CORRECTION.md")
+    print(f"Matched {matched_count} of {len(horses)} sold yearlings to a CORRECTLY-TIMED top-performer appearance ({matched_count/len(horses)*100:.2f}%)")
 
-    with open("/private/tmp/claude-501/-Users-RobertSikkema-1-Documents-Request-Yearling-Sales/93b764b4-5cd1-458e-ad89-aa12e197222e/scratchpad/salehistory_rebuild/horses_raw.json", "w") as f:
+    with open("horses_raw.json", "w") as f:
         json.dump(horses, f)
-    print("Saved raw horse-level dataset.")
+    print(f"Saved raw horse-level dataset ({len(horses)} horses) to horses_raw.json")
 
     conn.close()
 

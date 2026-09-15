@@ -4,16 +4,19 @@ with open("horses_with_cad.json") as f:
     horses = json.load(f)
 
 # Re-indexed 2026-09-07 alongside price_bands.py, denser in TheStable's
-# realistic buying range (see that file's comment).
+# realistic buying range (see that file's comment). Updated 2026-09-15
+# with the Book 2 resold-horse exclusion applied (see
+# HANDOFF_BOOK2_CORRECTION.md) - rates here must match price_bands.py's
+# current output exactly, since this script depends on those rates.
 BANDS = [
     (0, 15000, 0.0055),
-    (15000, 30000, 0.0160),
-    (30000, 50000, 0.0248),
-    (50000, 75000, 0.0460),
-    (75000, 100000, 0.0479),
-    (100000, 125000, 0.0617),
-    (125000, 150000, 0.0763),
-    (150000, float("inf"), 0.0983),
+    (15000, 30000, 0.0161),
+    (30000, 50000, 0.0249),
+    (50000, 75000, 0.0468),
+    (75000, 100000, 0.0490),
+    (100000, 125000, 0.0637),
+    (125000, 150000, 0.0794),
+    (150000, float("inf"), 0.1038),
 ]
 
 def rate_for_price(usd_price):
